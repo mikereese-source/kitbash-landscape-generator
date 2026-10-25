@@ -344,6 +344,23 @@ def _t25():
     return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted"
 
 
+@test("T26", "More Features: scaling keeps feature size")
+def _t26():
+    fresh_scene()
+    ob = add("hills")
+    set_size(ob, 400.0)
+    fs, h_m = ob.lg.feature_scale, ob.lg.height_m
+    ob.lg.proportional = True
+    bpy.ops.landscape.scale_size(factor=2.0)
+    check(abs(ob.lg.feature_scale - fs * 2) < 1e-3, f"features across {ob.lg.feature_scale} != {fs * 2}")
+    check(abs(ob.lg.height_m - h_m) < 0.01 * h_m, "height in meters changed")
+    ob.lg.proportional = False
+    fs2 = ob.lg.feature_scale
+    bpy.ops.landscape.scale_size(factor=2.0)
+    check(abs(ob.lg.feature_scale - fs2) < 1e-6, "off: shapes should just grow")
+    return f"on: {fs:.1f} -> {fs * 2:.1f} features across, height kept; off: unchanged"
+
+
 @test("T23", "Big seeds stay smooth; Add keeps size")
 def _t23():
     fresh_scene()

@@ -188,6 +188,7 @@ def sync_object(ob):
     if mod is None:
         return
     props = ob.lg
+    props["size_seen"] = max(props.size_x, props.size_y)  # baseline for Proportional Feature Scaling
     want = nodes.ensure_group(TYPES.get(_object_type_key(props), TYPES[TYPES_FILE["default"]])["recipe"])
     if mod.node_group != want:  # each type has its own group; swapping resets inputs, all rewritten below
         mod.node_group = want
@@ -425,6 +426,18 @@ def _sync(props, _context):
     sync_object(props.id_data)
 
 
+def _size_changed(props, _context):
+    """Any size change (typed, 2X/4X, Fit to Selection): with Proportional Feature Scaling on,
+    features keep their real size, so a bigger landscape fits more of them."""
+    new = max(props.size_x, props.size_y)
+    old = props.get("size_seen", new)
+    if props.proportional and old > 0 and new != old:
+        f = new / old
+        props["feature_scale"] = min(max(props.feature_scale * f, 0.1), 50.0)
+        props["height"] = min(max(props.height / f, 0.0), 1.0)
+    sync_object(props.id_data)
+
+
 def _refresh_all():
     """Rebuild an outdated node group and re-push every landscape's settings into it
     (a rebuild resets all modifier inputs to zero)."""
@@ -496,9 +509,9 @@ class LG_ObjectProps(PropertyGroup):
     type_key: StringProperty(name="Type Key", default="")
     land_type: EnumProperty(name="Type", description="What kind of landscape this is", items=_type_enum, get=_get_object_type, set=_set_object_type)
     size_x: FloatProperty(name="Width", description="Width of the landscape in meters",
-                          default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_sync)
+                          default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_size_changed)
     size_y: FloatProperty(name="Depth", description="Depth of the landscape in meters",
-                          default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_sync)
+                          default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_size_changed)
     detail: EnumProperty(name="Detail", description="How many points the landscape is built from: light while editing, heavy for the finished shot", items=(
         ('PREVIEW', "Preview", "Light and fast, for dialing in the look"),
         ('FINAL', "High", "Full detail for the finished landscape (about 4 million points)"),  # key kept: saved files
@@ -558,7 +571,7 @@ class LG_ObjectProps(PropertyGroup):
         default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     gully_density: FloatProperty(name="Gully Density", description="Few broad mounds, or many tight gullies",
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
-    proportional: BoolProperty(name="More Features", description="On: scaling keeps hills, peaks and dunes their real size, so a bigger landscape fits more of them. Off: everything grows together",
+    proportional: BoolProperty(name="Proportional Feature Scaling", description="On: scaling keeps hills, peaks and dunes their real size, so a bigger landscape fits more of them. Off: everything grows together",
                                default=False)
     seed: IntProperty(name="Seed", description="Same seed, same landscape. Change it for a new layout of the same look",
                       default=0, min=0, max=99999, update=_sync)
@@ -646,14 +659,8 @@ class LG_OT_scale_size(Operator):
 
     def execute(self, context):
         props = current_landscape(context).lg
-        old = max(props.size_x, props.size_y)
         props.size_x *= self.factor  # the property's min/max clamp tiny and huge sizes
         props.size_y *= self.factor
-        if props.proportional:  # features keep their real size: 2X gives about twice as many across
-            f = max(props.size_x, props.size_y) / max(old, 1e-6)
-            props["feature_scale"] = min(max(props.feature_scale * f, 0.1), 50.0)
-            props["height"] = min(max(props.height / f, 0.0), 1.0)
-            sync_object(props.id_data)
         return {'FINISHED'}
 
 

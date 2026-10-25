@@ -1,0 +1,7 @@
+# Python and Blender scratch
+__pycache__/
+*.pyc
+*.blend1
+*.blend.tmp
+# Test reports regenerate on every run
+tests/lidar_report_partial.json

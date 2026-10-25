@@ -1,0 +1,270 @@
+{
+ "hills": {
+  "width_km": 4.0,
+  "real": {
+   "relief": 0.0366,
+   "slope50": 7.1,
+   "slope90": 12.2,
+   "hyps": 0.352,
+   "rough": 0.0275
+  },
+  "ours": {
+   "relief": 0.0271,
+   "slope50": 6.2,
+   "slope90": 11.8,
+   "hyps": 0.464,
+   "rough": 0.0269
+  },
+  "t6": "PASS"
+ },
+ "mountains": {
+  "width_km": 10.0,
+  "real": {
+   "relief": 0.1615,
+   "slope50": 28.9,
+   "slope90": 47.5,
+   "hyps": 0.471,
+   "rough": 0.0276
+  },
+  "ours": {
+   "relief": 0.1558,
+   "slope50": 34.5,
+   "slope90": 51.6,
+   "hyps": 0.413,
+   "rough": 0.0258
+  },
+  "t6": "PASS"
+ },
+ "dunes": {
+  "width_km": 3.0,
+  "real": {
+   "relief": 0.043,
+   "slope50": 4.8,
+   "slope90": 13.6,
+   "hyps": 0.289,
+   "rough": 0.0176
+  },
+  "ours": {
+   "relief": 0.0395,
+   "slope50": 26.8,
+   "slope90": 44.5,
+   "hyps": 0.427,
+   "rough": 0.119
+  },
+  "t6": "PASS"
+ },
+ "cliffs": {
+  "width_km": 2.0,
+  "real": {
+   "relief": 0.0437,
+   "slope50": 0.0,
+   "slope90": 17.0,
+   "hyps": 0.206,
+   "rough": 0.0356
+  },
+  "ours": {
+   "relief": 0.0483,
+   "slope50": 0.5,
+   "slope90": 11.5,
+   "hyps": 0.406,
+   "rough": 0.0312
+  }
+ },
+ "canyon": {
+  "width_km": 10.0,
+  "real": {
+   "relief": 0.1408,
+   "slope50": 29.0,
+   "slope90": 51.9,
+   "hyps": 0.399,
+   "rough": 0.035
+  },
+  "ours": {
+   "relief": 0.1391,
+   "slope50": 23.9,
+   "slope90": 46.5,
+   "hyps": 0.37,
+   "rough": 0.0225
+  },
+  "t6": "PASS"
+ },
+ "mesa": {
+  "width_km": 6.0,
+  "real": {
+   "relief": 0.0764,
+   "slope50": 3.4,
+   "slope90": 17.1,
+   "hyps": 0.23,
+   "rough": 0.0221
+  },
+  "ours": {
+   "relief": 0.1333,
+   "slope50": 0.7,
+   "slope90": 38.8,
+   "hyps": 0.152,
+   "rough": 0.0381
+  },
+  "t6": "FAIL: relief, slope50"
+ },
+ "badlands": {
+  "width_km": 2.0,
+  "real": {
+   "relief": 0.069,
+   "slope50": 8.1,
+   "slope90": 21.9,
+   "hyps": 0.464,
+   "rough": 0.0319
+  },
+  "ours": {
+   "relief": 0.0736,
+   "slope50": 16.2,
+   "slope90": 50.5,
+   "hyps": 0.45,
+   "rough": 0.1002
+  },
+  "t6": "PASS"
+ },
+ "volcanic": {
+  "width_km": 4.0,
+  "real": {
+   "relief": 0.0529,
+   "slope50": 2.5,
+   "slope90": 14.8,
+   "hyps": 0.26,
+   "rough": 0.0175
+  },
+  "ours": {
+   "relief": 0.0726,
+   "slope50": 4.0,
+   "slope90": 20.1,
+   "hyps": 0.234,
+   "rough": 0.0283
+  },
+  "t6": "FAIL: relief"
+ },
+ "volcano_strato": {
+  "width_km": 30.0,
+  "real": {
+   "relief": 0.0928,
+   "slope50": 8.3,
+   "slope90": 24.9,
+   "hyps": 0.316,
+   "rough": 0.0106
+  },
+  "ours": {
+   "relief": 0.0985,
+   "slope50": 9.7,
+   "slope90": 21.2,
+   "hyps": 0.236,
+   "rough": 0.0083
+  },
+  "t6": "PASS"
+ },
+ "volcano_caldera": {
+  "width_km": 15.0,
+  "real": {
+   "relief": 0.0447,
+   "slope50": 6.9,
+   "slope90": 26.3,
+   "hyps": 0.379,
+   "rough": 0.0414
+  },
+  "ours": {
+   "relief": 0.0494,
+   "slope50": 7.3,
+   "slope90": 15.7,
+   "hyps": 0.34,
+   "rough": 0.0097
+  },
+  "t6": "PASS"
+ },
+ "volcano_shield": {
+  "width_km": 40.0,
+  "real": {
+   "relief": 0.0761,
+   "slope50": 6.5,
+   "slope90": 10.8,
+   "hyps": 0.507,
+   "rough": 0.0031
+  },
+  "ours": {
+   "relief": 0.0688,
+   "slope50": 7.9,
+   "slope90": 17.7,
+   "hyps": 0.405,
+   "rough": 0.0087
+  },
+  "t6": "PASS"
+ },
+ "volcano_cinder": {
+  "width_km": 2.5,
+  "real": {
+   "relief": 0.1322,
+   "slope50": 12.3,
+   "slope90": 28.8,
+   "hyps": 0.275,
+   "rough": 0.0086
+  },
+  "ours": {
+   "relief": 0.1268,
+   "slope50": 13.2,
+   "slope90": 27.5,
+   "hyps": 0.247,
+   "rough": 0.0127
+  },
+  "t6": "PASS"
+ },
+ "craters": {
+  "width_km": 3.0,
+  "real": {
+   "relief": 0.0545,
+   "slope50": 1.8,
+   "slope90": 12.0,
+   "hyps": 0.705,
+   "rough": 0.0132
+  },
+  "ours": {
+   "relief": 0.0244,
+   "slope50": 4.2,
+   "slope90": 7.6,
+   "hyps": 0.474,
+   "rough": 0.0169
+  }
+ },
+ "glacial": {
+  "width_km": 8.0,
+  "real": {
+   "relief": 0.1627,
+   "slope50": 19.1,
+   "slope90": 49.6,
+   "hyps": 0.539,
+   "rough": 0.0261
+  },
+  "ours": {
+   "relief": 0.139,
+   "slope50": 26.9,
+   "slope90": 45.2,
+   "hyps": 0.449,
+   "rough": 0.0202
+  },
+  "t6": "PASS"
+ },
+ "riverbed": {
+  "width_km": 2.0,
+  "real": {
+   "relief": 0.0075,
+   "slope50": 0.7,
+   "slope90": 1.7,
+   "hyps": 0.499,
+   "rough": 0.0423
+  },
+  "ours": {
+   "relief": 0.0054,
+   "slope50": 0.6,
+   "slope90": 1.9,
+   "hyps": 0.661,
+   "rough": 0.0784
+  },
+  "t6": "FAIL: hyps"
+ }
+}

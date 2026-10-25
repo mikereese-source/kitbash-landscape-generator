@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+
+id = "kitbash_landscape_generator"
+version = "0.1.0"
+name = "KitBash Landscape Generator"
+tagline = "Real landscape types that keep their shape at any size"
+maintainer = "KitBash3D"
+type = "add-on"
+
+tags = ["3D View", "Geometry Nodes", "Add Mesh"]
+
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]

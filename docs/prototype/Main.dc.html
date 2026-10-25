@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Landscape tab</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1a1a1a}
+a{color:#8fb4ff}a:hover{color:#b8cfff}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #8fb4ff;outline-offset:2px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:28px;border-radius:6px;background:#545454}
+input[type=range]::-moz-range-track{height:28px;border-radius:6px;background:#545454}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:28px;border-radius:6px;background:#4f7fd1}
+input[type=range]::-moz-range-thumb{width:14px;height:28px;border:0;border-radius:6px;background:#4f7fd1}
+input[type=checkbox]{width:20px;height:20px;accent-color:#4f7fd1;margin:0}
+</style>
+</helmet>
+<div style="width: 420px; min-height: 2400px; box-sizing: border-box; display: flex; font-family: Inter, system-ui, sans-serif; font-size: 14px; color: #e6e6e6; background: #2b2b2b">
+
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 10px 40px 12px; width: 158px; height: 602px">
+
+<div style="display: flex; align-items: center; gap: 10px; padding: 6px 2px 2px 2px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20 L8 9 L12 15 L15 11 L22 20 Z"></path><circle cx="17" cy="5" r="2"></circle></svg>
+<div style="font-size: 17px; font-weight: 600; letter-spacing: 0.2px">Landscape</div>
+<div style="margin-left: auto; font-size: 12px; color: #a6a6a6">v0.1 prototype</div>
+</div>
+
+<button onClick="{{ add }}" aria-label="Add {{ sel.name }} landscape" style="height: 48px; border: 0; border-radius: 8px; background: #4f7fd1; color: #ffffff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5 V19 M5 12 H19"></path></svg>
+Add Landscape
+</button>
+
+<section style="background: #353535; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; font-weight: 600; color: #b5b5b5; text-transform: uppercase; letter-spacing: 0.6px">In this scene</div>
+<sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 8px; text-align: center; color: #b5b5b5; line-height: 1.45">No landscapes yet. Pick a type below, then press Add at the top.</div>
+</sc-if>
+<sc-for list="{{ landscapes }}" as="l" hint-placeholder-count="1">
+<button onClick="{{ l.pick }}" style="{{ l.rowStyle }}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M2 20 L8 9 L12 15 L15 11 L22 20 Z"></path></svg>
+<span style="flex: 1 1 auto; text-align: left">{{ l.name }}</span>
+<span style="font-size: 12px; color: #c8c8c8">{{ l.meta }}</span>
+</button>
+</sc-for>
+</section>
+
+<section style="background: #353535; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: #b5b5b5; text-transform: uppercase; letter-spacing: 0.6px">Landscape type</div>
+<div style="display: flex; gap: 12px; align-items: center; background: #1f1f1f; border-radius: 8px; padding: 10px">
+<svg width="120" height="72" viewBox="0 0 80 48" role="img" aria-label="{{ sel.name }} preview" style="border-radius: 6px; background: #3a4a5c; flex: none"><path d="{{ sel.d }}" fill="{{ sel.color }}" fill-rule="evenodd"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<div style="font-size: 16px; font-weight: 600">{{ sel.name }}</div>
+<div style="font-size: 12.5px; color: #c2c2c2; line-height: 1.4">{{ sel.look }}</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{ types }}" as="t" hint-placeholder-count="12">
+<button onClick="{{ t.pick }}" aria-label="{{ t.name }}" aria-pressed="{{ t.selected }}" style="{{ t.tileStyle }}">
+<svg width="100%" height="34" viewBox="0 0 80 48" preserveAspectRatio="none" aria-hidden="true" style="display: block; border-radius: 4px; background: #3a4a5c"><path d="{{ t.d }}" fill="{{ t.color }}" fill-rule="evenodd"></path></svg>
+<span style="display: block; font-size: 11.5px; line-height: 1.2; margin-top: 4px; color: #e6e6e6">{{ t.name }}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{ hasActive }}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 12px; color: #b5b5b5; text-align: center">Picking a type changes the selected landscape. The Add button at the top makes a new one at the 3D cursor.</div>
+</sc-if>
+</section>
+
+<sc-if value="{{ hasActive }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+
+<section style="background: #353535; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: #b5b5b5; text-transform: uppercase; letter-spacing: 0.6px">Size</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{ scales }}" as="sf" hint-placeholder-count="6">
+<button onClick="{{ sf.pick }}" style="height: 40px; border: 0; border-radius: 6px; background: #545454; color: #ffffff; font-size: 13.5px">{{ sf.label }}</button>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #c2c2c2">Width
+<span style="height: 40px; border-radius: 6px; background: #1f1f1f; display: flex; align-items: center; padding: 0 10px; font-size: 15px; color: #e6e6e6">{{ size }} m</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #c2c2c2">Depth
+<span style="height: 40px; border-radius: 6px; background: #1f1f1f; display: flex; align-items: center; padding: 0 10px; font-size: 15px; color: #e6e6e6">{{ size }} m</span>
+</label>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{ sizes }}" as="s" hint-placeholder-count="3">
+<button onClick="{{ s.pick }}" style="{{ s.style }}">{{ s.label }}</button>
+</sc-for>
+</div>
+<button onClick="{{ fit }}" style="height: 44px; border: 0; border-radius: 8px; background: #545454; color: #e6e6e6; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"></path></svg>
+Fit to selection
+</button>
+<div style="font-size: 12px; color: #b5b5b5; line-height: 1.4">Shapes stay the same at any size. Only the scale changes.</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 4px">
+<span style="font-size: 13px; color: #c2c2c2">Detail</span>
+<div style="display: flex; background: #1f1f1f; border-radius: 8px; padding: 3px; gap: 3px">
+<button onClick="{{ setPreview }}" style="{{ previewStyle }}">Preview</button>
+<button onClick="{{ setFinal }}" style="{{ finalStyle }}">Final</button>
+</div>
+</div>
+<div style="font-size: 12px; color: #b5b5b5">{{ detailText }}</div>
+</section>
+
+<section style="background: #353535; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; font-weight: 600; color: #b5b5b5; text-transform: uppercase; letter-spacing: 0.6px">Shape</div>
+<sc-for list="{{ controls }}" as="c" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; font-size: 13.5px"><span>{{ c.label }}</span><span style="color: #c2c2c2">{{ c.display }}</span></div>
+<input type="range" min="0" max="100" value="{{ c.value }}" onChange="{{ c.onChange }}" aria-label="{{ c.label }}">
+<div style="font-size: 12px; color: #b5b5b5; line-height: 1.35">{{ c.hint }}</div>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-size: 13.5px">Seed</span>
+<span style="flex: 1 1 auto; height: 40px; border-radius: 6px; background: #1f1f1f; display: flex; align-items: center; padding: 0 10px; font-size: 15px">{{ seed }}</span>
+<button onClick="{{ randomize }}" style="height: 44px; padding: 0 14px; border: 0; border-radius: 8px; background: #545454; color: #e6e6e6; font-size: 14px; display: flex; align-items: center; gap: 6px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><circle cx="9" cy="9" r="1.2" fill="currentColor"></circle><circle cx="15" cy="15" r="1.2" fill="currentColor"></circle><circle cx="15" cy="9" r="1.2" fill="currentColor"></circle><circle cx="9" cy="15" r="1.2" fill="currentColor"></circle></svg>
+Randomize
+</button>
+</div>
+<div style="font-size: 12px; color: #b5b5b5">Same seed, same landscape. Randomize tries a new layout.</div>
+</section>
+
+<sc-for list="{{ sections }}" as="sec" hint-placeholder-count="5">
+<section style="background: #353535; border-radius: 8px; overflow: hidden">
+<button onClick="{{ sec.toggle }}" aria-expanded="{{ sec.open }}" style="width: 100%; height: 48px; border: 0; background: #3d3d3d; color: #e6e6e6; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 600">
+<span style="width: 14px; color: #c2c2c2">{{ sec.chev }}</span>
+<span style="flex: 1 1 auto; text-align: left">{{ sec.title }}</span>
+<span style="font-size: 12px; font-weight: 400; color: #c2c2c2">{{ sec.summary }}</span>
+</button>
+<sc-if value="{{ sec.open }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 12px 14px 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; color: #b5b5b5; line-height: 1.4">{{ sec.intro }}</div>
+<sc-for list="{{ sec.toggles }}" as="tg" hint-placeholder-count="3">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 13.5px">
+<input type="checkbox" checked="{{ tg.on }}" onChange="{{ tg.flip }}">
+<span style="display: flex; flex-direction: column; gap: 2px"><span>{{ tg.label }}</span><span style="font-size: 12px; color: #b5b5b5">{{ tg.hint }}</span></span>
+</label>
+</sc-for>
+<sc-if value="{{ sec.isCliffs }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 4px">
+<div style="font-size: 13.5px">Cave</div>
+<div style="font-size: 12px; color: #b5b5b5; line-height: 1.4">Every cave starts with an entrance in a steep slope. Extend it into a tunnel, or open the tunnel into a cavern.</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{ caveLayouts }}" as="cl" hint-placeholder-count="4">
+<button onClick="{{ cl.pick }}" aria-pressed="{{ cl.pressed }}" style="{{ cl.style }}">
+<svg width="100%" height="30" viewBox="0 0 80 30" aria-hidden="true" style="display: block"><path d="M0 30 L0 6 L30 6 L30 30 Z" fill="#7d7468"></path><path d="M30 6 L80 6 L80 30 L30 30 Z" fill="#7d7468"></path><path d="{{ cl.d }}" fill="#232323"></path></svg>
+<span style="display: block; font-size: 12.5px; margin-top: 4px">{{ cl.label }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<sc-for list="{{ sec.sliders }}" as="c" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; font-size: 13.5px"><span>{{ c.label }}</span><span style="color: #c2c2c2">{{ c.display }}</span></div>
+<input type="range" min="0" max="100" value="{{ c.value }}" onChange="{{ c.onChange }}" aria-label="{{ c.label }}">
+<div style="font-size: 12px; color: #b5b5b5; line-height: 1.35">{{ c.hint }}</div>
+</div>
+</sc-for>
+<sc-if value="{{ sec.isMasks }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{ masks }}" as="mk" hint-placeholder-count="6">
+<button onClick="{{ mk.pick }}" style="{{ mk.style }}">{{ mk.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</section>
+</sc-for>
+
+<button onClick="{{ bake }}" style="height: 48px; border: 1px solid #6a6a6a; border-radius: 8px; background: #3d3d3d; color: #e6e6e6; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 V15 M7 10 L12 15 L17 10 M4 20 H20"></path></svg>
+{{ bakeLabel }}
+</button>
+<div style="font-size: 12px; color: #b5b5b5; text-align: center; line-height: 1.4">Bake locks in erosion and caves so the viewport stays fast. Change any setting to rebuild.</div>
+
+</div>
+</sc-if>
+</div>
+
+<nav aria-label="Sidebar tabs" style="width: 30px; flex: none; background: #232323; display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 4px">
+<sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+<span style="{{ tb.style }}">{{ tb.label }}</span>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":420,"height":2400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      type: 'mountains', landscapes: [], active: -1, size: 200, final: false, seed: 1207,
+      vals: { height: 55, feature: 45, rough: 40, sharp: 50, erosion: 35, terr: 0, terrSoft: 50, snow: 70, rockAngle: 45, caveCount: 20, caveSize: 40, entrSize: 40, facing: 50, tLen: 50, tWid: 40, wiggle: 40, descent: 30, cavSize: 50, ceil: 40, detail: 50, warp: 30, edge: 20 },
+      open: { cliffs: false, terraces: false, material: false, masks: false, advanced: false },
+      toggles: { side: true, over: false, arch: false, tite: false, mite: false, cave: false, auto: true },
+      mask: 'None', baked: false, cave: 'off'
+    };
+  }
+  renderVals() {
+    const S = this.state;
+    const TYPES = [
+      ['hills','Rolling Hills','#7aa05a','Soft, rounded swells with no sharp edges or bare rock.','M0 48 L0 30 C15 18 25 18 40 28 C55 36 65 20 80 24 L80 48Z'],
+      ['mountains','Mountains','#9aa3ad','Jagged peaks on knife-edge ridges, with steep faces and scree below.','M0 48 L0 34 L14 20 L22 28 L36 6 L48 24 L58 16 L80 36 L80 48Z'],
+      ['dunes','Sand Dunes','#d6b57a','Repeating crests: a gentle wind side and a steep slip face.','M0 48 L0 32 C12 30 20 22 28 20 L30 34 C42 30 50 22 58 20 L60 34 C68 32 74 30 80 30 L80 48Z'],
+      ['seabed','Seabed','#5aa0b4','Smooth sediment plains with ripples, rock outcrops and reef mounds.','M0 48 L0 36 C10 34 16 38 26 36 C34 34 38 30 46 32 C56 35 66 38 80 34 L80 48Z'],
+      ['cliffs','Coastal Cliffs','#a3a88f','A flat headland that ends in a near-vertical wall above the sea.','M0 48 L0 14 L44 12 L46 20 L48 38 C60 40 70 40 80 40 L80 48Z'],
+      ['canyon','Canyon','#c97b55','A deep channel cut through flat rock, with stepped walls.','M0 48 L0 12 L22 12 L24 18 L30 20 L32 32 L36 40 L44 40 L48 30 L52 20 L58 18 L60 12 L80 12 L80 48Z'],
+      ['mesa','Mesa','#c88a5f','Flat-topped blocks with sheer caprock cliffs over a desert floor.','M0 48 L0 40 L14 38 L18 18 L42 18 L46 36 L60 38 L64 26 L70 26 L72 38 L80 40 L80 48Z'],
+      ['badlands','Badlands','#b89c8a','Dense gullies, sharp fins and spires, with colored bands.','M0 48 L0 30 L6 22 L10 30 L16 18 L22 30 L28 20 L34 30 L40 16 L46 30 L52 22 L58 30 L64 18 L70 30 L76 24 L80 30 L80 48Z'],
+      ['volcanic','Volcanic','#8a7470','Cone-shaped peaks with summit craters and gullies down the sides.','M0 48 L0 40 C18 38 26 30 32 12 L36 10 L40 14 L44 10 L48 12 C54 30 62 38 80 40 L80 48Z'],
+      ['glacial','Glacial Valley','#a9c2d0','A broad U-shaped trough: flat floor, steep smooth walls.','M0 48 L0 6 L10 10 L16 20 C20 34 26 38 40 38 C54 38 60 34 64 20 L70 10 L80 6 L80 48Z'],
+      ['riverbed','Riverbed','#93a37e','A wide gravel floor with braided channels and low banks.','M0 48 L0 26 L12 30 L20 34 L30 34 L34 38 L46 38 L50 34 L62 34 L70 30 L80 26 L80 48Z'],
+      ['cave','Cave','#8f8378','A hill with a chamber inside: arched ceiling, lumpy floor, formations.','M0 48 L0 18 C16 8 40 4 80 14 L80 48Z M16 40 C16 26 28 20 40 20 C54 20 64 28 64 40Z']
+    ];
+    const byId = {}; TYPES.forEach(t => byId[t[0]] = t);
+    const cur = byId[S.type];
+    const set = (patch) => this.setState(patch);
+    const setVal = (k) => (e) => set({ vals: Object.assign({}, S.vals, { [k]: Number(e.target.value) }), baked: false });
+    const hasActive = S.active >= 0;
+    const pickType = (id) => () => {
+      if (hasActive) {
+        const ls = S.landscapes.slice(); ls[S.active] = Object.assign({}, ls[S.active], { type: id, name: 'Landscape_' + byId[id][1].replace(/ /g, '') });
+        set({ type: id, landscapes: ls, baked: false });
+      } else set({ type: id });
+    };
+    const types = TYPES.map(t => ({
+      name: t[1], color: t[2], d: t[4], selected: t[0] === S.type ? 'true' : 'false', pick: pickType(t[0]),
+      tileStyle: 'border: 2px solid ' + (t[0] === S.type ? '#8fb4ff' : 'transparent') + '; background: ' + (t[0] === S.type ? '#2c3e5c' : '#262626') + '; border-radius: 8px; padding: 5px 4px 6px 4px; min-height: 64px; text-align: center; color: #e6e6e6'
+    }));
+    const add = () => {
+      const n = S.landscapes.length;
+      const ls = S.landscapes.concat([{ type: S.type, name: 'Landscape_' + cur[1].replace(/ /g, '') + (n ? '.' + String(n).padStart(3, '0') : '') }]);
+      set({ landscapes: ls, active: ls.length - 1, baked: false });
+    };
+    const landscapes = S.landscapes.map((l, i) => ({
+      name: l.name, meta: byId[l.type][1],
+      pick: () => set({ active: i, type: l.type }),
+      rowStyle: 'display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 6px; border: 0; font-size: 14px; color: #ffffff; background: ' + (i === S.active ? '#4f7fd1' : '#2b2b2b')
+    }));
+    const sizes = [[50, '50 m'], [200, '200 m'], [1000, '1 km']].map(s => ({
+      label: s[1], pick: () => set({ size: s[0], baked: false }),
+      style: 'height: 40px; border: 0; border-radius: 6px; font-size: 13.5px; color: #ffffff; background: ' + (S.size === s[0] ? '#4f7fd1' : '#545454')
+    }));
+    const seg = (on) => 'height: 38px; padding: 0 16px; border: 0; border-radius: 6px; font-size: 13.5px; color: #ffffff; background: ' + (on ? '#4f7fd1' : 'transparent');
+    const res = S.final ? 1024 : 256;
+    const spacing = S.size / res;
+    const pts = res * res;
+    const detailText = (S.final ? 'Final' : 'Preview') + ': a point every ' + (spacing >= 1 ? spacing.toFixed(1) + ' m' : Math.round(spacing * 100) + ' cm') + ' · ' + (pts >= 1e6 ? (pts / 1e6).toFixed(1) + ' M' : Math.round(pts / 1000) + ' k') + ' points';
+    const pct = (k) => S.vals[k] + '%';
+    const mk = (k, label, display, hint) => ({ label, value: S.vals[k], display, hint, onChange: setVal(k) });
+    const heightM = Math.round(S.size * (0.02 + S.vals.height / 100 * 0.38));
+    const featM = Math.round(S.size * (0.05 + S.vals.feature / 100 * 0.6));
+    const controls = [
+      mk('height', 'Height', heightM + ' m', 'How tall the tallest parts get. Grows with Size.'),
+      mk('feature', 'Feature Size', '~' + featM + ' m', 'How big the main hills, peaks or dunes are.'),
+      mk('rough', 'Roughness', pct('rough'), 'Smooth and soft, or bumpy with lots of small detail.'),
+      mk('sharp', 'Sharpness', pct('sharp'), 'Rounded tops, or crisp ridges and edges.'),
+      mk('erosion', 'Erosion', pct('erosion'), 'Wears it down like weather: gullies, slumped slopes, debris at the base.')
+    ];
+    const tg = (k, label, hint) => ({ label, hint, on: !!S.toggles[k], flip: () => set({ toggles: Object.assign({}, S.toggles, { [k]: !S.toggles[k] }), baked: false }) });
+    const T = S.toggles;
+    const cliffOn = ['side', 'over', 'arch', 'tite', 'mite'].filter(k => T[k]).length + (S.cave !== 'off' ? 1 : 0);
+    const CAVES = [
+      ['off', 'No cave', ''],
+      ['entrance', 'Entrance', 'M30 30 L30 14 C36 10 42 12 46 18 L48 30 Z'],
+      ['tunnel', 'Entrance + Tunnel', 'M30 30 L30 14 C36 10 40 12 44 16 L78 20 L78 26 L46 24 L46 30 Z'],
+      ['cavern', 'Entrance + Cavern', 'M30 30 L30 14 C36 10 40 12 44 16 L54 18 C58 8 74 8 78 14 C80 22 76 28 64 28 C58 28 54 26 52 24 L46 24 L46 30 Z']
+    ];
+    const caveLayouts = CAVES.map(c => ({
+      label: c[1], d: c[2], pressed: S.cave === c[0] ? 'true' : 'false',
+      pick: () => set({ cave: c[0], baked: false }),
+      style: 'border: 2px solid ' + (S.cave === c[0] ? '#8fb4ff' : 'transparent') + '; background: ' + (S.cave === c[0] ? '#2c3e5c' : '#262626') + '; border-radius: 8px; padding: 6px; min-height: 64px; color: #e6e6e6; text-align: center'
+    }));
+    const caveSliders = S.cave === 'off' ? [] : [mk('entrSize', 'Entrance size', Math.round(2 + S.vals.entrSize / 100 * 18) + ' m', 'How wide the opening is'), mk('facing', 'Entrance faces', ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.min(7, Math.floor(S.vals.facing / 12.5))], 'Which way the opening looks. It snaps to the nearest steep slope.')]
+      .concat(S.cave === 'entrance' ? [] : [mk('tLen', 'Tunnel length', Math.round(10 + S.vals.tLen * 1.9) + ' m', 'How far the passage runs into the hill'), mk('tWid', 'Tunnel width', Math.round(2 + S.vals.tWid / 100 * 10) + ' m', 'Wide enough to walk, or a squeeze'), mk('wiggle', 'Wiggle', pct('wiggle'), 'Straight shot, or a winding passage'), mk('descent', 'Descent', pct('descent'), 'How steeply it heads down into the ground')])
+      .concat(S.cave === 'cavern' ? [mk('cavSize', 'Cavern size', Math.round(15 + S.vals.cavSize * 0.85) + ' m', 'Width of the chamber at the end'), mk('ceil', 'Ceiling height', Math.round(4 + S.vals.ceil / 100 * 26) + ' m', 'Room for big stalactites and stalagmites')] : []);
+    const secDefs = [
+      { id: 'cliffs', title: 'Cliffs & Caves', summary: cliffOn ? cliffOn + ' on' : 'Off',
+        intro: 'Shapes that go beyond hills: walls, overhangs and holes. Caves and overhangs are heavier, so bake when done.',
+        toggles: [tg('side', 'Side cliffs', 'Push steep slopes into near-vertical walls'), tg('over', 'Overhangs', 'Cliff tops lean out over their base'), tg('arch', 'Arches', 'Natural stone arches'), tg('tite', 'Stalactites', 'Spikes hanging from cave ceilings and overhangs'), tg('mite', 'Stalagmites', 'Spikes rising from cave floors')],
+        isCliffs: true,
+        sliders: ((T.over || T.arch) ? [mk('caveCount', 'Overhangs & arches', Math.max(1, Math.round(S.vals.caveCount / 10)) + '', 'How many overhangs and arches')] : []).concat(caveSliders) },
+      { id: 'terraces', title: 'Terraces & Layers', summary: S.vals.terr ? Math.round(S.vals.terr / 6) + ' steps' : 'Off',
+        intro: 'Step the land into flat shelves and rock layers, as in mesas, canyons and rice terraces.',
+        toggles: [], sliders: [mk('terr', 'Steps', S.vals.terr ? Math.round(S.vals.terr / 6) + '' : 'Off', 'How many shelves. 0 turns terraces off.'), mk('terrSoft', 'Softness', pct('terrSoft'), 'Hard ledges, or soft rounded steps')] },
+      { id: 'material', title: 'Material', summary: T.auto ? 'Auto' : 'Off',
+        intro: 'Textures the landscape from its own shape: rock where steep, ground where flat, sand where sediment collects, snow up high.',
+        toggles: [tg('auto', 'Auto material', 'Turn off to use your own material')],
+        sliders: T.auto ? [mk('rockAngle', 'Rock on slopes steeper than', Math.round(15 + S.vals.rockAngle * 0.6) + '°', 'Lower = more rock'), mk('snow', 'Snow line', S.vals.snow >= 99 ? 'No snow' : Math.round(heightM * S.vals.snow / 100) + ' m', 'Height where snow starts')] : [] },
+      { id: 'masks', title: 'Masks', summary: S.mask,
+        intro: 'Masks are maps the landscape stores about itself. Use them to drive your own materials and scattering. Pick one to preview it in the viewport.',
+        toggles: [], sliders: [], isMasks: true },
+      { id: 'advanced', title: 'Advanced', summary: '',
+        intro: 'Fine control for experts. You never need these to get a good result.',
+        toggles: [], sliders: [mk('detail', 'Small detail layers', Math.round(2 + S.vals.detail / 12) + '', 'How many layers of fine detail on top of the main shape'), mk('warp', 'Twist', pct('warp'), 'Bends shapes so they look less regular'), mk('edge', 'Edge fade', pct('edge'), 'Lowers the edges so the landscape blends into flat ground')] }
+    ];
+    const sections = secDefs.map(s => Object.assign({ isMasks: false, isCliffs: false }, s, {
+      open: !!S.open[s.id], chev: S.open[s.id] ? '▾' : '▸',
+      toggle: () => set({ open: Object.assign({}, S.open, { [s.id]: !S.open[s.id] }) })
+    }));
+    const masks = ['None', 'Height', 'Slope', 'Curvature', 'Flow', 'Deposits'].map(m => ({
+      label: m, pick: () => set({ mask: m }),
+      style: 'height: 40px; border: 0; border-radius: 6px; font-size: 13px; color: #ffffff; background: ' + (S.mask === m ? '#4f7fd1' : '#545454')
+    }));
+    const tabs = ['Item', 'Tool', 'View', 'Landscape'].map(t => ({
+      label: t, style: 'writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; padding: 10px 0; width: 26px; text-align: center; border-radius: 4px; ' + (t === 'Landscape' ? 'background: #3d3d3d; color: #ffffff' : 'color: #b5b5b5')
+    }));
+    return {
+      empty: S.landscapes.length === 0, landscapes, types, add, hasActive,
+      sel: { name: cur[1], color: cur[2], look: cur[3], d: cur[4] },
+      size: S.size.toLocaleString('en-US'), sizes,
+      scales: [[2, '2X'], [4, '4X'], [8, '8X'], [1 / 2, '1/2'], [1 / 4, '1/4'], [1 / 8, '1/8']].map(f => ({ label: f[1], pick: () => set({ size: Math.min(100000, Math.max(1, Math.round(S.size * f[0] * 100) / 100)), baked: false }) })),
+      fit: () => set({ size: 320, baked: false }),
+      setPreview: () => set({ final: false }), setFinal: () => set({ final: true }),
+      previewStyle: seg(!S.final), finalStyle: seg(S.final), detailText,
+      controls, seed: S.seed, randomize: () => set({ seed: Math.floor(Math.random() * 9000) + 1000, baked: false }),
+      sections, masks, tabs, caveLayouts,
+      bake: () => set({ baked: true, final: true }),
+      bakeLabel: S.baked ? 'Baked ✓' : 'Bake Final'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+{
+  "version": 1,
+  "notes": "One entry per landscape type. Values are in a normalized 0-1 tile so they work at any size (D3, D5). recipe: 0 hills, 1 mountains, 2 dunes, 3 seabed, 4 coastal cliffs, 5 canyon, 6 mesa, 7 badlands, 8 volcanic, 9 glacial valley, 10 riverbed, 11 volcano, 12 craters. styles: optional per-type kinds (index = node Style input; look overrides type values). controls: optional per-type sliders (prop = object property, slot = node input P1-P4). height = relief as a fraction of the landscape's size. feature_scale = main shapes across the tile. sharpness > 1 = pointier tops, flatter lows. rock = real-size rock grain on steep and high ground (0 = none; sand and the Moon get none). grain_roughness = how fast rock grain fades with size (0.5 smooth .. 0.66 rubbly), from the 1 m lidar. erosion = the erosion engine's settings for this type (erosion.py; on, amount, talus_deg, soften, deposit, m). feature_label / feature_noun = what Feature Size is called for this type and what the 'about N across' readout counts. groups = display order and headers in the type picker ([key, label, [type keys]]).",
+  "default": "mountains",
+  "types": {
+    "hills": {
+      "name": "Rolling Hills",
+      "look": "Soft, rounded swells with no sharp edges or bare rock.",
+      "recipe": 0,
+      "height": 0.0625,
+      "feature_scale": 2.2,
+      "detail": 5.0,
+      "roughness": 0.75,
+      "warp": 0.1,
+      "rock": 0.3,
+      "grain_roughness": 0.5,
+      "sharpness": 2.0,
+      "erosion": {
+        "on": true,
+        "amount": 0.2,
+        "talus_deg": 30.0,
+        "incision": 0.5,
+        "soften": 0.8,
+        "soften_rounds": 6,
+        "channel": 0.001,
+        "protect": 1,
+        "meander": 0.0,
+        "bank_deg": 15.0,
+        "floor_carve": 2,
+        "cliff_deg": 30.0
+      },
+      "feature_label": "Hill Size",
+      "feature_noun": "hills"
+    },
+    "mountains": {
+      "name": "Mountains",
+      "look": "Jagged peaks on knife-edge ridges, with steep faces and scree below.",
+      "recipe": 1,
+      "height": 0.2,
+      "feature_scale": 2.5,
+      "detail": 6.0,
+      "roughness": 0.55,
+      "warp": 0.12,
+      "rock": 1.0,
+      "grain_roughness": 0.53,
+      "sharpness": 1.3,
+      "controls": [
+        {
+          "prop": "ridge_width",
+          "slot": "P1",
+          "default": 0.6
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.8,
+        "talus_deg": 38.0,
+        "incision": 0.5,
+        "cliff_deg": 60.0
+      },
+      "feature_label": "Ridge Spacing",
+      "feature_noun": "ridges"
+    },
+    "dunes": {
+      "name": "Sand Dunes",
+      "look": "Repeating crests: a gentle wind side and a steep slip face.",
+      "recipe": 2,
+      "height": 0.005,
+      "feature_scale": 15.0,
+      "detail": 1.0,
+      "roughness": 0.3,
+      "warp": 0.5,
+      "rock": 0.0,
+      "grain_roughness": 0.5,
+      "sharpness": 1.2,
+      "styles": [
+        {
+          "key": "crescent",
+          "name": "Crescent",
+          "desc": "Curved crests with a steep slip face (barchan dunes)",
+          "index": 0,
+          "look": {
+            "height": 0.005,
+            "feature_scale": 15.0
+          }
+        },
+        {
+          "key": "linear",
+          "name": "Linear",
+          "desc": "Long straight ridges running with the wind (seif dunes)",
+          "index": 1,
+          "look": {
+            "height": 0.03,
+            "feature_scale": 6.0
+          }
+        },
+        {
+          "key": "star",
+          "name": "Star",
+          "desc": "Crests from several directions meeting at peaks",
+          "index": 2,
+          "look": {
+            "height": 0.045,
+            "feature_scale": 6.0
+          }
+        }
+      ],
+      "controls": [
+        {
+          "prop": "wind_direction",
+          "slot": "P1",
+          "default": 0.0
+        }
+      ],
+      "feature_label": "Dune Spacing",
+      "feature_noun": "dunes"
+    },
+    "seabed": {
+      "name": "Seabed",
+      "look": "Smooth sand with patches of fractured rocky reef and fine ripples.",
+      "recipe": 3,
+      "height": 0.05,
+      "feature_scale": 3.0,
+      "detail": 4.0,
+      "roughness": 0.45,
+      "warp": 0.3,
+      "rock": 0.6,
+      "grain_roughness": 0.5,
+      "sharpness": 1.0,
+      "feature_label": "Reef Size",
+      "feature_noun": "reef patches"
+    },
+    "cliffs": {
+      "name": "Coastal Cliffs",
+      "look": "A flat headland that ends in a near-vertical wall above the sea.",
+      "recipe": 4,
+      "height": 0.05,
+      "feature_scale": 2.5,
+      "detail": 5.0,
+      "roughness": 0.5,
+      "warp": 0.35,
+      "rock": 1.0,
+      "grain_roughness": 0.62,
+      "sharpness": 1.0,
+      "erosion": {
+        "on": true,
+        "amount": 0.7,
+        "talus_deg": 60.0,
+        "incision": 3.0,
+        "soften": 0.15,
+        "protect": 16,
+        "cliff_deg": 85.0,
+        "hardness": 0.8,
+        "meander": 1.0,
+        "sea_level": 0.1,
+        "channel": 0.0005
+      },
+      "feature_label": "Headland Size",
+      "feature_noun": "headlands"
+    },
+    "canyon": {
+      "name": "Canyon",
+      "look": "A deep channel cut through flat rock, with stepped walls.",
+      "recipe": 5,
+      "height": 0.15,
+      "feature_scale": 1.3,
+      "detail": 3.0,
+      "roughness": 0.4,
+      "warp": 0.3,
+      "rock": 1.6,
+      "grain_roughness": 0.66,
+      "sharpness": 1.0,
+      "controls": [
+        {
+          "prop": "channel_width",
+          "slot": "P1",
+          "default": 0.6
+        },
+        {
+          "prop": "plateau_amount",
+          "slot": "P2",
+          "default": 0.6
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.6,
+        "talus_deg": 32.0,
+        "incision": 0.5,
+        "soften": 0.1,
+        "channel": 0.0003,
+        "deposit": 0.05,
+        "cliff_deg": 70.0
+      },
+      "feature_label": "Channel Spacing",
+      "feature_noun": "channels"
+    },
+    "mesa": {
+      "name": "Mesa",
+      "look": "Flat-topped blocks: caprock over sheer fluted cliffs, stepped talus aprons, desert floor.",
+      "recipe": 6,
+      "height": 0.15,
+      "feature_scale": 2.5,
+      "detail": 3.0,
+      "roughness": 0.45,
+      "warp": 0.3,
+      "rock": 0.9,
+      "grain_roughness": 0.62,
+      "sharpness": 1.0,
+      "controls": [
+        {
+          "prop": "plateau_coverage",
+          "slot": "P1",
+          "default": 0.5
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.6,
+        "talus_deg": 34.0,
+        "incision": 0.5,
+        "soften": 0.1,
+        "protect": 8,
+        "cliff_deg": 80.0
+      },
+      "feature_label": "Mesa Size",
+      "feature_noun": "mesas"
+    },
+    "badlands": {
+      "name": "Badlands",
+      "look": "A wall of fluted gullies and sawtooth pinnacles over a flat floor, or banded haystack mounds.",
+      "recipe": 7,
+      "height": 0.08,
+      "feature_scale": 6.0,
+      "detail": 4.0,
+      "roughness": 0.45,
+      "warp": 0.2,
+      "rock": 0.5,
+      "grain_roughness": 0.56,
+      "sharpness": 1.2,
+      "controls": [
+        {
+          "prop": "gully_density",
+          "slot": "P1",
+          "default": 0.5
+        },
+        {
+          "prop": "ridge_width",
+          "slot": "P2",
+          "default": 0.5
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.7,
+        "talus_deg": 45.0,
+        "incision": 5.0,
+        "soften": 0.05,
+        "channel": 3e-05,
+        "deposit": 0.3,
+        "hardness": 0.8,
+        "meander": 0.8,
+        "uplift": 0.6,
+        "cliff_deg": 70.0
+      },
+      "feature_label": "Ridge Spacing",
+      "feature_noun": "ridges",
+      "styles": [
+        {
+          "key": "wall",
+          "name": "Wall & Pinnacles",
+          "desc": "A dissected escarpment with sawtooth pinnacles above a flat floor, like Badlands National Park",
+          "index": 0
+        },
+        {
+          "key": "mounds",
+          "name": "Mounds",
+          "desc": "Rounded banded haystacks with soft rills, like Yellow Mounds or Petrified Forest",
+          "index": 1
+        }
+      ]
+    },
+    "volcanic": {
+      "name": "Volcanic",
+      "look": "Lava fields: rough flow lobes with a few cinder cones.",
+      "recipe": 8,
+      "height": 0.095,
+      "feature_scale": 2.5,
+      "detail": 3.0,
+      "roughness": 0.45,
+      "warp": 0.3,
+      "rock": 1.6,
+      "grain_roughness": 0.62,
+      "sharpness": 1.3,
+      "feature_label": "Flow Size",
+      "feature_noun": "flows"
+    },
+    "volcano": {
+      "name": "Volcano",
+      "look": "One big volcano: pick a style, then shape its crater and sides.",
+      "recipe": 11,
+      "height": 0.25,
+      "feature_scale": 1.5,
+      "detail": 4.0,
+      "roughness": 0.6,
+      "warp": 0.2,
+      "rock": 0.7,
+      "grain_roughness": 0.5,
+      "sharpness": 1.0,
+      "styles": [
+        {
+          "key": "strato",
+          "name": "Stratovolcano",
+          "desc": "Tall, steep cone with a summit crater, like Mt. Fuji",
+          "index": 0,
+          "look": {
+            "height": 0.1
+          }
+        },
+        {
+          "key": "shield",
+          "name": "Shield",
+          "desc": "Huge, gentle dome, like Mauna Loa",
+          "index": 1,
+          "look": {
+            "height": 0.07
+          }
+        },
+        {
+          "key": "cinder",
+          "name": "Cinder Cone",
+          "desc": "Small steep cone with a big bowl crater, like Sunset Crater",
+          "index": 2,
+          "look": {
+            "height": 0.13
+          }
+        },
+        {
+          "key": "caldera",
+          "name": "Caldera",
+          "desc": "Collapsed top: a ring of rim around a flat floor, like Crater Lake",
+          "index": 3,
+          "look": {
+            "height": 0.05
+          }
+        },
+        {
+          "key": "collapsed",
+          "name": "Collapsed",
+          "desc": "A stratovolcano with one flank blown out into a horseshoe crater, like Mount St. Helens",
+          "index": 4,
+          "look": {
+            "height": 0.09
+          }
+        }
+      ],
+      "controls": [
+        {
+          "prop": "crater_size",
+          "slot": "P1",
+          "default": 0.5
+        },
+        {
+          "prop": "crater_depth",
+          "slot": "P5",
+          "default": 0.5
+        },
+        {
+          "prop": "rim_thickness",
+          "slot": "P6",
+          "default": 0.3
+        },
+        {
+          "prop": "steepness",
+          "slot": "P2",
+          "default": 0.5
+        },
+        {
+          "prop": "gullies",
+          "slot": "P3",
+          "default": 0.5
+        },
+        {
+          "prop": "breach",
+          "slot": "P4",
+          "default": 0.0
+        }
+      ],
+      "feature_label": "Volcano Size",
+      "feature_noun": ""
+    },
+    "glacial": {
+      "name": "Glacial Valley",
+      "look": "A broad U-shaped trough: flat floor, steep smooth walls.",
+      "recipe": 9,
+      "height": 0.17,
+      "feature_scale": 2.5,
+      "detail": 6.0,
+      "roughness": 0.5,
+      "warp": 0.3,
+      "rock": 0.9,
+      "grain_roughness": 0.53,
+      "sharpness": 1.0,
+      "controls": [
+        {
+          "prop": "valley_width",
+          "slot": "P1",
+          "default": 0.25
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.8,
+        "talus_deg": 33.0,
+        "incision": 0.5,
+        "soften": 1.0,
+        "deposit": 0.3,
+        "protect": 16,
+        "cliff_deg": 75.0
+      },
+      "feature_label": "Ridge Spacing",
+      "feature_noun": "ridges"
+    },
+    "riverbed": {
+      "name": "Riverbed",
+      "look": "A wide gravel floor with braided channels and low banks.",
+      "recipe": 10,
+      "height": 0.01,
+      "feature_scale": 3.0,
+      "detail": 2.0,
+      "roughness": 0.5,
+      "warp": 0.5,
+      "rock": 1.2,
+      "grain_roughness": 0.55,
+      "sharpness": 1.0,
+      "controls": [
+        {
+          "prop": "channel_count",
+          "slot": "P1",
+          "default": 0.4
+        }
+      ],
+      "erosion": {
+        "on": true,
+        "amount": 0.5,
+        "talus_deg": 30.0,
+        "incision": 0.5,
+        "soften": 0.3,
+        "deposit": 0.5,
+        "protect": 16,
+        "cliff_deg": 35.0
+      },
+      "feature_label": "Braid Size",
+      "feature_noun": "braids"
+    },
+    "craters": {
+      "name": "Cratered Surface",
+      "look": "A field of impact craters: bowls with raised rims, from fresh to worn.",
+      "recipe": 12,
+      "height": 0.033,
+      "feature_scale": 3.0,
+      "detail": 4.0,
+      "roughness": 0.5,
+      "warp": 0.1,
+      "rock": 0.0,
+      "grain_roughness": 0.5,
+      "sharpness": 1.0,
+      "controls": [
+        {
+          "prop": "crater_count",
+          "slot": "P1",
+          "default": 0.5
+        },
+        {
+          "prop": "crater_scale",
+          "slot": "P2",
+          "default": 0.5
+        },
+        {
+          "prop": "crater_age",
+          "slot": "P3",
+          "default": 0.6
+        },
+        {
+          "prop": "crater_variety",
+          "slot": "P4",
+          "default": 0.6
+        }
+      ],
+      "feature_label": "Crater Size",
+      "feature_noun": "craters"
+    }
+  },
+  "groups": [
+    [
+      "plains",
+      "Plains & Rivers",
+      [
+        "hills",
+        "riverbed"
+      ]
+    ],
+    [
+      "mountains",
+      "Mountains & Ice",
+      [
+        "mountains",
+        "glacial"
+      ]
+    ],
+    [
+      "desert",
+      "Desert",
+      [
+        "dunes",
+        "mesa",
+        "canyon",
+        "badlands"
+      ]
+    ],
+    [
+      "coast",
+      "Coast & Sea",
+      [
+        "cliffs",
+        "seabed"
+      ]
+    ],
+    [
+      "volcanic",
+      "Volcanic",
+      [
+        "volcano",
+        "volcanic"
+      ]
+    ],
+    [
+      "worlds",
+      "Other Worlds",
+      [
+        "craters"
+      ]
+    ]
+  ]
+}

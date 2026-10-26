@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M2 — All types + simple controls (gate: checker PASS 2026-10-23; realism push R5–R8 (D53) through passes (D56): Passes 1–6 done (docs/PASS1–6.md, D58–D66). Final pass before the M2 re-gate in progress: presets, Proportional Feature Scaling, Mesa and Badlands done; next checkpoint with Mike, then Glacial Valley, photo-review shape fixes, M2 gate)
+**Current milestone:** M2 — All types + simple controls. Realism passes 1–8 done (docs/PASS1–8.md, D58–D72). M2 re-gate in progress 2026-10-26: tests 17/17, T6 11/13, T6b 12/14, T6m PASS; checker FAIL pending Mike's D57 waivers and sign-off; rollback zip snapshots/kitbash_landscape_generator-m2-gate-2026-10-26.zip
 **Last updated:** 2026-10-26
 
 ## Pre-build checklist
@@ -71,9 +71,9 @@ Every plan includes an errors & edge cases milestone and a final check.
 | # | Milestone | Definition of done | Status |
 |---|-----------|--------------------|--------|
 | M1 | Scale-correct core | The Landscape sidebar tab is in place, and Add Landscape creates a live GN landscape at the 3D cursor. Size X/Y, Fit to selection, meters-per-vertex detail, Preview/Final work. 3 types (Rolling Hills, Mountains, Sand Dunes). Shapes match at 10 m, 100 m and 1 km (T1) | Done — gate passed, Mike signed off 2026-10-22 |
-| M2 | All types + simple controls | All 13 surface types (D30, D37) plus the main controls (Erosion moved later, D31) and Randomize. Every control has a plain tooltip. Recipes load from the JSON type file. Realism check: each type's slope spread, relief ratio, height distribution and roughness match measured real elevation data for its reference place (T6 30 m, T6b 1 m, T6m Moon; D52) | At the gate |
+| M2 | All types + simple controls | All 13 surface types (D30, D37) plus the main controls, the erosion engine (moved into M2 by the realism push, D53/D54; Erosion Amount slider D63) and Randomize. Every control has a plain tooltip. Recipes load from the JSON type file. Realism check: each type's slope spread, relief ratio, height distribution and roughness match measured real elevation data for its reference place (T6 30 m, T6b 1 m, T6m Moon; D52) | At the gate |
 | M3 | Terraces + data masks | Terraces/strata control. Height, slope, curvature, flow and deposits stored as named attributes and viewable | Not started |
-| M4 | Erosion | Erosion slider (thermal + flow gullies). Bake works. Final build of a 1 km landscape finishes inside the agreed time | Not started |
+| M4 | Erosion | Mostly delivered in M2 (D53/D54: engine, Erosion Amount, background erosion). Left for M4: Bake, erosion masks (parked), and T11/T12 (slope drop, 1 km Final build time) | Not started (scope reduced) |
 | M5 | Auto-material | Rock/ground/sand/snow material driven by masks, box-mapped, works in Cycles and Eevee | Not started |
 | M6 | Cliffs, caves, stalactites | Side Cliffs, Overhangs, Arches, Stalactites, Stalagmites toggles and the Cave type, through the SDF stage, baked at Final | Not started |
 | M7 | Errors & edge cases | Bad input, tiny/huge sizes, too many vertices, missing JSON, undo, save/reopen, old files all handled and tested | Not started |

@@ -12,14 +12,14 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T2 | M1 | Detail spacing | auto | Vertex spacing = size ÷ resolution (Preview 512, Final 2048) within 5% at every size (D18, D40) || PASS 2026-10-22 |
 | T3 | M1 | Fit to selection | auto | Landscape bounds cover the selected objects' bounds plus margin || PASS 2026-10-22 |
 | T4 | M1 | Preview vs Final vs Ultra | auto | Preview 513², Final 2049², Ultra 4097² points (D40) || PASS 2026-10-22 (66,049 / 1,050,625) |
-| T5 | M2 | All types build | auto | Each of the 13 types and every style builds with finite, varied (not flat) output | PASS 2026-10-23 (18 type/style combinations) |
-| T6 | M2 | Types look right | auto + manual | Auto: slope spread, relief ratio, height distribution and roughness within agreed bands of real elevation data (DEM) for each type's reference place. Manual: Mike reviews side-by-side renders against P5 references | Auto PASS 2026-10-23: T6 30 m 13/13 (`tests/realism.py`), T6b 1 m / 3 m 7/7 incl. Seabed and Cliffs (`tests/lidar_check.py`, D52), T6m craters vs Moon PASS (`tests/moon_check.py`); all fail the run on a miss. Manual: Mike reviewed renders through R1–R3 (2026-10-22/23); formal sign-off at the gate |
-| T7 | M2 | Same seed, same result | auto | Two builds with one seed match exactly; different seeds differ | PASS 2026-10-23 (mountains, dunes, craters, volcano) |
+| T5 | M2 | All types build | auto | Each of the 13 types and every style builds with finite, varied (not flat) output | PASS 2026-10-26 (21 type/style combinations) |
+| T6 | M2 | Types look right | auto + manual | Auto: slope spread, relief ratio, height distribution and roughness within agreed bands of real elevation data (DEM) for each type's reference place. Manual: Mike reviews side-by-side renders against P5 references | Auto 2026-10-26: T6 30 m 11/13 (Mesa, Volcanic miss), T6b 1 m 12/14 (Riverbed, Caldera miss), T6m Moon PASS; T6c report only. Waivers: Mike at the M2 gate (D57). Manual: Mike at the gate |
+| T7 | M2 | Same seed, same result | auto | Two builds with one seed match exactly; different seeds differ | PASS 2026-10-26 |
 | T7a | M2 | Type saved by key | auto | Type stored by key; user-typed names survive a type change; M1 files (position-stored type) load as the right type | PASS 2026-10-22 |
-| T20 | M2 | Shape controls | auto | Each control changes the landscape; Height (m) equals the real relief and grows with size; Randomize picks a new seed; Reset restores the type look | PASS 2026-10-22 |
-| T21 | M2 | Volcano styles and controls | auto | 4 styles give distinct shapes and load their own height; Crater Size, Steepness, Gullies and Breach each change it; Reset restores defaults | PASS 2026-10-22 |
-| T22 | M2 | Per-type sliders | auto | Each per-type slider changes its type; the 3 dune styles differ | PASS 2026-10-22 |
-| T8 | M2 | Controls are plain | auto + manual | Auto: every panel control and button has a tooltip. Manual: a non-specialist explains each one correctly | Auto PASS 2026-10-23 (28 controls, 6 buttons); manual: Mike at the gate |
+| T20 | M2 | Shape controls | auto | Each control changes the landscape; Height (m) equals the real relief and grows with size; Randomize picks a new seed; Reset restores the type look | PASS 2026-10-26 |
+| T21 | M2 | Volcano styles and controls | auto | 4 styles give distinct shapes and load their own height; Crater Size, Steepness, Gullies and Breach each change it; Reset restores defaults | PASS 2026-10-26 (5 styles now; Collapsed not yet in the distinct-shape check) |
+| T22 | M2 | Per-type sliders | auto | Each per-type slider changes its type; the 3 dune styles differ | PASS 2026-10-26 (16 sliders) |
+| T8 | M2 | Controls are plain | auto + manual | Auto: every panel control and button has a tooltip. Manual: a non-specialist explains each one correctly | Auto PASS 2026-10-26 (35 controls, 10 buttons); manual: Mike at the gate |
 | T9 | M3 | Masks exist and are 0–1 | auto | height, slope, curvature, flow, deposits attributes present, in range | |
 | T10 | M3 | Terraces | auto | Terrace count N gives N flat bands on a test slope | |
 | T11 | M4 | Erosion lowers steep slopes | auto | Max slope angle drops as Erosion rises; nothing goes NaN | |

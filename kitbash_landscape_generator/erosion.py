@@ -51,6 +51,9 @@ DEFAULTS = {
     "target_pits": "fill",  # the shape's own basins: fill (lakes) or breach (cut a flat exit; trunks came out flat)
     "pit_mode": "fill",  # pits that form while it grows: breach (cut an exit) or fill (flat lake)
     "sea_level": 0.0,    # share of the relief below which ground is sea (0 = no sea)
+    "lean": 0.0,         # hilltops lean downwind by this share of the width at full height: one steep
+                         # side, one long gentle side, like wind-built Palouse loess hills (0 = even)...
+    "lean_axis": 1,      # ...along X (1) or Y (0)
     "apron": 0.0,        # talus aprons below hard caprock reach this share of the width out (0 = none)...
     "apron_rise": 0.5,   # ...and climb this share of the cliff height up its foot
     "pediment": 0.0,     # beyond the apron the floor still falls away from the caprock, this share of the cliff
@@ -297,6 +300,18 @@ def carve_floors(z, dx, rounds, bank_deg, low):
     return np.minimum(z, f)
 
 
+def lean(z, share):
+    """Shift each row downwind (+X) by `share` of the width times the height (0 at the lowest point, 1 at
+    the highest): tops lean over, so downwind faces steepen and upwind slopes stretch out."""
+    if share <= 0:
+        return z
+    n, m = z.shape
+    hn = (z - z.min()) / max(float(np.ptp(z)), 1e-12)
+    cols = np.arange(m, dtype=np.float64)
+    src = cols[None, :] - share * m * hn
+    return np.array([np.interp(src[r], cols, z[r]) for r in range(n)])
+
+
 def apron(z, cap, reach, rise, pediment=0.0):
     """Concave talus aprons around caprock (`cap` True): ground within `reach` cells rises to `rise` of
     the caps' height at the cliff foot, falling to the floor at the edge of the reach, and a gentle
@@ -343,7 +358,9 @@ def erode(h, settings=None, hard=None):
     # Basins in the shape get an exit cut through their rim before it rises (filling made dead-flat
     # floors channels couldn't reach): real ranges don't start with closed pits, and growing into
     # one would rebuild it every pass. Slumping then widens each cut into a valley.
-    target = np.asarray(h, dtype=np.float64)
+    h = np.asarray(h, dtype=np.float64)
+    h = lean(h, s["lean"]) if s["lean_axis"] == 1 else lean(h.T, s["lean"]).T  # first, so fine detail matches
+    target = h
     n0 = max(target.shape)
     if s["apron"] > 0 and hard is not None:
         target = apron(target, np.asarray(hard) > 0.8, s["apron"] * n0, s["apron_rise"], s["pediment"])
@@ -510,4 +527,8 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     flat[28:36, 28:36] = 1.0
     ap = apron(flat, flat > 0.5, 10, 0.5)
     assert abs(ap[32, 27] - 0.5 * 0.9 ** 2) < 1e-6 and ap[32, 10] == 0.0 and ap[32, 32] == 1.0, "apron shape wrong"
+    bump = np.exp(-((np.arange(64) - 32.0) / 6.0) ** 2)[None, :].repeat(4, 0)
+    lb = lean(bump, 0.05)[0]
+    up, down = np.diff(lb)[:int(np.argmax(lb))], np.diff(lb)[int(np.argmax(lb)):]
+    assert -down.min() > 1.3 * up.max(), "lean didn't steepen the downwind side"
     print("erosion self-check OK")

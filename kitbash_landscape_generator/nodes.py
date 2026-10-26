@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 101  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 112  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -40,6 +40,7 @@ INPUTS = (
     ("P4", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 4"),
     ("P5", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 5"),
     ("P6", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 6"),
+    ("P7", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 7"),
 )
 
 
@@ -376,14 +377,16 @@ def _build(ng, recipe):
     ravine = math('POWER', soft_ridge(gully_n, 0.2), 2.5)  # V ravines of varied width: 1 along each line, 0 between
     coast = math('ADD', sep.outputs["Y"], math('MULTIPLY', math('SUBTRACT', shore, 0.5), math('MULTIPLY', inp["Warp"], 0.8)))
     coast = math('SUBTRACT', coast, math('MULTIPLY', ravine, 0.03))  # ravines notch the edge
-    land = smooth(coast, -0.015, math('ADD', 0.015, math('MULTIPLY', inp["Primary"], 0.045)))  # eroded: a wider bluff zone to dissect (Torrey Pines)
+    land = smooth(coast, -0.012, math('ADD', 0.012, math('MULTIPLY', inp["Primary"], 0.018)))  # eroded: a wider bluff zone to dissect (0.045 laid it back: 1 m slope90 12 vs 27 real)
     near_edge = smooth(coast, 0.35, 0.0)  # gullies are deepest at the edge, gone well inland
     plateau = math('ADD', math('ADD', 0.7, math('MULTIPLY', bend, 0.2)), math('MULTIPLY', math('SUBTRACT', base, 0.5), 0.5))
     # With erosion on (Primary) the stretched-noise ravines are shallow and erosion carves its own,
     # branching ones: at full depth they read as a comb along the bluff (Pass 2 sheet).
     plateau = math('SUBTRACT', plateau, math('MULTIPLY', math('MULTIPLY', ravine, near_edge), math('SUBTRACT', 0.85, math('MULTIPLY', inp["Primary"], 0.85))))
     platform = math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 3.0), 3.0, 0.5).outputs["Fac"], 0.04)
-    cliffs = math('ADD', platform, math('MULTIPLY', land, math('MAXIMUM', plateau, 0.08)))
+    # A sand beach at the foot (photo review, Torrey Pines): a smooth ramp from the waterline up to the bluff.
+    beach = math('MULTIPLY', smooth(coast, -0.07, -0.012), 0.07)
+    cliffs = math('ADD', math('ADD', platform, math('MULTIPLY', beach, math('SUBTRACT', 1.0, land))), math('MULTIPLY', land, math('MAXIMUM', plateau, 0.08)))
     # Primary: the land rises gently inland, so it drains to the sea
     cliffs = math('ADD', cliffs, math('MULTIPLY', math('SUBTRACT', math('ADD', cliffs, math('MULTIPLY', land, math('MULTIPLY', math('MINIMUM', math('MAXIMUM', coast, 0.0), 0.5), 0.3))), cliffs), inp["Primary"]))
     # The bluff's caprock in patches: hard headlands hold, soft stretches gather the ravines into a few big
@@ -401,6 +404,12 @@ def _build(ng, recipe):
     # Walls spread wide: real canyon walls are long talus slopes between cliff bands (lidar, 30 m and 1 m).
     cut = smooth(math('ADD', channel, rim), 0.0, math('MULTIPLY', width, 1.8))
     cut = math('POWER', cut, math('SUBTRACT', 2.0, math('MULTIPLY', inp["P2"], 1.7)))  # P2 plateau
+    # Inner buttes and temples (photo review, Grand Canyon): isolated patches inside the canyon where the
+    # land stands back up to near the rim. Raising the depth field here means the strata below step their
+    # sides into the same cliff and slope tiers as the walls, with a hard caprock top.
+    temple_n = noise(p2, 'FBM', math('MULTIPLY', inp["Feature Scale"], 6.0), 2.0, 0.5).outputs["Fac"]
+    temple = math('MULTIPLY', smooth(temple_n, 0.68, 0.71), math('MULTIPLY', smooth(cut, 0.04, 0.25), smooth(cut, 0.95, 0.8)))
+    cut = math('MAXIMUM', cut, math('MULTIPLY', temple, 0.93))
     wobble = math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 3.0), 2.0,
                                                      0.5).outputs["Fac"], 0.5), 0.9)
     layers = 5.0
@@ -590,10 +599,10 @@ def _build(ng, recipe):
     flow_v.operation = 'MULTIPLY'
     L.new(p, flow_v.inputs[0])
     flow_v.inputs[1].default_value = (0.6, 1.0, 1.0)  # 0.35 streaked the whole field one way (lidar streaks 5 vs 1.1)
-    plain = math('ADD', math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 0.3), 2.0, 0.5).outputs["Fac"], 1.4),
+    plain = math('ADD', math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 0.3), 4.0, 0.6).outputs["Fac"], 2.2),  # 1.4, 2 octaves: too little broad relief (s64 2x real)
                  math('MULTIPLY', sep.outputs["X"], -0.3))  # a gentle regional slope; lobes and cones carry the relief (Mike: "I don't see anything")
     lobes = plain
-    for sc, cut_at, tall in ((0.8, 0.52, 0.32), (1.3, 0.55, 0.22), (2.1, 0.57, 0.15), (3.4, 0.6, 0.1)):
+    for sc, cut_at, tall in ((0.8, 0.52, 0.2), (1.3, 0.55, 0.14), (2.1, 0.57, 0.1), (3.4, 0.6, 0.07)):  # lower fronts: 64 m relief was 2x real
         ln = noise(flow_v.outputs[0], 'FBM', math('MULTIPLY', inp["Feature Scale"], sc), 3.0, 0.5).outputs["Fac"]
         front = smooth(ln, cut_at, cut_at + 0.03)  # flow front (0.012 stood too sharp: 1 m slope90 40 vs 25 real)
         dome = smooth(ln, cut_at, cut_at + 0.12)     # low rounded top behind it
@@ -625,6 +634,12 @@ def _build(ng, recipe):
     cinder = math('MULTIPLY', math('SUBTRACT', cone, cone_crater), cone_here)
     volcanic = math('ADD', math('ADD', lobes, pressure),
                     math('ADD', math('MULTIPLY', cinder, 0.45), math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 30.0), 4.0, 0.6).outputs["Fac"], 0.012)))  # rough lava surface
+    # Broken aa rubble on every flow (photo review, Craters of the Moon 1 m lidar: slope50 10 deg, ours 3.6 on
+    # smooth flow tops): folded noise reads as jagged blocks and ridges down to a meter or two. Rock grain
+    # can't do it here: it only starts below the shape's own detail, and this type isn't eroded.
+    rubble = math('MULTIPLY', math('ADD', soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 40.0), 8.0, 0.72).outputs["Fac"], 0.1),
+                                       soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 97.0), 7.0, 0.72).outputs["Fac"], 0.1)), 0.5)  # two scales: one made a spectrum spike
+    volcanic = math('ADD', volcanic, math('MULTIPLY', math('SUBTRACT', rubble, 0.5), math('ADD', 0.03, math('MULTIPLY', inp["Roughness"], 0.12))))
 
     # Recipe 9, glacial valley (Pass 7, from Yosemite photos): a flat floor between sheer granite walls
     # that stand straight up from it and round over at an even rim (El Capitan, Half Dome); above the rim,
@@ -748,6 +763,25 @@ def _build(ng, recipe):
     cone_h = math('ADD', cone_h, lip)
     shaped_cone = math('ADD', math('MULTIPLY', cone_h, math('SUBTRACT', 1.0, in_crater)),
                        math('MULTIPLY', inside, in_crater))
+    # P7 Inner Cone (photo review): Caldera gets an island cinder cone off to one side of the floor, with
+    # its own small summit crater (Wizard Island, Crater Lake); Strato a rounded, rubbly lava dome near the
+    # middle (Mount St Helens). Other styles have none.
+    in_off = pick_float(style, (0.12, 0.0, 0.0, 0.42, 0.0))
+    in_size = pick_float(style, (0.38, 0.0, 0.0, 0.3, 0.0))
+    in_tall = pick_float(style, (0.85, 0.0, 0.0, 1.0, 0.0))  # at P7 0.6: Wizard Island stands ~0.4-0.6 of the caldera depth
+    in_ang = math('MULTIPLY', seed_val, 2.39)
+    ix = math('SUBTRACT', math('DIVIDE', xo, radius_t), math('MULTIPLY', math('COSINE', in_ang), math('MULTIPLY', crater_r, in_off)))
+    iy = math('SUBTRACT', math('DIVIDE', yo, radius_t), math('MULTIPLY', math('SINE', in_ang), math('MULTIPLY', crater_r, in_off)))
+    ri = math('DIVIDE', math('SQRT', math('ADD', math('MULTIPLY', ix, ix), math('MULTIPLY', iy, iy))),
+              math('MAXIMUM', math('MULTIPLY', crater_r, in_size), 1e-3))
+    is_cal = pick_float(style, (0.0, 0.0, 0.0, 1.0, 0.0))
+    cone_in = math('SUBTRACT', smooth(ri, 1.0, 0.0), math('MULTIPLY', smooth(ri, 0.3, 0.05), 0.3))  # cinder cone, small crater
+    dome_in = math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, math('MULTIPLY', ri, ri)), 0.0), 0.6)  # round-shouldered dome
+    in_shape = math('ADD', math('MULTIPLY', cone_in, is_cal), math('MULTIPLY', dome_in, math('SUBTRACT', 1.0, is_cal)))
+    in_shape = math('ADD', in_shape, math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 30.0), 4.0, 0.6).outputs["Fac"], 0.5),
+                                    math('MULTIPLY', smooth(ri, 1.0, 0.6), 0.25)))  # rubble
+    inner_top = math('ADD', math('SUBTRACT', 1.0, depth), math('MULTIPLY', math('MULTIPLY', in_shape, math('MULTIPLY', depth, in_tall)), inp["P7"]))
+    shaped_cone = math('ADD', shaped_cone, math('MULTIPLY', in_crater, math('MAXIMUM', math('SUBTRACT', inner_top, shaped_cone), 0.0)))
     # Breach (+X): a lava outflow. Inside a smooth-edged sector the volcano is capped by a ramp
     # that runs from the crater floor down to the foot, so the rim opens and the slope below drops.
     facing = math('DIVIDE', xo, math('MAXIMUM', math('MULTIPLY', r, radius_t), 1e-5))

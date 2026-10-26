@@ -27,7 +27,9 @@
         "meander": 0.0,
         "bank_deg": 15.0,
         "floor_carve": 2,
-        "cliff_deg": 30.0
+        "cliff_deg": 30.0,
+        "lean": 0.03,
+        "lean_axis": 0
       },
       "feature_label": "Hill Size",
       "feature_noun": "hills"
@@ -147,13 +149,13 @@
         "amount": 0.7,
         "talus_deg": 60.0,
         "incision": 3.0,
-        "soften": 0.15,
+        "soften": 0.3,
         "protect": 16,
         "cliff_deg": 85.0,
         "hardness": 0.8,
         "meander": 1.0,
         "sea_level": 0.1,
-        "channel": 0.0005
+        "channel": 0.0003
       },
       "feature_label": "Headland Size",
       "feature_noun": "headlands"
@@ -441,6 +443,15 @@
           "prop": "breach",
           "slot": "P4",
           "default": 0.0
+        },
+        {
+          "prop": "inner_cone",
+          "slot": "P7",
+          "default": 0.6,
+          "styles": [
+            "strato",
+            "caldera"
+          ]
         }
       ],
       "feature_label": "Volcano Size",

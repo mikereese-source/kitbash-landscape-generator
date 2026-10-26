@@ -589,6 +589,8 @@ class LG_ObjectProps(PropertyGroup):
         default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     channel_count: FloatProperty(name="Channel Count", description="A few big channels, or many small braided ones",
         default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    inner_cone: FloatProperty(name="Inner Cone", description="An island cone in a caldera, or a lava dome in a stratovolcano's crater",
+        default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     gully_density: FloatProperty(name="Gully Density", description="Few broad mounds, or many tight gullies",
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     proportional: BoolProperty(name="Proportional Feature Scaling", description="On: scaling keeps hills, peaks and dunes their real size, so a bigger landscape fits more of them. Off: everything grows together",

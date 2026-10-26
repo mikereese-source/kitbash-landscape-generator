@@ -15,17 +15,17 @@
    "relief": 518.8
   },
   "ours": {
-   "s1": 0.0044,
-   "s8": 0.035,
-   "s64": 0.224,
-   "h_small": 0.99,
-   "h_mid": 0.84,
-   "slope50": 23.9,
-   "slope90": 46.9,
-   "spikes": 4.4,
+   "s1": 0.0046,
+   "s8": 0.0363,
+   "s64": 0.226,
+   "h_small": 0.98,
+   "h_mid": 0.83,
+   "slope50": 24.0,
+   "slope90": 47.5,
+   "spikes": 4.1,
    "spike_m": 38.6,
-   "streaks": 1.86,
-   "relief": 285.8
+   "streaks": 1.66,
+   "relief": 285.7
   },
   "real_structure": {
    "pit_share": 0.0,
@@ -36,10 +36,10 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 3.3,
-   "concavity": 0.74,
-   "rough_split": 1.18,
-   "trunk": 0.381
+   "drainage": 3.4,
+   "concavity": 0.75,
+   "rough_split": 1.2,
+   "trunk": 0.382
   },
   "missing": 0.0,
   "t6b": "PASS",
@@ -291,16 +291,16 @@
    "relief": 108.6
   },
   "ours": {
-   "s1": 0.006,
-   "s8": 0.0473,
-   "s64": 0.257,
-   "h_small": 0.98,
-   "h_mid": 0.69,
-   "slope50": 1.1,
-   "slope90": 12.0,
+   "s1": 0.0093,
+   "s8": 0.0722,
+   "s64": 0.329,
+   "h_small": 0.97,
+   "h_mid": 0.54,
+   "slope50": 1.4,
+   "slope90": 20.2,
    "spikes": 3.1,
-   "spike_m": 17.8,
-   "streaks": 2.64,
+   "spike_m": 18.5,
+   "streaks": 2.43,
    "relief": 100.4
   },
   "real_structure": {
@@ -312,13 +312,13 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 4.0,
-   "concavity": 1.4,
-   "rough_split": 1.02,
-   "trunk": 0.739
+   "drainage": 3.9,
+   "concavity": 1.43,
+   "rough_split": 1.23,
+   "trunk": 0.721
   },
   "missing": 0.237,
-  "t6b": "FAIL: slope90",
+  "t6b": "PASS",
   "t6c": "PASS"
  },
  "hills": {
@@ -338,16 +338,16 @@
   },
   "ours": {
    "s1": 0.0043,
-   "s8": 0.0345,
-   "s64": 0.265,
+   "s8": 0.034,
+   "s64": 0.259,
    "h_small": 1.0,
-   "h_mid": 0.9,
-   "slope50": 10.8,
-   "slope90": 26.6,
-   "spikes": 5.6,
-   "spike_m": 28.1,
-   "streaks": 2.3,
-   "relief": 110.1
+   "h_mid": 0.88,
+   "slope50": 8.4,
+   "slope90": 18.5,
+   "spikes": 6.5,
+   "spike_m": 30.1,
+   "streaks": 2.1,
+   "relief": 80.1
   },
   "real_structure": {
    "pit_share": 0.0,
@@ -358,10 +358,10 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 2.7,
-   "concavity": 1.96,
-   "rough_split": 0.97,
-   "trunk": 0.623
+   "drainage": 2.8,
+   "concavity": 2.02,
+   "rough_split": 0.84,
+   "trunk": 0.626
   },
   "missing": 0.0,
   "t6b": "FAIL: slope90",
@@ -429,17 +429,17 @@
    "relief": 221.9
   },
   "ours": {
-   "s1": 0.0082,
-   "s8": 0.0642,
-   "s64": 0.4,
-   "h_small": 0.98,
-   "h_mid": 0.68,
-   "slope50": 3.6,
-   "slope90": 24.2,
-   "spikes": 2.1,
+   "s1": 0.0085,
+   "s8": 0.063,
+   "s64": 0.403,
+   "h_small": 0.96,
+   "h_mid": 0.69,
+   "slope50": 7.1,
+   "slope90": 19.0,
+   "spikes": 4.4,
    "spike_m": 85.3,
-   "streaks": 2.79,
-   "relief": 149.9
+   "streaks": 1.4,
+   "relief": 146.9
   },
   "real_structure": {
    "pit_share": 0.021,
@@ -449,15 +449,15 @@
    "trunk": 0.357
   },
   "ours_structure": {
-   "pit_share": 0.025,
-   "drainage": 4.8,
-   "concavity": 0.84,
-   "rough_split": 1.14,
-   "trunk": 0.567
+   "pit_share": 0.037,
+   "drainage": 4.1,
+   "concavity": 1.05,
+   "rough_split": 0.41,
+   "trunk": 0.558
   },
   "missing": 0.0,
-  "t6b": "FAIL: slope50, s64",
-  "t6c": "FAIL: concavity"
+  "t6b": "FAIL: s64",
+  "t6c": "FAIL: concavity, rough_split"
  },
  "glacial": {
   "step_m": 1.0,
@@ -475,17 +475,17 @@
    "relief": 1098.9
   },
   "ours": {
-   "s1": 0.0045,
-   "s8": 0.0357,
-   "s64": 0.26,
-   "h_small": 0.99,
-   "h_mid": 0.87,
-   "slope50": 27.0,
-   "slope90": 44.9,
-   "spikes": 2.3,
-   "spike_m": 4.0,
-   "streaks": 2.64,
-   "relief": 289.7
+   "s1": 0.004,
+   "s8": 0.0314,
+   "s64": 0.206,
+   "h_small": 0.98,
+   "h_mid": 0.83,
+   "slope50": 16.2,
+   "slope90": 42.7,
+   "spikes": 3.7,
+   "spike_m": 113.8,
+   "streaks": 3.26,
+   "relief": 326.2
   },
   "real_structure": {
    "pit_share": 0.0,
@@ -496,14 +496,14 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 2.7,
-   "concavity": 0.58,
-   "rough_split": 0.94,
-   "trunk": 0.552
+   "drainage": 3.4,
+   "concavity": 0.34,
+   "rough_split": 1.36,
+   "trunk": 0.412
   },
   "missing": 0.0,
   "t6b": "PASS",
-  "t6c": "FAIL: rough_split, drainage"
+  "t6c": "FAIL: concavity"
  },
  "riverbed": {
   "step_m": 1.0,
@@ -568,15 +568,15 @@
   },
   "ours": {
    "s1": 0.0029,
-   "s8": 0.0226,
-   "s64": 0.162,
+   "s8": 0.0227,
+   "s64": 0.163,
    "h_small": 0.98,
    "h_mid": 0.92,
-   "slope50": 20.3,
-   "slope90": 41.6,
-   "spikes": 1.5,
-   "spike_m": 23.3,
-   "streaks": 1.25,
+   "slope50": 20.5,
+   "slope90": 41.8,
+   "spikes": 2.3,
+   "spike_m": 303.4,
+   "streaks": 1.28,
    "relief": 1719.5
   },
   "real_structure": {
@@ -614,14 +614,14 @@
   },
   "ours": {
    "s1": 0.0032,
-   "s8": 0.0251,
-   "s64": 0.189,
+   "s8": 0.0252,
+   "s64": 0.19,
    "h_small": 0.99,
    "h_mid": 0.93,
-   "slope50": 10.4,
-   "slope90": 22.7,
-   "spikes": 5.7,
-   "spike_m": 431.2,
+   "slope50": 10.5,
+   "slope90": 22.8,
+   "spikes": 5.5,
+   "spike_m": 409.6,
    "streaks": 1.2,
    "relief": 569.9
   },
@@ -636,7 +636,7 @@
    "pit_share": 0.163,
    "drainage": 5.9,
    "concavity": 1.58,
-   "rough_split": 1.32,
+   "rough_split": 1.33,
    "trunk": 0.238
   },
   "missing": 0.0,

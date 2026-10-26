@@ -9,11 +9,11 @@
    "rough": 0.0275
   },
   "ours": {
-   "relief": 0.0379,
-   "slope50": 8.2,
-   "slope90": 16.7,
-   "hyps": 0.383,
-   "rough": 0.0154
+   "relief": 0.0389,
+   "slope50": 8.3,
+   "slope90": 18.2,
+   "hyps": 0.374,
+   "rough": 0.0187
   },
   "t6": "PASS"
  },
@@ -64,10 +64,10 @@
   },
   "ours": {
    "relief": 0.0483,
-   "slope50": 0.5,
-   "slope90": 11.5,
-   "hyps": 0.406,
-   "rough": 0.0308
+   "slope50": 1.1,
+   "slope90": 18.8,
+   "hyps": 0.409,
+   "rough": 0.0488
   }
  },
  "canyon": {
@@ -81,10 +81,10 @@
   },
   "ours": {
    "relief": 0.1392,
-   "slope50": 23.9,
-   "slope90": 46.3,
-   "hyps": 0.369,
-   "rough": 0.0223
+   "slope50": 24.0,
+   "slope90": 46.8,
+   "hyps": 0.37,
+   "rough": 0.023
   },
   "t6": "PASS"
  },
@@ -134,11 +134,11 @@
    "rough": 0.0175
   },
   "ours": {
-   "relief": 0.0726,
-   "slope50": 4.0,
-   "slope90": 20.1,
-   "hyps": 0.234,
-   "rough": 0.0283
+   "relief": 0.0706,
+   "slope50": 4.3,
+   "slope90": 14.3,
+   "hyps": 0.249,
+   "rough": 0.0257
   },
   "t6": "FAIL: relief"
  },
@@ -153,10 +153,10 @@
   },
   "ours": {
    "relief": 0.0941,
-   "slope50": 9.3,
-   "slope90": 21.7,
+   "slope50": 9.4,
+   "slope90": 21.8,
    "hyps": 0.239,
-   "rough": 0.0097
+   "rough": 0.01
   },
   "t6": "PASS"
  },
@@ -171,10 +171,10 @@
   },
   "ours": {
    "relief": 0.0473,
-   "slope50": 7.0,
+   "slope50": 7.1,
    "slope90": 15.7,
-   "hyps": 0.339,
-   "rough": 0.0114
+   "hyps": 0.34,
+   "rough": 0.0116
   },
   "t6": "PASS"
  },

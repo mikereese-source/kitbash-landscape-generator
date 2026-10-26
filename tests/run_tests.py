@@ -350,6 +350,52 @@ def _t25():
     return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted"
 
 
+MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit")
+
+
+def masks_of(ob):
+    lg.sync_object(ob)  # Add's first sync runs before the mesh exists; erosion runs on the next one
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    out = {}
+    for name in MASKS:
+        if name in me.attributes:
+            a = np.empty(len(me.vertices))
+            me.attributes[name].data.foreach_get("value", a)
+            out[name] = a
+    ev.to_mesh_clear()
+    return out
+
+
+@test("T9", "Masks exist and are 0-1")
+def _t9():
+    eroded = 0
+    for key, rec in lg.TYPES.items():
+        fresh_scene()
+        ob = add(key)
+        m = masks_of(ob)
+        missing = [n for n in MASKS if n not in m]
+        check(not missing, f"{key}: missing {missing}")
+        for n, a in m.items():
+            check(np.isfinite(a).all() and a.min() >= -1e-6 and a.max() <= 1 + 1e-6, f"{key}: {n} outside 0-1 ({a.min():.3f}..{a.max():.3f})")
+        check(np.ptp(m["lg_height"]) > 0.99 and np.ptp(m["lg_slope"]) > 0.05, f"{key}: height/slope masks flat")
+        if rec.get("erosion") and ob.lg.erosion_amount > 0:
+            eroded += 1
+            check(m["lg_flow"].max() > 0.5, f"{key}: no channels in the flow mask")
+            check(m["lg_wear"].max() > 0.05 or m["lg_deposit"].max() > 0.05, f"{key}: erosion left no wear or deposit")
+    fresh_scene()
+    ob = add("mountains")
+    m = masks_of(ob)
+    wet = m["lg_flow"] > 0.6
+    check(m["lg_curvature"][wet].mean() > m["lg_curvature"].mean(), "flow should run in hollows (high curvature)")
+    fresh_scene()
+    ob = add("mesa")
+    check((masks_of(ob)["lg_slope"] > 0.6).mean() > 0.01, "Mesa cliffs should be steep in the slope mask")
+    return f"6 masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
+
+
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")
 def _t26():
     fresh_scene()

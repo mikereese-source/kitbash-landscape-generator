@@ -389,7 +389,9 @@ def _sample_shape(ob, grid):
 
 def _compute_erosion(h, hard, settings, pad):
     """Pure numpy: safe on a worker thread."""
-    return erosion.erode(h, settings, hard)[pad:-pad, pad:-pad]
+    z, (flow, change) = erosion.erode(h, settings, hard, masks=True)
+    crop = (slice(pad, -pad), slice(pad, -pad))
+    return z[crop], flow[crop], change[crop]
 
 
 def _apply_erosion(ob, eroded, key, seconds):
@@ -401,6 +403,7 @@ def _apply_erosion(ob, eroded, key, seconds):
     # cliff (Catmull-Rom): 4 m and false 114 m spectrum spikes on Badlands and Mesa (Pass 6). (Storing only
     # the change kept the shape's fine detail everywhere and lost the smooth-floor / rough-rock contrast:
     # rough split 0.68 vs 1.27 real, Pass 2.)
+    eroded, flow, change = eroded  # heights, plus the flow and wear/deposit masks (M3) in G and B
     delta = eroded / max(props.height, 1e-6)
     ny, nx = delta.shape
     name = f"LG Erosion {ob.name}"
@@ -412,6 +415,8 @@ def _apply_erosion(ob, eroded, key, seconds):
         img.colorspace_settings.name = "Non-Color"
     rgba = np.zeros((ny, nx, 4), dtype=np.float32)
     rgba[..., 0] = delta
+    rgba[..., 1] = flow
+    rgba[..., 2] = change
     rgba[..., 3] = 1.0
     img.pixels.foreach_set(rgba.ravel())
     img.file_format = 'OPEN_EXR'

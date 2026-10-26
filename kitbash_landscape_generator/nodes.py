@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 126  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 127  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -1128,6 +1128,42 @@ def _build(ng, recipe):
         L.new(setpos2.outputs[0], drop.inputs["Geometry"])
         L.new(cut_at.outputs["Attribute"], drop.inputs["Selection"])
         out_geo = drop.outputs[0]
+    # Data masks (M3, D74), 0..1 named attributes on the final mesh for materials and scatter (M5):
+    # lg_height (0 lowest, 1 highest), lg_slope (0 flat, 1 vertical), lg_curvature (0.5 even, toward 1 in
+    # hollows and valleys, toward 0 on ridges), lg_flow (water draining through, from the erosion engine),
+    # lg_wear and lg_deposit (where erosion cut and where it filled). Engine masks are 0 when not eroded.
+    m_pos = N.new('ShaderNodeSeparateXYZ')
+    L.new(N.new('GeometryNodeInputPosition').outputs[0], m_pos.inputs[0])
+    m_stats = N.new('GeometryNodeAttributeStatistic')
+    m_stats.data_type = 'FLOAT'
+    m_stats.domain = 'POINT'
+    L.new(out_geo, m_stats.inputs["Geometry"])
+    L.new(m_pos.outputs["Z"], m_stats.inputs["Attribute"])
+    m_height = math('DIVIDE', math('SUBTRACT', m_pos.outputs["Z"], m_stats.outputs["Min"]),
+                    math('MAXIMUM', math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"]), 1e-6))
+    m_nrm = N.new('ShaderNodeSeparateXYZ')
+    L.new(N.new('GeometryNodeInputNormal').outputs[0], m_nrm.inputs[0])
+    m_slope = math('DIVIDE', math('ARCCOSINE', math('MINIMUM', math('ABSOLUTE', m_nrm.outputs["Z"]), 1.0)), 1.5707963)
+    m_blur = N.new('GeometryNodeBlurAttribute')
+    m_blur.data_type = 'FLOAT'
+    m_blur.inputs["Iterations"].default_value = 3
+    L.new(m_pos.outputs["Z"], m_blur.inputs["Value"])
+    m_curv = math('ADD', 0.5, math('MULTIPLY', math('DIVIDE', math('SUBTRACT', m_blur.outputs["Value"], m_pos.outputs["Z"]),
+                                                            math('MAXIMUM', spacing, 1e-6)), 0.5))
+    m_curv = math('MINIMUM', math('MAXIMUM', m_curv, 0.0), 1.0)
+    m_flow = math('MULTIPLY', er_r.outputs[1], inp["Erosion"])
+    m_change = math('MULTIPLY', math('SUBTRACT', er_r.outputs[2], 0.5), math('MULTIPLY', inp["Erosion"], 2.0))  # -1 cut .. 1 filled
+    m_wear = math('MINIMUM', math('MAXIMUM', math('MULTIPLY', m_change, -1.0), 0.0), 1.0)
+    m_dep = math('MINIMUM', math('MAXIMUM', m_change, 0.0), 1.0)
+    for m_name, m_val in (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv),
+                          ("lg_flow", m_flow), ("lg_wear", m_wear), ("lg_deposit", m_dep)):
+        st = N.new('GeometryNodeStoreNamedAttribute')
+        st.data_type = 'FLOAT'
+        st.domain = 'POINT'
+        st.inputs["Name"].default_value = m_name
+        L.new(out_geo, st.inputs["Geometry"])
+        L.new(m_val, st.inputs["Value"])
+        out_geo = st.outputs[0]
     shade = N.new('GeometryNodeSetShadeSmooth')
     L.new(out_geo, shade.inputs["Geometry"])
     L.new(shade.outputs[0], gout.inputs["Geometry"])

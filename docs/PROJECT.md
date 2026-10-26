@@ -70,7 +70,7 @@ Every plan includes an errors & edge cases milestone and a final check.
 **M3 steps (approved 2026-10-26, D74; checkpoint after each)**
 | Step | What | Size |
 |---|---|---|
-| 3.1 | Data masks: height, slope, curvature (node tree) and flow, wear, deposits (erosion engine, stored per landscape) as named attributes in 0–1, kept for M5 materials and scatter (T9) | M |
+| 3.1 | Data masks: height, slope, curvature (node tree) and flow, wear, deposits (erosion engine, stored per landscape) as named attributes in 0–1, kept for M5 materials and scatter (T9) | M — done 2026-10-26 (T9 PASS, 18/18) |
 | 3.2 | Mask viewer: a "Show mask" choice in the panel that colours the viewport by any mask | S |
 | 3.3 | Terraces / strata control (count, strength, tilt) on Mesa, Canyon, Badlands, Coastal Cliffs and Mountains (T10) | M |
 | 3.4 | Water level: on/off water plane at a set height for any landscape (lakes, sea, rivers) with one plain water material; full water shaders come in M5 (T27) | S–M |

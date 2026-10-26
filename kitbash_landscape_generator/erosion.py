@@ -350,7 +350,7 @@ def edge_lift(diff, edge):
     return np.array([np.interp(np.arange(n), rows, c) for c in out.T]).T
 
 
-def erode(h, settings=None, hard=None):
+def erode(h, settings=None, hard=None, masks=False):
     """h: 2D heights, landscape-relative (height / size). hard: optional 0..1 hard rock from the recipe
     (cliff bands, caprock, crests): cuts slower, rests steeper, isn't softened. Returns eroded heights."""
     s = dict(DEFAULTS)
@@ -513,7 +513,27 @@ def erode(h, settings=None, hard=None):
     # notches and drips along every border (the "edge frame", Pass 1-3).
     w = np.clip(1.0 - d_edge / max(s["edge_blend"], 1e-6), 0.0, 1.0) if s["edge_blend"] > 0 else 0.0
     z = z * (1.0 - w) + target * w
-    return fill(z)
+    z = fill(z)
+    return (z, erosion_masks(h, z)) if masks else z
+
+
+def erosion_masks(before, after):
+    """(flow, change), both 0..1, for materials and scatter (M3): flow is how much water drains through
+    each cell (log of drainage area, 1 on the trunks); change is 0.5 where erosion left the ground alone,
+    toward 0 where it cut (wear) and toward 1 where it filled (deposits), at 1 for a 5% of the relief change."""
+    n, m = after.shape
+    dx = 1.0 / (max(n, m) - 1)
+    rcv, _ = routing(after, dx)
+    area = np.full(after.size, dx * dx)
+    for lv in levels(rcv):
+        r = rcv[lv]
+        ok = r >= 0
+        np.add.at(area, r[ok], area[lv][ok])
+    a_rel = (area / (n * m * dx * dx)).reshape(n, m)
+    flow = np.clip(np.log10(np.maximum(a_rel, 1e-12) * n * m) / np.log10(n * m), 0.0, 1.0)  # one cell 0, all 1
+    span = max(float(np.ptp(after)), 1e-12) * 0.05
+    change = np.clip(0.5 + 0.5 * (after - before) / span, 0.0, 1.0)
+    return flow, change
 
 
 if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, loses its pits
@@ -541,4 +561,7 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     step += 0.002 * np.random.default_rng(2).standard_normal(step.shape)
     out_step = erode(step, {"passes": 2, "keep_detail": 1.0, "edge_blend": 0.0})
     assert out_step[:, 34:].max() < 1.0 + 0.05, "rim halo: detail stood up along the step edge"
+    z2, (fl, ch) = erode(h, masks=True)
+    assert fl.shape == h.shape and 0.0 <= fl.min() and fl.max() <= 1.0 and 0.0 <= ch.min() and ch.max() <= 1.0, "masks out of range"
+    assert fl[-2, :].mean() > fl[1, :].mean(), "flow should gather downhill"
     print("erosion self-check OK")

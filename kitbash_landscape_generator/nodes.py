@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 100  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 101  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -243,7 +243,6 @@ def _build(ng, recipe):
     along = noise(vec(math('MULTIPLY', pm.outputs["X"], math('MULTIPLY', inp["Feature Scale"], 1.3)),
                       math('MULTIPLY', spine_i, 7.13), seed_val), 'FBM', 1.0, 2.0, 0.5).outputs["Fac"]
     spine_h = math('ADD', 0.35, math('MULTIPLY', along, 1.1))  # peaks and saddles along each spine
-    spine_even = spine_h  # Glacial walls keep even spines (weak ones left its trough too gentle)
     # Each spine its own strength and profile: some fade to low hills, some stand as main ridges,
     # broad or knife-edged. Identical spines read as parallel bands (Pass 2 sheet).
     spine_k = noise(vec(math('MULTIPLY', spine_i, 3.71), seed_val, 9.1), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"]
@@ -262,8 +261,6 @@ def _build(ng, recipe):
     # the engine drains the noise's basins now (D58).
     mix_r = 0.4  # 0.7 left one big basin the engine filled flat
     primary = math('ADD', math('MULTIPLY', primary, 1.0 - mix_r), math('MULTIPLY', math('ADD', math('MULTIPLY', mountains, 1.2), tilt), mix_r))
-    walls_p = math('ADD', math('ADD', math('MULTIPLY', math('POWER', crest, 1.3), spine_even), spurs), tilt)
-    walls_m = math('ADD', mountains, math('MULTIPLY', math('SUBTRACT', walls_p, mountains), inp["Primary"]))
     mountains = math('ADD', mountains, math('MULTIPLY', math('SUBTRACT', primary, mountains), inp["Primary"]))
     # Primary shapes for the other eroded types (D55, Pass 1): each keeps its own forms but every
     # low drains: floors tilt to one end (the same tilt as the Mountains valleys).
@@ -629,18 +626,33 @@ def _build(ng, recipe):
     volcanic = math('ADD', math('ADD', lobes, pressure),
                     math('ADD', math('MULTIPLY', cinder, 0.45), math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 30.0), 4.0, 0.6).outputs["Fac"], 0.012)))  # rough lava surface
 
-    # Recipe 9, glacial valley: mountains with a broad U-shaped trough carved along X: flat
-    # floor, steep smooth walls.
+    # Recipe 9, glacial valley (Pass 7, from Yosemite photos): a flat floor between sheer granite walls
+    # that stand straight up from it and round over at an even rim (El Capitan, Half Dome); above the rim,
+    # mountains with ridges every way; side valleys run down to the trough but stop at the rim, so they
+    # hang high on the wall (Bridalveil, Yosemite Falls). Pass 4's walls borrowed the Mountains spines,
+    # which ran parallel to the trough and pinched a second valley in beside it.
     axis = math('MULTIPLY', math('SUBTRACT', noise(vec(x, 0.0, seed_val), 'FBM', 2.2, 1.0, 0.5).outputs["Fac"], 0.5),
                 math('ADD', math('MULTIPLY', inp["Warp"], 2.0), 0.9))  # the trough bends; Warp at its default ran it straight across (Pass 3 sheet)
     across = math('DIVIDE', math('ABSOLUTE', math('SUBTRACT', y, axis)),
-                  math('ADD', 0.08, math('MULTIPLY', inp["P1"], 0.3)))  # P1 valley width
-    walls = smooth(across, 0.45, 1.0)
-    glacial = math('ADD', math('MULTIPLY', walls, math('ADD', 0.15, math('MULTIPLY', walls_m, 0.85))),
-                   math('MULTIPLY', base, 0.03))
-    # Primary: the trough floor falls along the valley (its walls already use the drained mountains)
+                  math('ADD', 0.08, math('MULTIPLY', inp["P1"], 0.3)))  # P1 valley width; floor is across < 1
+    # Wall: steepest at its foot, rounding over at the rim (1 - (1 - s)^2 over 0.35 of the half-width).
+    ws = math('MINIMUM', math('MAXIMUM', math('DIVIDE', math('SUBTRACT', across, 1.0), 0.35), 0.0), 1.0)
+    rim_h = math('ADD', 0.62, math('MULTIPLY', math('SUBTRACT', noise(vec(math('MULTIPLY', x, 3.0), seed_val, 5.1), 'FBM', 1.0, 1.0, 0.5).outputs["Fac"], 0.5), 0.15))
+    wall = math('MULTIPLY', math('SUBTRACT', 1.0, math('POWER', math('SUBTRACT', 1.0, ws), 2.0)), rim_h)
+    # Uplands: drained mountains beyond the rim, rising away from it.
+    up = smooth(across, 1.35, 2.6)
+    upland = math('MULTIPLY', math('MULTIPLY', mountains, up), 1.5)
+    # Hanging valleys: side valleys at intervals along the trough, cut into the uplands but never below
+    # the rim, so their floors end high on the wall.
+    t_phase = math('ADD', math('MULTIPLY', x, math('MULTIPLY', inp["Feature Scale"], 1.6)),
+                   math('MULTIPLY', math('SUBTRACT', noise(vec(x, y, seed_val), 'FBM', 3.0, 2.0, 0.5).outputs["Fac"], 0.5), 2.0))
+    trib = math('POWER', math('SUBTRACT', 1.0, math('ABSOLUTE', math('SUBTRACT', math('MULTIPLY', math('FRACT', t_phase), 2.0), 1.0))), 3.0)
+    upland = math('MULTIPLY', upland, math('SUBTRACT', 1.0, math('MULTIPLY', trib, math('MULTIPLY', smooth(across, 4.0, 1.4), 0.6))))
+    glacial = math('ADD', math('ADD', wall, upland), math('MULTIPLY', base, 0.03))
+    # Primary: the trough floor falls along the valley
     glacial = math('ADD', glacial, math('MULTIPLY', math('SUBTRACT', math('ADD', glacial, math('MULTIPLY', tilt, 0.8)), glacial), inp["Primary"]))
-    hard_glacial = math('MULTIPLY', math('MULTIPLY', smooth(across, 0.5, 0.65), smooth(across, 1.3, 0.95)), 0.85)  # granite trough walls
+    hard_glacial = math('MAXIMUM', math('MULTIPLY', math('MULTIPLY', smooth(across, 0.98, 1.05), smooth(across, 1.5, 1.3)), 0.95),
+                        math('MULTIPLY', smooth(across, 1.3, 1.6), 0.35))  # sheer granite walls; domes and uplands firm
 
     # Recipe 10, riverbed: a wide nearly flat gravel floor with braided channels running along X
     # (noise stretched along the flow), and banks rising at the sides.

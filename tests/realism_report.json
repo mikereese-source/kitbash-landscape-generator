@@ -9,13 +9,13 @@
    "rough": 0.0275
   },
   "ours": {
-   "relief": 0.0536,
-   "slope50": 10.6,
-   "slope90": 26.0,
-   "hyps": 0.314,
-   "rough": 0.0181
+   "relief": 0.0379,
+   "slope50": 8.2,
+   "slope90": 16.7,
+   "hyps": 0.383,
+   "rough": 0.0154
   },
-  "t6": "FAIL: relief"
+  "t6": "PASS"
  },
  "mountains": {
   "width_km": 10.0,
@@ -241,11 +241,11 @@
    "rough": 0.0261
   },
   "ours": {
-   "relief": 0.141,
-   "slope50": 26.9,
-   "slope90": 44.7,
-   "hyps": 0.453,
-   "rough": 0.019
+   "relief": 0.1589,
+   "slope50": 16.1,
+   "slope90": 42.6,
+   "hyps": 0.423,
+   "rough": 0.0167
   },
   "t6": "PASS"
  },

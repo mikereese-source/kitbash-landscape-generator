@@ -284,10 +284,16 @@ def _t22():
         fresh_scene()
         ob = add(key)
         for ctl in rec["controls"]:
+            if "styles" in ctl:  # a style-only control (Mesa Floor: Hero Butte)
+                ob.lg.style = ctl["styles"][0]
             before = evaluated_points(ob)[:, 2].copy()
-            value = 1.2 if ctl["prop"] == "wind_direction" else (0.1 if ctl["default"] > 0.5 else 0.9)
+            if isinstance(ctl["default"], bool):  # a toggle (Mesa Floor)
+                value = not ctl["default"]
+            else:
+                value = 1.2 if ctl["prop"] == "wind_direction" else (0.1 if ctl["default"] > 0.5 else 0.9)
             setattr(ob.lg, ctl["prop"], value)
-            check(not np.allclose(evaluated_points(ob)[:, 2], before), f"{key}: {ctl['prop']} did nothing")
+            after = evaluated_points(ob)[:, 2]
+            check(after.shape != before.shape or not np.allclose(after, before), f"{key}: {ctl['prop']} did nothing")
             done.append(f"{key}.{ctl['prop']}")
     fresh_scene()
     ob = add("dunes")

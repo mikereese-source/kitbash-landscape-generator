@@ -228,6 +228,24 @@
           "prop": "caprock_tiers",
           "slot": "P3",
           "default": 0.5
+        },
+        {
+          "prop": "mesa_floor",
+          "slot": "P4",
+          "default": true,
+          "erosion": {
+            "pediment": [
+              0.0,
+              1.0
+            ],
+            "uplift": [
+              0.0,
+              1.0
+            ]
+          },
+          "styles": [
+            "hero"
+          ]
         }
       ],
       "erosion": {

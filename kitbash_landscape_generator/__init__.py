@@ -205,7 +205,7 @@ def sync_object(ob):
     if st:
         values["Style"] = st["index"]
     for ctl in recipe.get("controls", ()):
-        values[ctl["slot"]] = getattr(props, ctl["prop"])
+        values[ctl["slot"]] = _control_value(props, ctl)
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
     # and no erosion run (the old tick box swapped in a weaker pre-erosion shape; Mike, Pass 4 review).
@@ -229,6 +229,13 @@ _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra 
 _pending = {}
 
 
+def _control_value(props, ctl):
+    """A control limited to some styles ("styles": [...]) sits at its default in the others."""
+    if "styles" in ctl and props.style_key not in ctl["styles"]:
+        return ctl["default"]
+    return getattr(props, ctl["prop"])
+
+
 def _erosion_settings(recipe, props):
     er = dict(recipe.get("erosion", {}))
     for st in recipe.get("styles", ()):  # a style can change the erosion (Badlands Mounds: fine rills, not gullies)
@@ -250,7 +257,7 @@ def _erosion_settings(recipe, props):
     er["floor_carve"] = int(round(er.get("floor_carve", d["floor_carve"]) * min(a * 2.0, 1.0)))
     for c in recipe.get("controls", ()):  # a slider can stretch an erosion setting: {"apron": [at 0, at 1]}
         for k, (lo, hi) in c.get("erosion", {}).items():
-            er[k] = er.get(k, d[k]) * (lo + (hi - lo) * getattr(props, c["prop"]))
+            er[k] = er.get(k, d[k]) * (lo + (hi - lo) * _control_value(props, c))
     return er
 
 
@@ -576,6 +583,8 @@ class LG_ObjectProps(PropertyGroup):
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     caprock_tiers: FloatProperty(name="Caprock Tiers", description="None, or a stepped upper tier on the biggest mesas",
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    mesa_floor: BoolProperty(name="Floor", description="Off: no desert floor, just the mesas and their talus aprons, to place on your own ground",
+        default=True, update=_sync)
     valley_width: FloatProperty(name="Valley Width", description="How wide the U-shaped valley floor is",
         default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     channel_count: FloatProperty(name="Channel Count", description="A few big channels, or many small braided ones",
@@ -990,7 +999,8 @@ class LG_PT_main(Panel):
                     continue
                 col.prop(props, prop, slider=prop.endswith("_pct"))
             for ctl in recipe.get("controls", ()):
-                box.prop(props, ctl["prop"], slider=True)
+                if "styles" not in ctl or props.style_key in ctl["styles"]:
+                    box.prop(props, ctl["prop"], slider=True)
             if recipe.get("erosion"):
                 box.prop(props, "erosion_amount", slider=True)
                 if ob.name in _pending or ob.name in _jobs:  # so artists know the look is still coming (Mike)

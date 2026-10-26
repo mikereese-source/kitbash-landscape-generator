@@ -19,6 +19,11 @@ Wall, Mounds, Mounds close). Rollback: git (d7d84db is the last commit before th
   Tiers** (none to a tall stepped upper tier). Footprint = Plateau Coverage, cliff height = Height,
   flute depth = Roughness. A slider can now stretch an erosion setting from types.json
   (`"erosion": {"apron": [0.4, 1.6]}`).
+- **Hero Butte Floor toggle (Mike, 2026-10-26):** Floor off gives a standalone butte to place on other
+  ground: no floor relief, tilt, pediment or uplift, and the floor is cut away beyond the aprons, leaving
+  a narrow ring of flat floor so the piece blends in. The cut is marked on the shape before erosion
+  (erosion digs channels below a flat floor) and measured on the smooth field behind the blocks (block
+  edge distance stops mid-block). Hero only: a control can be limited to styles (`"styles": ["hero"]`).
 - **Mesa grain:** rock 1.2, grain roughness 0.7 (the 4-16 m scales were too smooth).
 - **Badlands Wall:** shallower gullies (incision 3.5, cliff 62 deg, talus 42 deg, soften 0.12).
   s64 0.53 vs 0.35 real, inside the band (was 0.63, the one failing measure).

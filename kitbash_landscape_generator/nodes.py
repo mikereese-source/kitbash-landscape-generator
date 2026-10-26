@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 98  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 100  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -486,9 +486,16 @@ def _build(ng, recipe):
     # and rubble that reaches about half the cliff height and runs ~0.6 block out, stepped by ledges.
     # Built from the distance to the block's edge, so it always hugs the blocks (Pass 5 used a separate
     # noise field and left orphan lumps on the floor and bare cliff feet).
-    # P2 Talus Spread: 0.2 to 1 block out (the erosion apron's reach scales with it too, types.json).
-    t = math('MULTIPLY', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, math('ADD', 0.2, math('MULTIPLY', inp["P2"], 0.8)))), 0.0),
+    # P2 Talus Spread: 0.2 to 1 block out (the erosion apron's reach scales with it too, types.json);
+    # 1.6x with Floor off, so the cut-out piece keeps its full apron down to the ground.
+    t = math('MULTIPLY', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, math('MULTIPLY', math('ADD', 0.2, math('MULTIPLY', inp["P2"], 0.8)),
+                                                                                  math('SUBTRACT', 1.6, math('MULTIPLY', inp["P4"], 0.6))))), 0.0),
              math('MULTIPLY', nb_top, math('SUBTRACT', 1.0, top)))
+    # Floor off keeps a short ring of flat floor past the apron's toe (Mike: a little floor, so the piece
+    # blends into the ground it is placed on): beyond this the floor is cut away (lg_cut, below).
+    # Measured on the smooth field the blocks are picked from (read here, not at block centres): the
+    # distance to a block edge stops at the middle of each open block, too short for apron and ring.
+    keep_floor = math('GREATER_THAN', block_value(pj), math('SUBTRACT', edge, 0.2))  # Hero only (types.json): the Field's broad field doesn't follow its blocks
     lu = math('MULTIPLY', t, 3.0)
     ledge = math('DIVIDE', math('ADD', math('FLOOR', lu), math('POWER', math('FRACT', lu), 2.5)), 3.0)
     talus = math('MULTIPLY', math('POWER', math('ADD', math('MULTIPLY', ledge, 0.6), math('MULTIPLY', t, 0.4)), 1.6), 0.5)
@@ -497,11 +504,13 @@ def _build(ng, recipe):
     # on flat desert): rolling swells plus folded ridgelets that erosion turns into dense gullies.
     swell = noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 3.0), detail, 0.6).outputs["Fac"]
     ridgelets = soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 6.0), 3.0, 0.55).outputs["Fac"], 0.3)
-    desert = math('MULTIPLY', math('ADD', math('MULTIPLY', swell, 0.06), math('MULTIPLY', ridgelets, math('MULTIPLY', inp["Roughness"], 0.14))),
-                  math('SUBTRACT', 1.0, top))
+    # P4 Floor off (Mike, 2026-10-26): no floor relief or tilt, and the flat floor is cut away at the end,
+    # leaving the mesas and their aprons as a standalone piece to place on other ground.
+    desert = math('MULTIPLY', math('MULTIPLY', math('ADD', math('MULTIPLY', swell, 0.06), math('MULTIPLY', ridgelets, math('MULTIPLY', inp["Roughness"], 0.14))),
+                  math('SUBTRACT', 1.0, top)), inp["P4"])
     mesa = math('ADD', math('ADD', math('MAXIMUM', talus, top), tier), desert)  # all caps at one level (flat strata)
     # Primary: the desert floor between the blocks drains to one end
-    mesa = math('ADD', mesa, math('MULTIPLY', math('SUBTRACT', math('ADD', mesa, math('MULTIPLY', tilt, 0.6)), mesa), inp["Primary"]))
+    mesa = math('ADD', mesa, math('MULTIPLY', math('SUBTRACT', math('ADD', mesa, math('MULTIPLY', math('MULTIPLY', tilt, 0.6), inp["P4"])), mesa), inp["Primary"]))
     hard_mesa = math('MULTIPLY', math('MAXIMUM', top, smooth(t, 0.92, 1.0)), 0.95)  # caprock and cliff band; talus soft
 
     def pick_float(index, values):
@@ -953,6 +962,18 @@ def _build(ng, recipe):
         store.inputs["Value"].default_value = 0.0
     setpos = N.new('GeometryNodeSetPosition')
     L.new(store.outputs[0], setpos.inputs["Geometry"])
+    if recipe == 6:
+        # Mesa Floor off: the floor is exactly 0 in the shape, so mark it here, before erosion (which digs
+        # small channels below it) moves anything; never while the erosion engine samples the full grid.
+        cut = N.new('GeometryNodeStoreNamedAttribute')
+        cut.data_type = 'BOOLEAN'
+        cut.domain = 'POINT'
+        cut.inputs["Name"].default_value = "lg_cut"
+        L.new(store.outputs[0], cut.inputs["Geometry"])
+        low = math('MULTIPLY', math('LESS_THAN', unit, 0.004), math('SUBTRACT', 1.0, keep_floor))
+        floor_off = math('MULTIPLY', math('LESS_THAN', inp["P4"], 0.5), math('LESS_THAN', inp["Pad Cells"], 0.5))
+        L.new(math('MULTIPLY', low, floor_off), cut.inputs["Value"])
+        L.new(cut.outputs[0], setpos.inputs["Geometry"])
     L.new(offset.outputs[0], setpos.inputs["Offset"])
     shape = setpos.outputs[0]
 
@@ -1004,8 +1025,18 @@ def _build(ng, recipe):
     setpos2 = N.new('GeometryNodeSetPosition')
     L.new(shape, setpos2.inputs["Geometry"])
     L.new(offset2.outputs[0], setpos2.inputs["Offset"])
+    out_geo = setpos2.outputs[0]
+    if recipe == 6:  # Mesa with Floor off: drop the floor, marked on the flat grid from the shape (lg_cut)
+        cut_at = N.new('GeometryNodeInputNamedAttribute')
+        cut_at.data_type = 'BOOLEAN'
+        cut_at.inputs["Name"].default_value = "lg_cut"
+        drop = N.new('GeometryNodeDeleteGeometry')
+        drop.domain = 'POINT'
+        L.new(setpos2.outputs[0], drop.inputs["Geometry"])
+        L.new(cut_at.outputs["Attribute"], drop.inputs["Selection"])
+        out_geo = drop.outputs[0]
     shade = N.new('GeometryNodeSetShadeSmooth')
-    L.new(setpos2.outputs[0], shade.inputs["Geometry"])
+    L.new(out_geo, shade.inputs["Geometry"])
     L.new(shade.outputs[0], gout.inputs["Geometry"])
     _prune(ng, gout)
     ng["kb_version"] = GROUP_VERSION

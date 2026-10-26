@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 120  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 125  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -420,7 +420,11 @@ def _build(ng, recipe):
     canyon = math('ADD', math('MULTIPLY', bench, wall), math('MULTIPLY', cut, math('SUBTRACT', 1.0, wall)))
     # Side gullies and ledges break up the walls at 20-200 m (Grand Canyon 1 m lidar: walls were too smooth).
     side = math('SUBTRACT', soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 9.0), 2.0, 0.5).outputs["Fac"], 0.3), 0.5)
-    canyon = math('ADD', canyon, math('MULTIPLY', side, math('MULTIPLY', wall, 0.12)))
+    # Roughness (Mike, Pass 8: "doesn't seem to be doing anything"; it only wobbled the rim): how cut up the
+    # walls are, plus broken ground on the plateau and floor.
+    canyon = math('ADD', canyon, math('MULTIPLY', side, math('MULTIPLY', wall, math('ADD', 0.03, math('MULTIPLY', inp["Roughness"], 0.2)))))
+    c_brk = math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 16.0), 4.0, 0.6).outputs["Fac"], 0.5)
+    canyon = math('ADD', canyon, math('MULTIPLY', c_brk, math('MULTIPLY', inp["Roughness"], 0.05)))
     # Primary: plateau and channel floors tilt to one end, so the channel network drains
     canyon = math('ADD', canyon, math('MULTIPLY', math('SUBTRACT', math('ADD', canyon, math('MULTIPLY', tilt, 0.8)), canyon), inp["Primary"]))
     hard_canyon = math('MAXIMUM', math('MULTIPLY', wall, smooth(hard, 0.35, 0.65)), math('MULTIPLY', smooth(cut, 0.9, 0.98), 0.9))  # cliff bands, rim caprock
@@ -715,6 +719,13 @@ def _build(ng, recipe):
     # No real volcano is round (Mike, Pass 3): the summit sits off centre and the outline is lopsided,
     # both set by the seed, so flanks differ in length and steepness.
     lop_amt = pick_float(style, (0.6, 0.5, 0.12, 0.45, 0.6))  # cinder cones are nearly round
+    # Always inside the landscape (Mike, Pass 8): past the size that fits, Volcano Size stops growing the
+    # volcano, keeping its shape. Its widest reach is about radius * (1 + lop_amt) (the lopsided foot plus
+    # the summit offset). Clipping the foot to the border instead squared the outline (Mike: "cube-like").
+    margin = math('ADD', 0.03, math('MULTIPLY', inp["Warp"], 0.08))
+    half_x = math('SUBTRACT', math('DIVIDE', size_x, math('MULTIPLY', ref, 2.0)), margin)
+    half_y = math('SUBTRACT', math('DIVIDE', size_y, math('MULTIPLY', ref, 2.0)), margin)
+    radius = math('MINIMUM', radius, math('DIVIDE', math('MAXIMUM', math('MINIMUM', half_x, half_y), 0.05), math('ADD', 1.0, lop_amt)))
     off_x = math('MULTIPLY', math('SUBTRACT', noise(vec(seed_val, 1.3, 0.0), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"], 0.5), math('MULTIPLY', radius, math('MULTIPLY', lop_amt, 0.7)))
     off_y = math('MULTIPLY', math('SUBTRACT', noise(vec(seed_val, 4.7, 0.0), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"], 0.5), math('MULTIPLY', radius, math('MULTIPLY', lop_amt, 0.7)))
     xo, yo = math('SUBTRACT', x, off_x), math('SUBTRACT', y, off_y)
@@ -725,16 +736,6 @@ def _build(ng, recipe):
     # Lopsided at the foot, round at the summit (a wobbling crater rim looked scalloped).
     radius_t = math('MULTIPLY', radius, math('ADD', 1.0, math('MULTIPLY', math('MULTIPLY', math('SUBTRACT', lop, 0.5), lop_amt),
                                                                      smooth(d_round, 0.25, 0.85))))
-    # Always inside the landscape (Mike, Pass 8: a lopsided foot ran off the edge): in each direction the foot
-    # stops short of the border, measured from the off-centre summit, with a margin for the warp.
-    dist_o = math('MAXIMUM', math('SQRT', math('ADD', math('MULTIPLY', xo, xo), math('MULTIPLY', yo, yo))), 1e-6)
-    dir_c, dir_s = math('DIVIDE', xo, dist_o), math('DIVIDE', yo, dist_o)
-    margin = math('ADD', 0.03, math('MULTIPLY', inp["Warp"], 0.08))
-    half_x = math('SUBTRACT', math('DIVIDE', size_x, math('MULTIPLY', ref, 2.0)), margin)
-    half_y = math('SUBTRACT', math('DIVIDE', size_y, math('MULTIPLY', ref, 2.0)), margin)
-    to_x = math('DIVIDE', math('SUBTRACT', half_x, math('MULTIPLY', off_x, math('SIGN', dir_c))), math('MAXIMUM', math('ABSOLUTE', dir_c), 1e-4))
-    to_y = math('DIVIDE', math('SUBTRACT', half_y, math('MULTIPLY', off_y, math('SIGN', dir_s))), math('MAXIMUM', math('ABSOLUTE', dir_s), 1e-4))
-    radius_t = math('MINIMUM', radius_t, math('MAXIMUM', math('MINIMUM', to_x, to_y), 0.05))
     r = math('DIVIDE', math('SQRT', math('ADD', math('MULTIPLY', xo, xo), math('MULTIPLY', yo, yo))), radius_t)
     collapsed = pick_float(style, (0.0, 0.0, 0.0, 0.0, 1.0))
     exponent = math('ADD', pick_float(style, (0.6, 0.3, 0.7, 1.1, 0.6)),
@@ -810,7 +811,7 @@ def _build(ng, recipe):
     edge_w = math('MULTIPLY', math('SUBTRACT', noise(vec(math('MULTIPLY', r, 3.5), math('MULTIPLY', yo, 4.0), math('ADD', seed_val, 2.9)),
                                                      'FBM', 1.0, 2.0, 0.55).outputs["Fac"], 0.5), 0.45)
     open_at = math('ADD', open_at, edge_w)
-    sector = math('MULTIPLY', smooth(facing, open_at, math('ADD', open_at, 0.18)), smooth(breach_amt, 0.0, 0.05))
+    sector = math('MULTIPLY', smooth(facing, open_at, math('ADD', open_at, 0.13)), smooth(breach_amt, 0.0, 0.05))  # 0.18: a smooth sloping plane; 0.1 a sheer sheet
     floor_top = math('SUBTRACT', 1.0, depth)
     ramp = math('MULTIPLY', floor_top, math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0,
                                        math('DIVIDE', math('MAXIMUM', math('SUBTRACT', r, crater_r), 0.0),
@@ -823,8 +824,20 @@ def _build(ng, recipe):
     b_rub = math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 10.0), 4.0, 0.6).outputs["Fac"], 0.5),
                  math('MULTIPLY', floor_top, 0.08))
     ramp = math('ADD', math('SUBTRACT', ramp, math('MULTIPLY', b_cut, smooth(r, crater_r, math('ADD', crater_r, 0.1)))), b_rub)
+    # Talus: rockfall from the walls banks up along the breach floor's edges.
+    ramp = math('ADD', ramp, math('MULTIPLY', math('MULTIPLY', smooth(facing, math('ADD', open_at, 0.35), math('ADD', open_at, 0.08)), smooth(facing, open_at, math('ADD', open_at, 0.1))),
+                                  math('MULTIPLY', floor_top, 0.12)))
     capped = math('MINIMUM', shaped_cone, ramp)
     breached = math('ADD', math('MULTIPLY', shaped_cone, math('SUBTRACT', 1.0, sector)), math('MULTIPLY', capped, sector))
+    # Breach walls (Mike, Pass 8: smooth planes down each side): steep rock cut by gullies that run
+    # straight down the wall, deepest where the wall is tallest, with crags breaking the edge.
+    wall_band = math('MULTIPLY', math('MULTIPLY', sector, math('SUBTRACT', 1.0, sector)), 4.0)
+    wall_h = math('MAXIMUM', math('SUBTRACT', shaped_cone, capped), 0.0)
+    # The wall runs out along r, so gullies down its face are stripes along r (a fixed facing would run them along the wall).
+    w_groove = soft_ridge(noise(vec(math('MULTIPLY', r, 14.0), math('MULTIPLY', facing, 3.0), math('ADD', seed_val, 8.3)), 'FBM', 1.0, 3.0, 0.55).outputs["Fac"], 0.2)
+    w_crag = noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 14.0), 4.0, 0.62).outputs["Fac"]
+    w_tex = math('ADD', math('MULTIPLY', math('SUBTRACT', w_groove, 0.6), 0.5), math('MULTIPLY', math('SUBTRACT', w_crag, 0.5), 0.35))
+    breached = math('ADD', breached, math('MULTIPLY', w_tex, math('MULTIPLY', math('MULTIPLY', wall_band, wall_h), math('ADD', 0.6, math('MULTIPLY', inp["Roughness"], 1.0)))))
     crag = soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 9.0), 5.0, 0.6).outputs["Fac"], 0.3)
     near_top = math('MULTIPLY', smooth(t, 0.45, 0.0), smooth(r, math('MULTIPLY', crater_r, 0.85), crater_r))
     rocky = math('MULTIPLY', math('SUBTRACT', crag, 0.5), math('MULTIPLY', near_top, 0.07))

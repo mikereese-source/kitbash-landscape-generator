@@ -80,11 +80,11 @@
    "rough": 0.035
   },
   "ours": {
-   "relief": 0.1392,
-   "slope50": 24.0,
-   "slope90": 46.2,
-   "hyps": 0.369,
-   "rough": 0.0222
+   "relief": 0.1388,
+   "slope50": 23.7,
+   "slope90": 45.9,
+   "hyps": 0.366,
+   "rough": 0.0219
   },
   "t6": "PASS"
  },
@@ -152,13 +152,13 @@
    "rough": 0.0106
   },
   "ours": {
-   "relief": 0.0952,
-   "slope50": 9.1,
-   "slope90": 22.6,
-   "hyps": 0.223,
-   "rough": 0.0102
+   "relief": 0.1647,
+   "slope50": 0.7,
+   "slope90": 37.7,
+   "hyps": 0.09,
+   "rough": 0.0114
   },
-  "t6": "PASS"
+  "t6": "FAIL: relief, hyps, slope50"
  },
  "volcano_caldera": {
   "width_km": 15.0,
@@ -170,13 +170,13 @@
    "rough": 0.0414
   },
   "ours": {
-   "relief": 0.0483,
-   "slope50": 6.9,
-   "slope90": 16.9,
-   "hyps": 0.309,
-   "rough": 0.0123
+   "relief": 0.0477,
+   "slope50": 0.2,
+   "slope90": 18.2,
+   "hyps": 0.138,
+   "rough": 0.0136
   },
-  "t6": "PASS"
+  "t6": "FAIL: hyps, slope50"
  },
  "volcano_shield": {
   "width_km": 40.0,
@@ -188,13 +188,13 @@
    "rough": 0.0031
   },
   "ours": {
-   "relief": 0.066,
-   "slope50": 7.8,
-   "slope90": 16.7,
-   "hyps": 0.367,
-   "rough": 0.0121
+   "relief": 0.0631,
+   "slope50": 0.3,
+   "slope90": 17.0,
+   "hyps": 0.161,
+   "rough": 0.0114
   },
-  "t6": "PASS"
+  "t6": "FAIL: hyps, slope50"
  },
  "volcano_cinder": {
   "width_km": 2.5,
@@ -206,11 +206,11 @@
    "rough": 0.0086
   },
   "ours": {
-   "relief": 0.1231,
-   "slope50": 12.5,
-   "slope90": 27.7,
-   "hyps": 0.245,
-   "rough": 0.0139
+   "relief": 0.1233,
+   "slope50": 5.3,
+   "slope90": 28.2,
+   "hyps": 0.229,
+   "rough": 0.0141
   },
   "t6": "PASS"
  },

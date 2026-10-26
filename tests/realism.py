@@ -158,6 +158,9 @@ for name, (tile_key, width_km, style) in PLACES.items():
 BANDS = {"relief": 0.30, "hyps": 0.15, "slope50": 0.5}
 SLOPE_OK = {"hills", "mountains", "mesa", "volcano_strato", "volcano_caldera", "volcano_shield", "glacial"}
 SKIP = {"cliffs", "craters"}  # craters are checked against the Moon instead (tests/moon_check.py, D46)
+# D73, Mike at the M2 gate: waived after 8 realism passes; still measured and reported. Mesa: the 30 m
+# reference tile has no true mesas (it passes Monument Valley at 1 m).
+WAIVED = {"mesa": {"relief", "slope50"}, "volcanic": {"relief", "hyps"}}
 failed = []
 for name, row in report.items():
     if name in SKIP:
@@ -167,7 +170,7 @@ for name, row in report.items():
               ("hyps", abs(got["hyps"] - real["hyps"]) <= BANDS["hyps"])]
     if name in SLOPE_OK:
         checks.append(("slope50", abs(got["slope50"] - real["slope50"]) / max(real["slope50"], 1) <= BANDS["slope50"]))
-    bad = [k for k, ok in checks if not ok]
+    bad = [k for k, ok in checks if not ok and k not in WAIVED.get(name, ())]
     row["t6"] = "PASS" if not bad else "FAIL: " + ", ".join(bad)
     print(f"T6 {name}: {row['t6']}")
     failed += bad and [name]

@@ -262,7 +262,9 @@ def bands(real, got):
 
 
 # Waived until a later milestone, each with its decision. Still measured and reported.
-WAIVED = {"canyon": {"h_mid"}}  # D52: mid-scale (16-256 m) roughness is drainage, built with erosion in M3
+WAIVED = {"canyon": {"h_mid"},  # D52: mid-scale (16-256 m) roughness is drainage, built with erosion in M3
+          # D73, Mike at the M2 gate: waived after 8 realism passes; still measured and reported.
+          "riverbed": {"spikes"}, "volcano_caldera": {"slope50", "s64", "spikes"}}
 failed = []
 for key, row in report.items():
     bad = [b for b in bands(row["real"], row["ours"]) if b not in WAIVED.get(key, ())]

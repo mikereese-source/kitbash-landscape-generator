@@ -9,13 +9,13 @@
    "rough": 0.0275
   },
   "ours": {
-   "relief": 0.0271,
-   "slope50": 6.2,
-   "slope90": 11.8,
-   "hyps": 0.464,
-   "rough": 0.0269
+   "relief": 0.0536,
+   "slope50": 10.6,
+   "slope90": 26.0,
+   "hyps": 0.314,
+   "rough": 0.0181
   },
-  "t6": "PASS"
+  "t6": "FAIL: relief"
  },
  "mountains": {
   "width_km": 10.0,
@@ -27,11 +27,11 @@
    "rough": 0.0276
   },
   "ours": {
-   "relief": 0.1558,
+   "relief": 0.156,
    "slope50": 34.5,
-   "slope90": 51.6,
+   "slope90": 51.5,
    "hyps": 0.413,
-   "rough": 0.0258
+   "rough": 0.0256
   },
   "t6": "PASS"
  },
@@ -45,11 +45,11 @@
    "rough": 0.0176
   },
   "ours": {
-   "relief": 0.0395,
-   "slope50": 26.8,
-   "slope90": 44.5,
-   "hyps": 0.427,
-   "rough": 0.119
+   "relief": 0.0371,
+   "slope50": 25.0,
+   "slope90": 42.4,
+   "hyps": 0.434,
+   "rough": 0.1178
   },
   "t6": "PASS"
  },
@@ -67,7 +67,7 @@
    "slope50": 0.5,
    "slope90": 11.5,
    "hyps": 0.406,
-   "rough": 0.0312
+   "rough": 0.0308
   }
  },
  "canyon": {
@@ -80,11 +80,11 @@
    "rough": 0.035
   },
   "ours": {
-   "relief": 0.1391,
+   "relief": 0.1392,
    "slope50": 23.9,
-   "slope90": 46.5,
-   "hyps": 0.37,
-   "rough": 0.0225
+   "slope90": 46.3,
+   "hyps": 0.369,
+   "rough": 0.0223
   },
   "t6": "PASS"
  },
@@ -98,11 +98,11 @@
    "rough": 0.0221
   },
   "ours": {
-   "relief": 0.1333,
-   "slope50": 0.7,
-   "slope90": 38.8,
-   "hyps": 0.152,
-   "rough": 0.0381
+   "relief": 0.1161,
+   "slope50": 10.5,
+   "slope90": 45.7,
+   "hyps": 0.228,
+   "rough": 0.0498
   },
   "t6": "FAIL: relief, slope50"
  },
@@ -116,11 +116,11 @@
    "rough": 0.0319
   },
   "ours": {
-   "relief": 0.0736,
-   "slope50": 16.2,
-   "slope90": 50.5,
-   "hyps": 0.45,
-   "rough": 0.1002
+   "relief": 0.0743,
+   "slope50": 11.1,
+   "slope90": 46.2,
+   "hyps": 0.506,
+   "rough": 0.0792
   },
   "t6": "PASS"
  },
@@ -152,11 +152,11 @@
    "rough": 0.0106
   },
   "ours": {
-   "relief": 0.0985,
-   "slope50": 9.7,
-   "slope90": 21.2,
-   "hyps": 0.236,
-   "rough": 0.0083
+   "relief": 0.0941,
+   "slope50": 9.3,
+   "slope90": 21.7,
+   "hyps": 0.239,
+   "rough": 0.0097
   },
   "t6": "PASS"
  },
@@ -170,11 +170,11 @@
    "rough": 0.0414
   },
   "ours": {
-   "relief": 0.0494,
-   "slope50": 7.3,
+   "relief": 0.0473,
+   "slope50": 7.0,
    "slope90": 15.7,
-   "hyps": 0.34,
-   "rough": 0.0097
+   "hyps": 0.339,
+   "rough": 0.0114
   },
   "t6": "PASS"
  },
@@ -188,11 +188,11 @@
    "rough": 0.0031
   },
   "ours": {
-   "relief": 0.0688,
+   "relief": 0.0651,
    "slope50": 7.9,
-   "slope90": 17.7,
-   "hyps": 0.405,
-   "rough": 0.0087
+   "slope90": 16.8,
+   "hyps": 0.404,
+   "rough": 0.0097
   },
   "t6": "PASS"
  },
@@ -206,11 +206,11 @@
    "rough": 0.0086
   },
   "ours": {
-   "relief": 0.1268,
-   "slope50": 13.2,
+   "relief": 0.1221,
+   "slope50": 12.8,
    "slope90": 27.5,
-   "hyps": 0.247,
-   "rough": 0.0127
+   "hyps": 0.246,
+   "rough": 0.0139
   },
   "t6": "PASS"
  },
@@ -241,11 +241,11 @@
    "rough": 0.0261
   },
   "ours": {
-   "relief": 0.139,
+   "relief": 0.141,
    "slope50": 26.9,
-   "slope90": 45.2,
-   "hyps": 0.449,
-   "rough": 0.0202
+   "slope90": 44.7,
+   "hyps": 0.453,
+   "rough": 0.019
   },
   "t6": "PASS"
  },
@@ -259,12 +259,12 @@
    "rough": 0.0423
   },
   "ours": {
-   "relief": 0.0054,
-   "slope50": 0.6,
-   "slope90": 1.9,
-   "hyps": 0.661,
-   "rough": 0.0784
+   "relief": 0.006,
+   "slope50": 0.9,
+   "slope90": 2.6,
+   "hyps": 0.601,
+   "rough": 0.0734
   },
-  "t6": "FAIL: hyps"
+  "t6": "PASS"
  }
 }

@@ -197,20 +197,36 @@
     },
     "mesa": {
       "name": "Mesa",
-      "look": "Flat-topped blocks: caprock over sheer fluted cliffs, stepped talus aprons, desert floor.",
+      "look": "Flat-topped blocks: caprock over sheer fluted cliffs, wide stepped talus aprons, a rough gullied desert floor.",
       "recipe": 6,
       "height": 0.15,
       "feature_scale": 2.5,
       "detail": 3.0,
       "roughness": 0.45,
       "warp": 0.3,
-      "rock": 0.9,
-      "grain_roughness": 0.62,
+      "rock": 1.2,
+      "grain_roughness": 0.7,
       "sharpness": 1.0,
       "controls": [
         {
           "prop": "plateau_coverage",
           "slot": "P1",
+          "default": 0.5
+        },
+        {
+          "prop": "talus_spread",
+          "slot": "P2",
+          "default": 0.5,
+          "erosion": {
+            "apron": [
+              0.4,
+              1.6
+            ]
+          }
+        },
+        {
+          "prop": "caprock_tiers",
+          "slot": "P3",
           "default": 0.5
         }
       ],
@@ -218,13 +234,31 @@
         "on": true,
         "amount": 0.6,
         "talus_deg": 34.0,
-        "incision": 0.5,
+        "incision": 2.0,
         "soften": 0.1,
         "protect": 8,
-        "cliff_deg": 80.0
+        "cliff_deg": 80.0,
+        "channel": 7e-05,
+        "deposit": 0.2,
+        "apron": 0.07,
+        "pediment": 0.12
       },
       "feature_label": "Mesa Size",
-      "feature_noun": "mesas"
+      "feature_noun": "mesas",
+      "styles": [
+        {
+          "key": "field",
+          "name": "Mesa Field",
+          "desc": "Blocky mesas and buttes over a rough desert floor, like Monument Valley",
+          "index": 0
+        },
+        {
+          "key": "hero",
+          "name": "Hero Butte",
+          "desc": "One standalone butte in the middle, cliffs on every side, for a hero shot",
+          "index": 1
+        }
+      ]
     },
     "badlands": {
       "name": "Badlands",
@@ -253,15 +287,15 @@
       "erosion": {
         "on": true,
         "amount": 0.7,
-        "talus_deg": 45.0,
-        "incision": 5.0,
-        "soften": 0.05,
+        "talus_deg": 42.0,
+        "incision": 3.5,
+        "soften": 0.12,
         "channel": 3e-05,
         "deposit": 0.3,
         "hardness": 0.8,
         "meander": 0.8,
         "uplift": 0.6,
-        "cliff_deg": 70.0
+        "cliff_deg": 62.0
       },
       "feature_label": "Ridge Spacing",
       "feature_noun": "ridges",
@@ -276,7 +310,12 @@
           "key": "mounds",
           "name": "Mounds",
           "desc": "Rounded banded haystacks with soft rills, like Yellow Mounds or Petrified Forest",
-          "index": 1
+          "index": 1,
+          "erosion": {
+            "incision": 1.5,
+            "channel": 0.0001,
+            "talus_deg": 40.0
+          }
         }
       ]
     },

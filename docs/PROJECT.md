@@ -4,8 +4,8 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M2 — All types + simple controls (gate: checker PASS 2026-10-23, rollback zip saved; realism push R5–R8 (D53): R5–R7 done through realism passes (D56); Passes 1–3 done (docs/PASS1–3.md); 5 types pass all checks and await Mike's eye (D57); Pass 4 proposed)
-**Last updated:** 2026-10-24
+**Current milestone:** M2 — All types + simple controls (gate: checker PASS 2026-10-23; realism push R5–R8 (D53) through passes (D56): Passes 1–6 done (docs/PASS1–6.md, D58–D66). Final pass before the M2 re-gate in progress: presets, Proportional Feature Scaling, Mesa and Badlands done; next checkpoint with Mike, then Glacial Valley, photo-review shape fixes, M2 gate)
+**Last updated:** 2026-10-26
 
 ## Pre-build checklist
 - [x] Design doc approved (2026-10-22) → `DESIGN.md`

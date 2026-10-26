@@ -231,6 +231,9 @@ _pending = {}
 
 def _erosion_settings(recipe, props):
     er = dict(recipe.get("erosion", {}))
+    for st in recipe.get("styles", ()):  # a style can change the erosion (Badlands Mounds: fine rills, not gullies)
+        if st["key"] == props.style_key:
+            er.update(st.get("erosion", {}))
     for k in ("on", "amount"):
         er.pop(k, None)
     er["seed"] = props.seed  # same seed, same erosion (T7)
@@ -245,6 +248,9 @@ def _erosion_settings(recipe, props):
     er["final_slump"] = max(int(round(er.get("final_slump", d["final_slump"]) * a)), 1)
     er["floor_width"] = int(round(er.get("floor_width", d["floor_width"]) * a))
     er["floor_carve"] = int(round(er.get("floor_carve", d["floor_carve"]) * min(a * 2.0, 1.0)))
+    for c in recipe.get("controls", ()):  # a slider can stretch an erosion setting: {"apron": [at 0, at 1]}
+        for k, (lo, hi) in c.get("erosion", {}).items():
+            er[k] = er.get(k, d[k]) * (lo + (hi - lo) * getattr(props, c["prop"]))
     return er
 
 
@@ -383,11 +389,12 @@ def _apply_erosion(ob, eroded, key, seconds):
     """Store the eroded heights as the landscape's erosion map (main thread)."""
     mod = landscape_modifier(ob)
     props = ob.lg
-    # Eroded heights in units of Height (the node tree blends them in), doubled with an interpolating
-    # cubic; texel k sits on grid point k / 2, which the node tree reads at texel centres. (Storing only
+    # Eroded heights in units of Height (the node tree blends them in), one texel per grid point, read
+    # with the node tree's smooth cubic lookup. Doubling it first left kinks (linear) or ringing at every
+    # cliff (Catmull-Rom): 4 m and false 114 m spectrum spikes on Badlands and Mesa (Pass 6). (Storing only
     # the change kept the shape's fine detail everywhere and lost the smooth-floor / rough-rock contrast:
     # rough split 0.68 vs 1.27 real, Pass 2.)
-    delta = erosion.upsample2(eroded) / max(props.height, 1e-6)
+    delta = eroded / max(props.height, 1e-6)
     ny, nx = delta.shape
     name = f"LG Erosion {ob.name}"
     img = bpy.data.images.get(ob.get("lg_erosion_img", "")) or bpy.data.images.get(name)
@@ -564,6 +571,10 @@ class LG_ObjectProps(PropertyGroup):
     plateau_amount: FloatProperty(name="Plateau Amount", description="How much of the land stays up on the flat plateau",
         default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     plateau_coverage: FloatProperty(name="Plateau Coverage", description="How much of the land is flat tabletop",
+        default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    talus_spread: FloatProperty(name="Talus Spread", description="How far the rubble slopes at the foot of the cliffs reach out",
+        default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    caprock_tiers: FloatProperty(name="Caprock Tiers", description="None, or a stepped upper tier on the biggest mesas",
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     valley_width: FloatProperty(name="Valley Width", description="How wide the U-shaped valley floor is",
         default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)

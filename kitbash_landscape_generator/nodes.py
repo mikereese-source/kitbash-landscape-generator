@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 96  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 98  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -428,8 +428,8 @@ def _build(ng, recipe):
     # Recipe 6, mesa (Pass 5, from Monument Valley / Lake Powell photos, Mike's review): blocky outlines
     # where rock breaks along two joint directions, every top at one caprock level, a vertical cliff
     # with fluted faces (a crenulated outline reads as vertical grooves from the side), a stepped talus
-    # apron of ledge bands below, the odd second tier, then a flat desert floor. P1 coverage runs from
-    # wide plateau to scattered buttes.
+    # apron of ledge bands below, the odd second tier, then a rough desert floor. P1 coverage runs from
+    # wide plateau to scattered buttes; Style 1 (Hero) is one butte in the middle.
     mx, my = sep.outputs["X"], sep.outputs["Y"]
     j_ang = math('MULTIPLY', seed_val, 0.37)
     jx = math('SUBTRACT', math('MULTIPLY', mx, math('COSINE', j_ang)), math('MULTIPLY', my, math('SINE', j_ang)))
@@ -454,29 +454,55 @@ def _build(ng, recipe):
     pj_f.operation = 'ADD'
     L.new(pj, pj_f.inputs[0])
     L.new(fl_s.outputs[0], pj_f.inputs[1])
-    joints = N.new('ShaderNodeTexVoronoi')  # straight-sided blocks on a rotated grid (0.35 randomness read as tiles)
-    joints.voronoi_dimensions = '2D'
-    joints.inputs["Randomness"].default_value = 0.6
-    L.new(pj_f.outputs[0], joints.inputs["Vector"])
-    L.new(math('MULTIPLY', inp["Feature Scale"], 3.5), joints.inputs["Scale"])
+    def joint_cells(feature):
+        n = N.new('ShaderNodeTexVoronoi')  # straight-sided blocks on a rotated grid (0.35 randomness read as tiles)
+        n.voronoi_dimensions = '2D'
+        n.feature = feature
+        n.inputs["Randomness"].default_value = 0.8  # 0.6 left a regular block spacing (9 dB spectrum spike, Pass 5)
+        L.new(pj_f.outputs[0], n.inputs["Vector"])
+        L.new(math('MULTIPLY', inp["Feature Scale"], 3.5), n.inputs["Scale"])
+        return n
     blob = noise(pj, 'FBM', inp["Feature Scale"], 2.0, 0.45).outputs["Fac"]
-    site_v = N.new('ShaderNodeSeparateXYZ')
-    L.new(joints.outputs["Position"], site_v.inputs[0])
-    # Each joint block is in or out as a whole (straight edges, corners), decided by the broad field at its centre.
-    v = noise(vec(site_v.outputs["X"], site_v.outputs["Y"], seed_val), 'FBM', inp["Feature Scale"], 2.0, 0.45).outputs["Fac"]
     edge = math('SUBTRACT', 0.7, math('MULTIPLY', inp["P1"], 0.2))  # P1 plateau coverage (0.62 covered most of the tile)
+
+    def block_value(site):
+        """The broad field at a block's centre decides whether the whole block stands (straight edges,
+        corners). Hero: one butte in the middle, still built from whole blocks."""
+        sv = N.new('ShaderNodeSeparateXYZ')
+        L.new(site, sv.inputs[0])
+        field = noise(vec(sv.outputs["X"], sv.outputs["Y"], seed_val), 'FBM', inp["Feature Scale"], 2.0, 0.45).outputs["Fac"]
+        r = math('SQRT', math('ADD', math('MULTIPLY', sv.outputs["X"], sv.outputs["X"]), math('MULTIPLY', sv.outputs["Y"], sv.outputs["Y"])))
+        hero = math('ADD', math('SUBTRACT', 0.95, math('MULTIPLY', r, 1.6)), math('MULTIPLY', math('SUBTRACT', field, 0.5), 0.4))
+        return pick_field(inp["Style"], (field, hero))
+    v = block_value(joint_cells('F1').outputs["Position"])
+    v2 = block_value(joint_cells('F2').outputs["Position"])  # the neighbouring block across the nearest edge
+    d_edge = joint_cells('DISTANCE_TO_EDGE').outputs["Distance"]  # in blocks (~1 across)
     top = smooth(v, edge, math('ADD', edge, 0.002))  # sheer caprock edge
-    # Talus apron at the foot of the blocks, stepped by a few thin ledges near the cliff only.
-    apron = smooth(blob, math('SUBTRACT', edge, 0.05), math('ADD', edge, 0.01))  # narrow: hugs the blocks (a block-based mask cut cracks into the floor)
-    lu = math('MULTIPLY', apron, 3.0)
+    nb_top = smooth(v2, edge, math('ADD', edge, 0.002))
+    # Caprock rims are broken back a little, not machined: a short rounded bevel where a block meets open ground.
+    rim = math('MULTIPLY', math('SUBTRACT', 1.0, nb_top), math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, 0.05)), 0.0), 2.0))
+    top = math('MULTIPLY', top, math('SUBTRACT', 1.0, math('MULTIPLY', rim, 0.08)))
+    # Talus apron (Monument Valley 1 m lidar, Pass 6): the cliff stands on a wide concave slope of shale
+    # and rubble that reaches about half the cliff height and runs ~0.6 block out, stepped by ledges.
+    # Built from the distance to the block's edge, so it always hugs the blocks (Pass 5 used a separate
+    # noise field and left orphan lumps on the floor and bare cliff feet).
+    # P2 Talus Spread: 0.2 to 1 block out (the erosion apron's reach scales with it too, types.json).
+    t = math('MULTIPLY', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, math('ADD', 0.2, math('MULTIPLY', inp["P2"], 0.8)))), 0.0),
+             math('MULTIPLY', nb_top, math('SUBTRACT', 1.0, top)))
+    lu = math('MULTIPLY', t, 3.0)
     ledge = math('DIVIDE', math('ADD', math('FLOOR', lu), math('POWER', math('FRACT', lu), 2.5)), 3.0)
-    talus = math('MULTIPLY', ledge, 0.25)
-    tier = math('MULTIPLY', smooth(v, math('ADD', edge, 0.07), math('ADD', edge, 0.074)), 0.22)
-    desert = math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 4.0), 2.0, 0.4).outputs["Fac"], 0.02)
+    talus = math('MULTIPLY', math('POWER', math('ADD', math('MULTIPLY', ledge, 0.6), math('MULTIPLY', t, 0.4)), 1.6), 0.5)
+    tier = math('MULTIPLY', smooth(v, math('ADD', edge, 0.07), math('ADD', edge, 0.074)), math('MULTIPLY', inp["P3"], 0.44))  # P3 Caprock Tiers
+    # The floor between the blocks is rough, dissected ground (real slope50 ~10 deg at 1 m, ours was 1 deg
+    # on flat desert): rolling swells plus folded ridgelets that erosion turns into dense gullies.
+    swell = noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 3.0), detail, 0.6).outputs["Fac"]
+    ridgelets = soft_ridge(noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 6.0), 3.0, 0.55).outputs["Fac"], 0.3)
+    desert = math('MULTIPLY', math('ADD', math('MULTIPLY', swell, 0.06), math('MULTIPLY', ridgelets, math('MULTIPLY', inp["Roughness"], 0.14))),
+                  math('SUBTRACT', 1.0, top))
     mesa = math('ADD', math('ADD', math('MAXIMUM', talus, top), tier), desert)  # all caps at one level (flat strata)
     # Primary: the desert floor between the blocks drains to one end
-    mesa = math('ADD', mesa, math('MULTIPLY', math('SUBTRACT', math('ADD', mesa, math('MULTIPLY', tilt, 0.25)), mesa), inp["Primary"]))
-    hard_mesa = math('MULTIPLY', math('MAXIMUM', top, smooth(apron, 0.92, 1.0)), 0.95)  # caprock and cliff band; talus soft
+    mesa = math('ADD', mesa, math('MULTIPLY', math('SUBTRACT', math('ADD', mesa, math('MULTIPLY', tilt, 0.6)), mesa), inp["Primary"]))
+    hard_mesa = math('MULTIPLY', math('MAXIMUM', top, smooth(t, 0.92, 1.0)), 0.95)  # caprock and cliff band; talus soft
 
     def pick_float(index, values):
         n = N.new('GeometryNodeIndexSwitch')
@@ -525,16 +551,25 @@ def _build(ng, recipe):
     apron = math('MULTIPLY', math('POWER', smooth(wall_line, -0.3, -0.01), 2.0), 0.12)  # concave rise to the wall foot
     wall_style = math('ADD', math('ADD', math('MAXIMUM', upper, apron), math('MULTIPLY', tilt, 0.15)),
                       math('MULTIPLY', math('SUBTRACT', bend, 0.5), 0.05))
-    mounds = N.new('ShaderNodeTexVoronoi')
-    mounds.voronoi_dimensions = '2D'
-    mounds.inputs["Randomness"].default_value = 0.9
-    L.new(p2, mounds.inputs["Vector"])
-    L.new(math('MULTIPLY', inp["Feature Scale"], 0.7), mounds.inputs["Scale"])
-    m_rand = N.new('FunctionNodeSeparateColor')
-    L.new(mounds.outputs["Color"], m_rand.inputs[0])
-    dome = math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', mounds.outputs["Distance"], 0.62)), 0.0), 0.55)  # domed haystacks that just meet (0.45 lone discs, 0.8 lumpy hills)
-    mound_style = math('ADD', math('MULTIPLY', dome, math('ADD', 0.6, math('MULTIPLY', m_rand.outputs[0], 0.8))),
-                       math('ADD', math('MULTIPLY', tilt, 0.15), math('MULTIPLY', math('SUBTRACT', spur, 0.5), 0.05)))
+    # Mounds: separate haystacks (Mike, Pass 5: they read as lumpy hills). Each is a bell, round-topped
+    # with a flaring foot, about the spacing across, so neighbours meet only in low saddles and narrow
+    # flats; heights vary. The two nearest mounds are both drawn (max), so cells meet without seams.
+    def haystack(feature):
+        vn = N.new('ShaderNodeTexVoronoi')
+        vn.voronoi_dimensions = '2D'
+        vn.feature = feature
+        vn.inputs["Randomness"].default_value = 0.9
+        L.new(p2, vn.inputs["Vector"])
+        L.new(math('MULTIPLY', inp["Feature Scale"], 1.2), vn.inputs["Scale"])  # 0.7: wide low swells, ~1:3 (real haystacks ~1:1.5)
+        rnd = N.new('FunctionNodeSeparateColor')
+        L.new(vn.outputs["Color"], rnd.inputs[0])
+        size = math('ADD', 0.42, math('MULTIPLY', rnd.outputs[1], 0.13))  # foot radius in spacings: 0.42-0.55 (bigger let a third mound cut seams)
+        # Bell profile: round top, steepest part of the flank about halfway out, flaring concave foot
+        # (a sheer-sided dome cut a moat around every base once eroded).
+        bell = math('POWER', smooth(math('DIVIDE', vn.outputs["Distance"], size), 1.0, 0.0), 0.55)  # fuller, rounder shoulders
+        return math('MULTIPLY', bell, math('ADD', 0.7, math('MULTIPLY', rnd.outputs[0], 0.6)))
+    dome = math('MAXIMUM', haystack('F1'), haystack('F2'))
+    mound_style = math('ADD', dome, math('ADD', math('MULTIPLY', tilt, 0.15), math('MULTIPLY', math('SUBTRACT', spur, 0.5), 0.03)))
     bad_p = pick_field(inp["Style"], (wall_style, mound_style))
     badlands = math('ADD', badlands, math('MULTIPLY', math('SUBTRACT', bad_p, badlands), inp["Primary"]))
     # Hard: thin beds every so often up the wall (ledges) and a thin cap at the top (pinnacle tips).

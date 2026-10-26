@@ -51,6 +51,10 @@ DEFAULTS = {
     "target_pits": "fill",  # the shape's own basins: fill (lakes) or breach (cut a flat exit; trunks came out flat)
     "pit_mode": "fill",  # pits that form while it grows: breach (cut an exit) or fill (flat lake)
     "sea_level": 0.0,    # share of the relief below which ground is sea (0 = no sea)
+    "apron": 0.0,        # talus aprons below hard caprock reach this share of the width out (0 = none)...
+    "apron_rise": 0.5,   # ...and climb this share of the cliff height up its foot
+    "pediment": 0.0,     # beyond the apron the floor still falls away from the caprock, this share of the cliff
+                         # height over four apron reaches, so the floor drains to washes between the blocks
     "hardness": 0.4,     # how much rock hardness varies from place to place (0 = even); harder patches
                          # cut slower, so channels wander, branch and bunch instead of running in rows
     "meander": 0.6,      # fixed, smooth bias on which downhill neighbor water picks (0 = none, ~1 strong):
@@ -293,6 +297,26 @@ def carve_floors(z, dx, rounds, bank_deg, low):
     return np.minimum(z, f)
 
 
+def apron(z, cap, reach, rise, pediment=0.0):
+    """Concave talus aprons around caprock (`cap` True): ground within `reach` cells rises to `rise` of
+    the caps' height at the cliff foot, falling to the floor at the edge of the reach, and a gentle
+    `pediment` falls away over four reaches. Built from the distance to the nearest cap, so it hugs
+    every block and has no creases (Mesa, Pass 6)."""
+    if reach < 1 or not cap.any():
+        return z
+    n, m = z.shape
+    base = float(z.min())
+    top = float(np.percentile(z[cap], 90))
+    d = np.where(cap, 0.0, np.inf)
+    far = reach * (4 if pediment > 0 else 1)
+    for _ in range(int(far)):  # chamfer distance, all 8 neighbors at their true distance
+        p = np.pad(d, 1, mode="constant", constant_values=np.inf)
+        d = np.minimum(d, np.min([p[1 + di:1 + di + n, 1 + dj:1 + dj + m] + dd for (di, dj), dd in zip(D8, DIST)], axis=0))
+    t = np.clip(1.0 - d / reach, 0.0, 1.0)
+    ped = pediment * np.clip(1.0 - d / far, 0.0, 1.0) ** 1.5
+    return np.where(cap, z, np.maximum(z, base + (top - base) * rise * t ** 2) + (top - base) * ped)
+
+
 def edge_lift(diff, edge):
     """A smooth field equal to `diff` on the edges and easing to nothing inside (Laplace relaxation
     on a coarse grid, then scaled up): a gentle tilt that leaves the valley network intact."""
@@ -321,6 +345,8 @@ def erode(h, settings=None, hard=None):
     # one would rebuild it every pass. Slumping then widens each cut into a valley.
     target = np.asarray(h, dtype=np.float64)
     n0 = max(target.shape)
+    if s["apron"] > 0 and hard is not None:
+        target = apron(target, np.asarray(hard) > 0.8, s["apron"] * n0, s["apron_rise"], s["pediment"])
     target = (fill(target, s["floor_slope"] / (n0 - 1)) if s["target_pits"] == "fill"
               else breach(target, s["exit_slope"] / (n0 - 1)))
     # The shape is grown, not filled: it rises a little each pass while water cuts it, the way real
@@ -468,19 +494,6 @@ def erode(h, settings=None, hard=None):
     return fill(z)
 
 
-def upsample2(z):
-    """Double the grid with Catmull-Rom (passes through every original point), so the node tree's
-    linear lookup creases at half the spacing (a crease at every texel showed as a 4 m stripe)."""
-    def axis(a):
-        p = np.pad(a, ((1, 2), (0, 0)), mode="edge")
-        mid = (-p[:-3] + 9 * p[1:-2] + 9 * p[2:-1] - p[3:]) / 16.0
-        out = np.empty((2 * a.shape[0] - 1, a.shape[1]))
-        out[0::2] = a
-        out[1::2] = mid[:-1]
-        return out
-    return axis(axis(z).T).T
-
-
 if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, loses its pits
     rng = np.random.default_rng(1)
     y, x = np.mgrid[0:128, 0:128] / 127.0
@@ -493,4 +506,8 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     base = fill(ridged)
     soft, stiff = erode(ridged), erode(ridged, hard=np.ones_like(ridged))
     assert np.abs(stiff - base).mean() < 0.5 * np.abs(soft - base).mean(), "hard rock eroded as much as soft"
+    flat = np.zeros((64, 64))
+    flat[28:36, 28:36] = 1.0
+    ap = apron(flat, flat > 0.5, 10, 0.5)
+    assert abs(ap[32, 27] - 0.5 * 0.9 ** 2) < 1e-6 and ap[32, 10] == 0.0 and ap[32, 32] == 1.0, "apron shape wrong"
     print("erosion self-check OK")

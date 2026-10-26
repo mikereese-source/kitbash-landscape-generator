@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M2 PASSED 2026-10-26 (D73: Mike's sign-off with realism waivers; tag m2; rollback snapshots/kitbash_landscape_generator-m2-gate-2026-10-26.zip). Next: M3 — confirm scope with Mike (masks, terraces; parking list review)
+**Current milestone:** M3 — Terraces, masks, water level (planned 2026-10-26, D74). M2 passed 2026-10-26 (D73, tag m2).
 **Last updated:** 2026-10-26
 
 ## Pre-build checklist
@@ -67,14 +67,23 @@ Every plan includes an errors & edge cases milestone and a final check.
 | R8 | Seabed grain/ledges, Cliffs beach/talus, crescent dunes, lopsided volcano (D53) | M |
 | 2.6 | Tests T5–T8, then the gate: checker, rollback zip, Mike sign-off | M |
 
+**M3 steps (approved 2026-10-26, D74; checkpoint after each)**
+| Step | What | Size |
+|---|---|---|
+| 3.1 | Data masks: height, slope, curvature (node tree) and flow, wear, deposits (erosion engine, stored per landscape) as named attributes in 0–1, kept for M5 materials and scatter (T9) | M |
+| 3.2 | Mask viewer: a "Show mask" choice in the panel that colours the viewport by any mask | S |
+| 3.3 | Terraces / strata control (count, strength, tilt) on Mesa, Canyon, Badlands, Coastal Cliffs and Mountains (T10) | M |
+| 3.4 | Water level: on/off water plane at a set height for any landscape (lakes, sea, rivers) with one plain water material; full water shaders come in M5 (T27) | S–M |
+| 3.5 | Tests, then the gate: checker, rollback zip, Mike sign-off | M |
+
 **Build**
 | # | Milestone | Definition of done | Status |
 |---|-----------|--------------------|--------|
 | M1 | Scale-correct core | The Landscape sidebar tab is in place, and Add Landscape creates a live GN landscape at the 3D cursor. Size X/Y, Fit to selection, meters-per-vertex detail, Preview/Final work. 3 types (Rolling Hills, Mountains, Sand Dunes). Shapes match at 10 m, 100 m and 1 km (T1) | Done — gate passed, Mike signed off 2026-10-22 |
 | M2 | All types + simple controls | All 13 surface types (D30, D37) plus the main controls, the erosion engine (moved into M2 by the realism push, D53/D54; Erosion Amount slider D63) and Randomize. Every control has a plain tooltip. Recipes load from the JSON type file. Realism check: each type's slope spread, relief ratio, height distribution and roughness match measured real elevation data for its reference place (T6 30 m, T6b 1 m, T6m Moon; D52) | PASSED 2026-10-26 (D73) |
-| M3 | Terraces + data masks | Terraces/strata control. Height, slope, curvature, flow and deposits stored as named attributes and viewable | Not started |
-| M4 | Erosion | Mostly delivered in M2 (D53/D54: engine, Erosion Amount, background erosion). Left for M4: Bake, erosion masks (parked), and T11/T12 (slope drop, 1 km Final build time) | Not started (scope reduced) |
-| M5 | Auto-material | Rock/ground/sand/snow material driven by masks, box-mapped, works in Cycles and Eevee | Not started |
+| M3 | Terraces, masks, water level | Terraces/strata control on the rock types (Mesa, Canyon, Badlands, Cliffs, Mountains). Height, slope, curvature, flow, wear and deposits stored as named attributes and viewable in the viewport. A water level with a plain material (D74) | In progress (planned 2026-10-26) |
+| M4 | Erosion finish + bake | Small milestone (Mike, D74): erosion itself shipped in M2 (D53/D54). Bake the landscape to a plain editable mesh that keeps its masks (warns the sliders stop); T11 (erosion lowers steep slopes) and T12 (1 km at High in 60 s or less) | Not started |
+| M5 | Auto-material | Rock/ground/sand/snow material driven by masks, box-mapped, works in Cycles and Eevee; full water shaders (lake, sea, river) on the M3 water level | Not started |
 | M6 | Cliffs, caves, stalactites | Side Cliffs, Overhangs, Arches, Stalactites, Stalagmites toggles and the Cave type, through the SDF stage, baked at Final | Not started |
 | M7 | Errors & edge cases | Bad input, tiny/huge sizes, too many vertices, missing JSON, undo, save/reopen, old files all handled and tested | Not started |
 | Final | Final check + Alpha | Full test run, checker review of whole build vs design doc, prototype vs real add-on walkthrough. Packaged as a Blender extension zip | Not started |

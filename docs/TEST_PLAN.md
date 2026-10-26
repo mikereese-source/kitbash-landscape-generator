@@ -25,6 +25,7 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T11 | M4 | Erosion lowers steep slopes | auto | Max slope angle drops as Erosion rises; nothing goes NaN | |
 | T12 | M4 | Final build time | auto | 1 km landscape at Final finishes in ≤ 60 s on the team machine (D14) | |
 | T27 | M3 | Water level | auto | Water on: a flat water surface at the set height covers exactly the ground below it; off: no water geometry; Height changes move it with the landscape | |
+| T28 | M3 | Mask viewer | auto + manual | Auto: Show Mask writes the picked mask as the lg_view colour attribute, different per mask, cleared by None. Manual: the 3D view switches to Solid / Attribute colour and back | PASS 2026-10-26 (auto) |
 | T13 | M5 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
 | T14 | M6 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
 | T15 | M6 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |

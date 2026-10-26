@@ -396,6 +396,35 @@ def _t9():
     return f"6 masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
 
 
+@test("T28", "Mask viewer colours the landscape by the picked mask")
+def _t28():
+    fresh_scene()
+    ob = add("mountains")
+    lg.sync_object(ob)
+
+    def view_colors():
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        check("lg_view" in me.attributes, "no lg_view colour attribute")
+        c = np.empty(len(me.vertices) * 4)
+        me.attributes["lg_view"].data.foreach_get("color", c)
+        ev.to_mesh_clear()
+        return c.reshape(-1, 4)
+    seen = {}
+    for key in ("HEIGHT", "SLOPE", "FLOW"):
+        ob.lg.show_mask = key
+        c = view_colors()
+        check(np.ptp(c[:, 0]) > 0.3, f"{key}: viewer colours don't vary")
+        seen[key] = c[:, 0].copy()
+    check(not np.allclose(seen["HEIGHT"], seen["SLOPE"]), "Height and Slope show the same colours")
+    check(ob.data.color_attributes.active_color_name == "lg_view", "lg_view is not the shown colour attribute")
+    ob.lg.show_mask = 'NONE'
+    check(np.allclose(view_colors()[:, :3], 0.0), "None should leave no mask colours")
+    return "Height, Slope, Flow colour the landscape differently; None clears it"
+
+
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")
 def _t26():
     fresh_scene()

@@ -206,6 +206,7 @@ def sync_object(ob):
         values["Style"] = st["index"]
     for ctl in recipe.get("controls", ()):
         values[ctl["slot"]] = _control_value(props, ctl)
+    values["Show Mask"] = MASK_INDEX.get(props.show_mask, 0)
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
     # and no erosion run (the old tick box swapped in a weaker pre-erosion shape; Mike, Pass 4 review).
@@ -225,8 +226,45 @@ def sync_object(ob):
 # replaces it a moment later (in the background build it runs straight away).
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
-             "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor"}
+             "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask"}
 _pending = {}
+
+
+MASK_ITEMS = (
+    ('NONE', "None", "Normal shading"),
+    ('HEIGHT', "Height", "Low (dark blue) to high (yellow)"),
+    ('SLOPE', "Slope", "Flat (dark blue) to vertical (yellow): where rock shows"),
+    ('CURVATURE', "Curvature", "Ridges dark, hollows and valleys bright, even ground in between"),
+    ('FLOW', "Flow", "Where water drains: bright along streams and rivers"),
+    ('WEAR', "Wear", "Where erosion cut into the ground"),
+    ('DEPOSIT', "Deposit", "Where erosion laid down sediment: fans and valley fill"),
+)
+MASK_INDEX = {key: i for i, (key, _n, _d) in enumerate(MASK_ITEMS)}
+
+
+_prev_shading = {}  # 3D view area (pointer) -> (shading type, colour type) before the mask viewer took it
+
+
+def _show_mask_changed(props, context):
+    """Colour the viewport by the picked mask: the landscape's lg_view colour attribute, shown by every 3D
+    view's Solid mode in Attribute colour (enum 'VERTEX'). Back to None restores each view's own shading."""
+    ob = props.id_data
+    ob.data.color_attributes.active_color_name = "lg_view"
+    sync_object(ob)
+    showing = props.show_mask != 'NONE'
+    for window in context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type != 'VIEW_3D':
+                continue
+            sh = area.spaces.active.shading
+            key = area.as_pointer()
+            if showing:
+                _prev_shading.setdefault(key, (sh.type, sh.color_type))
+                if sh.type not in ('SOLID', 'WIREFRAME'):
+                    sh.type = 'SOLID'
+                sh.color_type = 'VERTEX'  # shown as "Attribute" in the Solid shading popover
+            elif key in _prev_shading:
+                sh.type, sh.color_type = _prev_shading.pop(key)
 
 
 def _control_value(props, ctl):
@@ -598,6 +636,8 @@ class LG_ObjectProps(PropertyGroup):
         default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     gully_density: FloatProperty(name="Gully Density", description="Few broad mounds, or many tight gullies",
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    show_mask: EnumProperty(name="Show Mask", description="Colour the viewport by one of the landscape's data masks, the maps materials and scatter use",
+                            items=MASK_ITEMS, default='NONE', update=_show_mask_changed)
     proportional: BoolProperty(name="Proportional Feature Scaling", description="On: scaling keeps hills, peaks and dunes their real size, so a bigger landscape fits more of them. Off: everything grows together",
                                default=False)
     seed: IntProperty(name="Seed", description="Same seed, same landscape. Change it for a new layout of the same look",
@@ -989,6 +1029,15 @@ class LG_PT_main(Panel):
             spacing = max(size_x, size_y) / res
             points = (round(size_x / spacing) + 1) * (round(size_y / spacing) + 1)
             box.label(text=f"A point every {spacing:.2f} m · {points / 1000:,.0f} k points")
+
+        header, box = layout.panel("lg_masks", default_closed=True)
+        header.label(text="Masks")
+        if box:
+            box.prop(props, "show_mask", text="Show")
+            if props.show_mask != 'NONE':
+                box.label(text=dict((k, d) for k, _n, d in MASK_ITEMS)[props.show_mask])
+                if props.show_mask in ('FLOW', 'WEAR', 'DEPOSIT') and not TYPES.get(_object_type_key(props), {}).get("erosion"):
+                    box.label(text="This type has no erosion, so this mask is empty", icon='INFO')
 
         header, box = layout.panel("lg_shape", default_closed=False)
         header.label(text="Shape")

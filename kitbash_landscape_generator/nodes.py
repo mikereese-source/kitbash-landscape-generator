@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 127  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 128  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -41,6 +41,7 @@ INPUTS = (
     ("P5", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 5"),
     ("P6", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 6"),
     ("P7", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 7"),
+    ("Show Mask", 'NodeSocketInt', 0, 0, 6, "Which mask colours the viewport: 0 none, 1-6 height, slope, curvature, flow, wear, deposit (set by the add-on)"),
 )
 
 
@@ -1164,6 +1165,30 @@ def _build(ng, recipe):
         L.new(out_geo, st.inputs["Geometry"])
         L.new(m_val, st.inputs["Value"])
         out_geo = st.outputs[0]
+    # Mask viewer (M3 step 3.2): the picked mask as a colour attribute the viewport shows in Solid mode,
+    # dark blue (0) through teal to yellow (1), easy to read on any mask.
+    m_pick = N.new('GeometryNodeIndexSwitch')
+    m_pick.data_type = 'FLOAT'
+    while len(m_pick.index_switch_items) < 7:
+        m_pick.index_switch_items.new()
+    L.new(inp["Show Mask"], m_pick.inputs["Index"])
+    m_pick.inputs[1].default_value = 0.0
+    for i, m_val in enumerate((m_height, m_slope, m_curv, m_flow, m_wear, m_dep)):
+        L.new(m_val, m_pick.inputs[i + 2])
+    ramp = N.new('ShaderNodeValToRGB')
+    els = ramp.color_ramp.elements
+    els[0].color, els[1].color = (0.05, 0.03, 0.25, 1.0), (0.99, 0.91, 0.14, 1.0)
+    mid = els.new(0.5)
+    mid.color = (0.13, 0.57, 0.55, 1.0)
+    L.new(m_pick.outputs[0], ramp.inputs["Fac"])
+    view = N.new('GeometryNodeStoreNamedAttribute')
+    view.data_type = 'FLOAT_COLOR'
+    view.domain = 'POINT'
+    view.inputs["Name"].default_value = "lg_view"
+    L.new(out_geo, view.inputs["Geometry"])
+    L.new(ramp.outputs["Color"], view.inputs["Value"])
+    L.new(math('GREATER_THAN', inp["Show Mask"], 0.5), view.inputs["Selection"])
+    out_geo = view.outputs[0]
     shade = N.new('GeometryNodeSetShadeSmooth')
     L.new(out_geo, shade.inputs["Geometry"])
     L.new(shade.outputs[0], gout.inputs["Geometry"])

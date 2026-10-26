@@ -9,11 +9,11 @@
    "rough": 0.0275
   },
   "ours": {
-   "relief": 0.0389,
-   "slope50": 8.3,
-   "slope90": 18.2,
-   "hyps": 0.374,
-   "rough": 0.0187
+   "relief": 0.0383,
+   "slope50": 8.4,
+   "slope90": 17.0,
+   "hyps": 0.381,
+   "rough": 0.0167
   },
   "t6": "PASS"
  },
@@ -27,9 +27,9 @@
    "rough": 0.0276
   },
   "ours": {
-   "relief": 0.156,
+   "relief": 0.1562,
    "slope50": 34.5,
-   "slope90": 51.5,
+   "slope90": 51.6,
    "hyps": 0.413,
    "rough": 0.0256
   },
@@ -65,9 +65,9 @@
   "ours": {
    "relief": 0.0483,
    "slope50": 1.1,
-   "slope90": 18.8,
+   "slope90": 18.5,
    "hyps": 0.409,
-   "rough": 0.0488
+   "rough": 0.0485
   }
  },
  "canyon": {
@@ -82,9 +82,9 @@
   "ours": {
    "relief": 0.1392,
    "slope50": 24.0,
-   "slope90": 46.8,
-   "hyps": 0.37,
-   "rough": 0.023
+   "slope90": 46.2,
+   "hyps": 0.369,
+   "rough": 0.0222
   },
   "t6": "PASS"
  },
@@ -99,10 +99,10 @@
   },
   "ours": {
    "relief": 0.1161,
-   "slope50": 10.5,
-   "slope90": 45.7,
+   "slope50": 10.6,
+   "slope90": 46.9,
    "hyps": 0.228,
-   "rough": 0.0498
+   "rough": 0.0488
   },
   "t6": "FAIL: relief, slope50"
  },
@@ -120,7 +120,7 @@
    "slope50": 11.1,
    "slope90": 46.2,
    "hyps": 0.506,
-   "rough": 0.0792
+   "rough": 0.0791
   },
   "t6": "PASS"
  },
@@ -134,13 +134,13 @@
    "rough": 0.0175
   },
   "ours": {
-   "relief": 0.0706,
-   "slope50": 4.3,
-   "slope90": 14.3,
-   "hyps": 0.249,
-   "rough": 0.0257
+   "relief": 0.0736,
+   "slope50": 8.2,
+   "slope90": 23.4,
+   "hyps": 0.439,
+   "rough": 0.0237
   },
-  "t6": "FAIL: relief"
+  "t6": "FAIL: relief, hyps"
  },
  "volcano_strato": {
   "width_km": 30.0,
@@ -152,11 +152,11 @@
    "rough": 0.0106
   },
   "ours": {
-   "relief": 0.0941,
-   "slope50": 9.4,
-   "slope90": 21.8,
-   "hyps": 0.239,
-   "rough": 0.01
+   "relief": 0.0952,
+   "slope50": 9.1,
+   "slope90": 22.6,
+   "hyps": 0.223,
+   "rough": 0.0102
   },
   "t6": "PASS"
  },
@@ -170,11 +170,11 @@
    "rough": 0.0414
   },
   "ours": {
-   "relief": 0.0473,
-   "slope50": 7.1,
-   "slope90": 15.7,
-   "hyps": 0.34,
-   "rough": 0.0116
+   "relief": 0.0483,
+   "slope50": 6.9,
+   "slope90": 16.9,
+   "hyps": 0.309,
+   "rough": 0.0123
   },
   "t6": "PASS"
  },
@@ -188,11 +188,11 @@
    "rough": 0.0031
   },
   "ours": {
-   "relief": 0.0651,
-   "slope50": 7.9,
-   "slope90": 16.8,
-   "hyps": 0.404,
-   "rough": 0.0097
+   "relief": 0.066,
+   "slope50": 7.8,
+   "slope90": 16.7,
+   "hyps": 0.367,
+   "rough": 0.0121
   },
   "t6": "PASS"
  },
@@ -206,10 +206,10 @@
    "rough": 0.0086
   },
   "ours": {
-   "relief": 0.1221,
-   "slope50": 12.8,
-   "slope90": 27.5,
-   "hyps": 0.246,
+   "relief": 0.1231,
+   "slope50": 12.5,
+   "slope90": 27.7,
+   "hyps": 0.245,
    "rough": 0.0139
   },
   "t6": "PASS"
@@ -242,10 +242,10 @@
   },
   "ours": {
    "relief": 0.1589,
-   "slope50": 16.1,
-   "slope90": 42.6,
+   "slope50": 16.2,
+   "slope90": 42.4,
    "hyps": 0.423,
-   "rough": 0.0167
+   "rough": 0.0165
   },
   "t6": "PASS"
  },
@@ -260,10 +260,10 @@
   },
   "ours": {
    "relief": 0.006,
-   "slope50": 0.9,
+   "slope50": 0.8,
    "slope90": 2.6,
    "hyps": 0.601,
-   "rough": 0.0734
+   "rough": 0.0732
   },
   "t6": "PASS"
  }

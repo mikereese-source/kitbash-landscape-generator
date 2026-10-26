@@ -503,6 +503,11 @@ def erode(h, settings=None, hard=None):
     # or on valley floors: the smoothing above washed every texture away (Mike, Pass 3).
     if s["keep_detail"] > 0:
         fine = np.asarray(h, dtype=np.float64) - blur(np.asarray(h, dtype=np.float64), 1)
+        # At a sheer step (caprock rim, cliff top) height minus its blur is a large spike on the top cells, an
+        # unsharp-mask halo that stood up as a serrated lip along every Mesa rim (Mike, Pass 8). Clip it to a
+        # few times the typical texture: rough ground keeps its detail, step edges lose the halo.
+        lim = 4.0 * float(np.median(np.abs(fine))) + 1e-12
+        fine = np.clip(fine, -lim, lim)
         z = z + fine * (1.0 - wetness(z, s["channel"])) * s["keep_detail"]
     # Fade back to the plain shape over the outer `edge_blend` of the width: the fixed edges left
     # notches and drips along every border (the "edge frame", Pass 1-3).
@@ -531,4 +536,9 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     lb = lean(bump, 0.05)[0]
     up, down = np.diff(lb)[:int(np.argmax(lb))], np.diff(lb)[int(np.argmax(lb)):]
     assert -down.min() > 1.3 * up.max(), "lean didn't steepen the downwind side"
+    step = np.zeros((64, 64))
+    step[:, 32:] = 1.0
+    step += 0.002 * np.random.default_rng(2).standard_normal(step.shape)
+    out_step = erode(step, {"passes": 2, "keep_detail": 1.0, "edge_blend": 0.0})
+    assert out_step[:, 34:].max() < 1.0 + 0.05, "rim halo: detail stood up along the step edge"
     print("erosion self-check OK")

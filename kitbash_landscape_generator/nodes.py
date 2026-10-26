@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 112  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 120  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -404,12 +404,6 @@ def _build(ng, recipe):
     # Walls spread wide: real canyon walls are long talus slopes between cliff bands (lidar, 30 m and 1 m).
     cut = smooth(math('ADD', channel, rim), 0.0, math('MULTIPLY', width, 1.8))
     cut = math('POWER', cut, math('SUBTRACT', 2.0, math('MULTIPLY', inp["P2"], 1.7)))  # P2 plateau
-    # Inner buttes and temples (photo review, Grand Canyon): isolated patches inside the canyon where the
-    # land stands back up to near the rim. Raising the depth field here means the strata below step their
-    # sides into the same cliff and slope tiers as the walls, with a hard caprock top.
-    temple_n = noise(p2, 'FBM', math('MULTIPLY', inp["Feature Scale"], 6.0), 2.0, 0.5).outputs["Fac"]
-    temple = math('MULTIPLY', smooth(temple_n, 0.68, 0.71), math('MULTIPLY', smooth(cut, 0.04, 0.25), smooth(cut, 0.95, 0.8)))
-    cut = math('MAXIMUM', cut, math('MULTIPLY', temple, 0.93))
     wobble = math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 3.0), 2.0,
                                                      0.5).outputs["Fac"], 0.5), 0.9)
     layers = 5.0
@@ -621,17 +615,31 @@ def _build(ng, recipe):
                                            .outputs["Fac"], 0.2), 0.012)
     cells = N.new('ShaderNodeTexVoronoi')
     cells.voronoi_dimensions = '2D'
-    cells.inputs["Randomness"].default_value = 1.0
+    cells.inputs["Randomness"].default_value = 0.6  # 1.0 put sites near cell edges and sliced cones into flat faces
     L.new(p2, cells.inputs["Vector"])
     L.new(math('MULTIPLY', inp["Feature Scale"], 2.5), cells.inputs["Scale"])
     cell_rand = N.new('FunctionNodeSeparateColor')
     L.new(cells.outputs["Color"], cell_rand.inputs[0])
     cone_here = smooth(cell_rand.outputs[0], 0.9, 0.92)  # a few cones, not a field of dots
-    cone_r = math('ADD', 0.25, math('MULTIPLY', cell_rand.outputs[1], 0.2))  # each cone its own size, broad (cinder cones ~5x wider than tall)
-    cone = math('MINIMUM', math('MULTIPLY', smooth(cells.outputs["Distance"], cone_r, 0.0), 1.5), 1.0)  # flat top
-    cone = math('MULTIPLY', cone, math('DIVIDE', cone_r, 0.2))  # small cones are low
-    cone_crater = math('MULTIPLY', smooth(cells.outputs["Distance"], math('MULTIPLY', cone_r, 0.35), math('MULTIPLY', cone_r, 0.1)), 0.35)
-    cinder = math('MULTIPLY', math('SUBTRACT', cone, cone_crater), cone_here)
+    cone_r = math('ADD', 0.16, math('MULTIPLY', cell_rand.outputs[1], 0.12))  # each cone its own size; stays inside its cell (0.45 hit the edges)
+    # Cinder cone (Mike, Pass 8: a smooth flat-topped stump): straight scoria flanks at the angle of repose,
+    # a wide summit crater with a sharp rim, and radial rills and gullies down every flank (SP Crater,
+    # Sunset Crater).
+    u_c = math('DIVIDE', cells.outputs["Distance"], cone_r)  # 0 at the centre, 1 at the foot
+    flank = math('MINIMUM', math('MULTIPLY', math('MAXIMUM', math('SUBTRACT', 1.0, u_c), 0.0), 1.55), 1.0)  # straight sides
+    flank = math('MULTIPLY', flank, smooth(u_c, 1.0, 0.85))  # a short concave foot, no hard crease at the base
+    cone = math('MULTIPLY', flank, math('DIVIDE', cone_r, 0.4))  # small cones are low; ~1:5 tall to wide
+    cone_crater = math('MULTIPLY', smooth(u_c, 0.4, 0.15), math('MULTIPLY', math('DIVIDE', cone_r, 0.4), 0.45))  # wide, deep bowl
+    site = N.new('ShaderNodeSeparateXYZ')
+    L.new(cells.outputs["Position"], site.inputs[0])
+    here2 = N.new('ShaderNodeSeparateXYZ')
+    L.new(p2, here2.inputs[0])
+    c_ang = math('ARCTAN2', math('SUBTRACT', here2.outputs["Y"], site.outputs["Y"]), math('SUBTRACT', here2.outputs["X"], site.outputs["X"]))
+    rill_n = noise(vec(math('MULTIPLY', math('COSINE', c_ang), 3.0), math('MULTIPLY', math('SINE', c_ang), 3.0),
+                       math('ADD', math('MULTIPLY', u_c, 0.8), math('MULTIPLY', cell_rand.outputs[2], 40.0))), 'FBM', 4.0, 3.0, 0.55).outputs["Fac"]
+    rills = math('MULTIPLY', math('SUBTRACT', soft_ridge(rill_n, 0.25), 0.6),
+                 math('MULTIPLY', math('MULTIPLY', smooth(u_c, 0.4, 0.55), smooth(u_c, 1.0, 0.8)), math('MULTIPLY', math('DIVIDE', cone_r, 0.4), 0.2)))
+    cinder = math('MULTIPLY', math('ADD', math('SUBTRACT', cone, cone_crater), rills), cone_here)
     volcanic = math('ADD', math('ADD', lobes, pressure),
                     math('ADD', math('MULTIPLY', cinder, 0.45), math('MULTIPLY', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 30.0), 4.0, 0.6).outputs["Fac"], 0.012)))  # rough lava surface
     # Broken aa rubble on every flow (photo review, Craters of the Moon 1 m lidar: slope50 10 deg, ours 3.6 on
@@ -717,6 +725,16 @@ def _build(ng, recipe):
     # Lopsided at the foot, round at the summit (a wobbling crater rim looked scalloped).
     radius_t = math('MULTIPLY', radius, math('ADD', 1.0, math('MULTIPLY', math('MULTIPLY', math('SUBTRACT', lop, 0.5), lop_amt),
                                                                      smooth(d_round, 0.25, 0.85))))
+    # Always inside the landscape (Mike, Pass 8: a lopsided foot ran off the edge): in each direction the foot
+    # stops short of the border, measured from the off-centre summit, with a margin for the warp.
+    dist_o = math('MAXIMUM', math('SQRT', math('ADD', math('MULTIPLY', xo, xo), math('MULTIPLY', yo, yo))), 1e-6)
+    dir_c, dir_s = math('DIVIDE', xo, dist_o), math('DIVIDE', yo, dist_o)
+    margin = math('ADD', 0.03, math('MULTIPLY', inp["Warp"], 0.08))
+    half_x = math('SUBTRACT', math('DIVIDE', size_x, math('MULTIPLY', ref, 2.0)), margin)
+    half_y = math('SUBTRACT', math('DIVIDE', size_y, math('MULTIPLY', ref, 2.0)), margin)
+    to_x = math('DIVIDE', math('SUBTRACT', half_x, math('MULTIPLY', off_x, math('SIGN', dir_c))), math('MAXIMUM', math('ABSOLUTE', dir_c), 1e-4))
+    to_y = math('DIVIDE', math('SUBTRACT', half_y, math('MULTIPLY', off_y, math('SIGN', dir_s))), math('MAXIMUM', math('ABSOLUTE', dir_s), 1e-4))
+    radius_t = math('MINIMUM', radius_t, math('MAXIMUM', math('MINIMUM', to_x, to_y), 0.05))
     r = math('DIVIDE', math('SQRT', math('ADD', math('MULTIPLY', xo, xo), math('MULTIPLY', yo, yo))), radius_t)
     collapsed = pick_float(style, (0.0, 0.0, 0.0, 0.0, 1.0))
     exponent = math('ADD', pick_float(style, (0.6, 0.3, 0.7, 1.1, 0.6)),
@@ -818,8 +836,16 @@ def _build(ng, recipe):
     v_rough = math('ADD', 0.2, math('MULTIPLY', inp["Roughness"], 2.2))
     rubble = math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 4.0), 5.0, 0.62).outputs["Fac"], 0.5),
                   math('MULTIPLY', math('MULTIPLY', smooth(r, 1.15, 0.9), smooth(r, 0.0, 0.2)), 0.13))
-    volcano = math('ADD', math('ADD', math('ADD', breached, math('MULTIPLY', math('ADD', rocky, rubble), v_rough)), debris),
-                   math('MULTIPLY', base, math('MULTIPLY', 0.04, v_rough)))
+    ground = math('MULTIPLY', base, math('MULTIPLY', 0.04, v_rough))
+    above = math('ADD', math('ADD', breached, math('MULTIPLY', math('ADD', rocky, rubble), v_rough)), debris)
+    # Never below the surrounding ground (Mike, Pass 8: deep gullies and rubble at the foot dug under the
+    # plain, and a low Peak Sharpness stretched those dips into long needles hanging under the base).
+    above = math('MAXIMUM', above, 0.0)
+    # And always inside the landscape: whatever reaches past the foot (collapse debris) fades out before
+    # the border, as the foot itself does (radius cap above).
+    room = math('MINIMUM', math('SUBTRACT', half_x, math('ABSOLUTE', x)), math('SUBTRACT', half_y, math('ABSOLUTE', y)))
+    above = math('MULTIPLY', above, smooth(room, 0.0, margin))
+    volcano = math('ADD', above, ground)
 
     # Recipe 12, craters: an impact-cratered surface, tuned against LROC 2 m elevation of the Moon
     # (Linne, Apollo 14 and 16; docs/REALISM.md). P1 count, P2 size, P3 surface age, P4 variety.
@@ -963,7 +989,13 @@ def _build(ng, recipe):
     L.new(inner, stats.inputs["Selection"])  # Height is the relief of the landscape, not of its padding
     lo, hi = stats.outputs["Min"], stats.outputs["Max"]
     unit = math('DIVIDE', math('SUBTRACT', raw, lo), math('MAXIMUM', math('SUBTRACT', hi, lo), 1e-6))
-    shaped = math('POWER', unit, inp["Sharpness"])
+    # Peak Sharpness: above 1, unit^s (pointy tops, flatter lows). Below 1, 1 - (1 - unit)^(1/s) (rounded tops,
+    # full lows): unit^s has an infinite slope at 0, so at s 0.25 a 1% dip in the ground became ~30% of
+    # the Height and hung under the landscape as needles (Mike, Pass 8). Both are plain unit at s = 1.
+    sharp_hi = math('POWER', unit, inp["Sharpness"])
+    sharp_lo = math('SUBTRACT', 1.0, math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, unit), 0.0), math('DIVIDE', 1.0, math('MAXIMUM', inp["Sharpness"], 0.05))))
+    lo_side = math('LESS_THAN', inp["Sharpness"], 1.0)
+    shaped = math('ADD', math('MULTIPLY', sharp_lo, lo_side), math('MULTIPLY', sharp_hi, math('SUBTRACT', 1.0, lo_side)))
     z = math('MULTIPLY', shaped, math('MULTIPLY', inp["Height"], ref))
     # Erosion (R6): the engine's eroded heights, stored per landscape as an image across the
     # landscape (in units of Height), blended in here so rock grain stays live on top (D54).

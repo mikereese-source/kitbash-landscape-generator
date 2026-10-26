@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 125  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 126  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -720,12 +720,14 @@ def _build(ng, recipe):
     # both set by the seed, so flanks differ in length and steepness.
     lop_amt = pick_float(style, (0.6, 0.5, 0.12, 0.45, 0.6))  # cinder cones are nearly round
     # Always inside the landscape (Mike, Pass 8): past the size that fits, Volcano Size stops growing the
-    # volcano, keeping its shape. Its widest reach is about radius * (1 + lop_amt) (the lopsided foot plus
-    # the summit offset). Clipping the foot to the border instead squared the outline (Mike: "cube-like").
+    # volcano, keeping its shape. Clipping the foot to the border instead squared the outline (Mike: "cube-like").
     margin = math('ADD', 0.03, math('MULTIPLY', inp["Warp"], 0.08))
     half_x = math('SUBTRACT', math('DIVIDE', size_x, math('MULTIPLY', ref, 2.0)), margin)
     half_y = math('SUBTRACT', math('DIVIDE', size_y, math('MULTIPLY', ref, 2.0)), margin)
-    radius = math('MINIMUM', radius, math('DIVIDE', math('MAXIMUM', math('MINIMUM', half_x, half_y), 0.05), math('ADD', 1.0, lop_amt)))
+    # Cap at 1.1x the half-width: every style's default size (radius 0.42-0.5) is under it, so defaults
+    # are unchanged (a tighter cap shrank them and broke their realism checks); the lopsided bits past the
+    # border fade out below (room).
+    radius = math('MINIMUM', radius, math('MULTIPLY', math('MAXIMUM', math('MINIMUM', half_x, half_y), 0.05), 1.1))
     off_x = math('MULTIPLY', math('SUBTRACT', noise(vec(seed_val, 1.3, 0.0), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"], 0.5), math('MULTIPLY', radius, math('MULTIPLY', lop_amt, 0.7)))
     off_y = math('MULTIPLY', math('SUBTRACT', noise(vec(seed_val, 4.7, 0.0), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"], 0.5), math('MULTIPLY', radius, math('MULTIPLY', lop_amt, 0.7)))
     xo, yo = math('SUBTRACT', x, off_x), math('SUBTRACT', y, off_y)

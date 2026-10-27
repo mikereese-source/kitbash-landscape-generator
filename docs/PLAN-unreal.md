@@ -51,7 +51,7 @@ A **parity test** checks all three: the same recipe built in each app gives matc
   the rebuilt shape; the shipped copy is for checks and for tools that can't rebuild)
 - `material.json`: the M5 material layer choices and dial settings (snow line, rock angle, wetness, ...)
 - `scatter.json`: Kit or foliage layers and their mask rules (after the scatter work)
-- Sent as a file, or straight from Cargo / Blender through the MCP
+- Sent from Cargo only: Cargo is where a landscape is first made, and it sends to Blender and to Unreal (more apps later). There's no Blender-to-Unreal path; the Blender add-on receives and edits, it doesn't hand on.
 
 ## Landing in Unreal (match and beat TerrainForge)
 1. **World Partition landscape** at the chosen resolution, with component sizes picked automatically, plus tiling
@@ -94,7 +94,7 @@ A **parity test** checks all three: the same recipe built in each app gives matc
 | U3 | World Partition landing | One-click import: landscape, component sizes, tiling; size and Height exact |
 | U4 | Material + paint layers | 8 layers from the masks, M5 dials, matches the Blender look |
 | U5 | Water + PCG + sky | Water bodies from our water level and flow; masks for PCG; Kit scatter graphs; sky/atmosphere preset |
-| U6 | Agents + Send to Unreal | MCP tools and skills; Send to Unreal from Cargo and Blender |
+| U6 | Agents + Send to Unreal | MCP tools and skills; Send to Unreal from Cargo |
 | U7 | GPU erosion refinement (optional) | A full-resolution erosion pass in Unreal that passes the 1 m realism checks |
 | U8 | Errors, edge cases, final check | Bad input, huge sizes, missing data, old packages; final checker review |
 

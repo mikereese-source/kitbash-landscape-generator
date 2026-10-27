@@ -15,7 +15,7 @@ flair (fog, water, clouds, finishing) that takes it over the top.
 - **Look:** better than TerrainForge's renders. Real materials, water, grass and sky in the first shot, not grey terrain.
 - **Landing:** at least as native as theirs. The import becomes a World Partition landscape with paint layers,
   water bodies and masks ready for PCG, in one step.
-- **Resolution:** up to 16K in Unreal, without losing what makes ours different: artist-first controls, the
+- **Resolution:** 8K in Unreal for v1 (AAA), 16K later for VFX, without losing what makes ours different: artist-first controls, the
   hero types and styles, KitBash Kits on the terrain, Cargo as the hub, and agents through our MCP.
 
 ## The key idea: the recipe is resolution-free; Unreal rebuilds it at full size
@@ -40,7 +40,7 @@ Cargo, with real 16K detail on top. This also keeps Cargo fast: three.js only ev
 |---|---|---|---|
 | Cargo (three.js, WebGPU) | 1K | 2K–4K (Ultra; GPU displacement and level of detail) | 512–1K, WebGPU compute |
 | Blender (Project 1) | Preview 512 | High 2K / Ultra 4K | 512 (CPU, the reference engine) |
-| Unreal (Project 3) | Recipe preview 1–2K | 4K / 8K / 16K | Ships the 1–2K layer; optional GPU refinement at full size |
+| Unreal (Project 3) | Recipe preview 1–2K | 4K / **8K (v1 target)**; 16K tier for VFX later | Ships the 1–2K layer; optional GPU refinement at full size |
 
 A **parity test** checks all three: the same recipe built in each app gives matching heights and masks at a shared resolution.
 
@@ -90,18 +90,18 @@ A **parity test** checks all three: the same recipe built in each app gives matc
 | # | Milestone | Done when |
 |---|---|---|
 | U1 | Recipe core in Unreal | The same recipe builds the same big shapes as Blender/three.js (parity test), live preview at 1–2K |
-| U2 | Erosion layer + full-res rebuild | Shipped erosion layer upsampled; 4K/8K/16K builds with fine detail added back; build monitor |
+| U2 | Erosion layer + full-res rebuild | Shipped erosion layer upsampled; 4K and 8K builds with fine detail added back; build monitor |
 | U3 | World Partition landing | One-click import: landscape, component sizes, tiling; size and Height exact |
 | U4 | Material + paint layers | 8 layers from the masks, M5 dials, matches the Blender look |
 | U5 | Water + PCG + sky | Water bodies from our water level and flow; masks for PCG; Kit scatter graphs; sky/atmosphere preset |
 | U6 | Agents + Send to Unreal | MCP tools and skills; Send to Unreal from Cargo |
-| U7 | GPU erosion refinement (optional) | A full-resolution erosion pass in Unreal that passes the 1 m realism checks |
+| U7 | 16K VFX tier + GPU erosion refinement (optional) | 16K builds for VFX shots; a full-resolution erosion pass in Unreal that passes the 1 m realism checks |
 | U8 | Errors, edge cases, final check | Bad input, huge sizes, missing data, old packages; final checker review |
 
 Real places can land in Project 2 (Cargo) and come to Unreal through the package, so they don't need their own milestone.
 
 ## Questions for Mike
-1. **16K or 8K** as the first Unreal target? 8K is far easier on memory and build time; 16K can come with U7.
+1. ~~16K or 8K as the first target?~~ **Decided (Mike, D81): at least 8K for v1**, the max for most AAA studios; Unreal upscales from there. 16K is a later tier for VFX studios' bigger shots (U7).
 2. **GPU erosion in Unreal (U7):** worth it for v1, or ship with the upsampled erosion layer and see if anyone misses it?
 3. **Real places:** Cargo first (Project 2), or also in the Blender add-on before Project 1 ships?
 4. **Show the realism score in the product,** or keep it as an internal quality bar and marketing line?

@@ -4,7 +4,14 @@ Status: **proposed**, for Mike. It builds on the three-app plan (PARKING "Three-
 and on what TerrainForge shows the bar now is (RESEARCH-terrainforge.md). Project 3 starts after Project 2
 (three.js in Cargo). It's built with the Unreal MCP, as Project 1 was with the Blender MCP.
 
-## The bar
+## Positioning (Mike, 2026-10-27)
+Not just a terrain generator: **the finished artistic look, faster and easier.** Terrain is a big part of it, but
+the product is the whole shot: realistic water, fog and atmosphere, clouds, materials and Kits. You get there
+without being bogged down in nodes. It just works, the changes that matter are quick, and the result lands in
+your scene fast, in Blender or Unreal and later any DCC Cargo supports. Landscapes are the first beachhead, and
+Blender support is a big part of it. The bar: look at least as good as the node-based tools, plus the artistic
+flair (fog, water, clouds, finishing) that takes it over the top.
+
 - **Look:** better than TerrainForge's renders. Real materials, water, grass and sky in the first shot, not grey terrain.
 - **Landing:** at least as native as theirs. The import becomes a World Partition landscape with paint layers,
   water bodies and masks ready for PCG, in one step.
@@ -57,7 +64,7 @@ A **parity test** checks all three: the same recipe built in each app gives matc
    flow-mask channels. The depth mask drives shore foam and colour.
 5. **PCG-ready:** the masks are exposed as landscape layers or PCG attributes, so a PCG graph puts forest
    "where forest would grow". It ships with KitBash PCG graphs for scattering Kits.
-6. **Sky and atmosphere preset** (the parked fog/atmosphere step), so the first look is a finished shot.
+6. **Finishing look:** sky, fog and atmosphere, and clouds (the parked fog/atmosphere step), as one-click moods, so the first look is a finished shot.
 
 ## New features this adds to the roadmap
 - **Real places (from TerrainForge):** start from a real DEM tile: Copernicus 30 m anywhere, and the open 1 m

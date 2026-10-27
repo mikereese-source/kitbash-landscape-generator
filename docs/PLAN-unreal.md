@@ -30,7 +30,7 @@ is right for the shape. The one part that isn't free is erosion, which is a simu
 | Big shapes (types, styles, controls, terraces) | Re-evaluated from the recipe at full resolution (GPU, a material/compute port of the node math) | Free in quality, fast |
 | Erosion (valleys, gullies, talus, fans) | Computed once at 1–2K by the shared engine, shipped as an **erosion layer**, upsampled smoothly | Small file; looks right at the big scale |
 | Fine detail on the eroded shape | Rock grain in real meters (D47) and the shape's own fine detail added back at full resolution, kept off channels and floors with the flow mask (the same keep-detail rule as erosion.py) | Cheap, resolution-free |
-| Full-resolution erosion (optional, later) | A GPU erosion refinement pass in Unreal (compute shader) on top of the shipped layer: sharp rills and fans at 16K | Heavy; a "Final" button, minutes not seconds |
+| Full-resolution erosion (**in v1**, Mike D82) | A GPU erosion pass in Unreal (compute shader) on top of the shipped layer: sharp rills, gullies and fans at full 8K | Heavy; runs on Build, with progress in the build monitor |
 
 So Unreal gets a 16K landscape whose **big forms, valleys and drainage** match what the artist approved in
 Cargo, with real 16K detail on top. This also keeps Cargo fast: three.js only ever builds preview resolutions.
@@ -67,12 +67,8 @@ A **parity test** checks all three: the same recipe built in each app gives matc
 6. **Finishing look:** sky, fog and atmosphere, and clouds (the parked fog/atmosphere step), as one-click moods, so the first look is a finished shot.
 
 ## New features this adds to the roadmap
-- **Real places (from TerrainForge):** start from a real DEM tile: Copernicus 30 m anywhere, and the open 1 m
-  data where it exists (USGS 3DEP; IGN, swisstopo, AHN, Kartverket). Then shape it with our controls (erosion,
-  terraces, water, materials). We already download and read these tiles for our realism checks. Proposed: a
-  "Real Place" type in Cargo first, then Unreal and Blender. Credit each source as its license asks.
-- **A realism score users can see,** per type against its own real place. We measure this already (T6, T6b).
-  It's a strong message: "checked against real Earth", by landscape type.
+- **Real places (from TerrainForge): parked (D82).** Artist-driven first: dial in realism with our types and presets, then try a few real DEM tiles (Copernicus 30 m, open 1 m data) and see if they look as good.
+- **A realism score users can see:** undecided, not now (D82). We already measure it per type (T6, T6b) as our quality bar.
 - **Build monitor:** progress, time left and memory for long builds (Final 16K, GPU erosion).
 - **Agent tools in the Cargo MCP and the Unreal plugin:** create a landscape, set its type, set a control,
   build, send to Unreal, validate. Plus skills for whole flows ("a 4 km alpine valley with a lake, Kits on the
@@ -91,17 +87,18 @@ A **parity test** checks all three: the same recipe built in each app gives matc
 |---|---|---|
 | U1 | Recipe core in Unreal | The same recipe builds the same big shapes as Blender/three.js (parity test), live preview at 1–2K |
 | U2 | Erosion layer + full-res rebuild | Shipped erosion layer upsampled; 4K and 8K builds with fine detail added back; build monitor |
+| U2b | GPU erosion at full resolution (v1, D82) | A compute-shader erosion pass on the rebuilt 8K landscape that refines the shipped layer and passes the 1 m realism checks; fast enough to use straight away |
 | U3 | World Partition landing | One-click import: landscape, component sizes, tiling; size and Height exact |
 | U4 | Material + paint layers | 8 layers from the masks, M5 dials, matches the Blender look |
 | U5 | Water + PCG + sky | Water bodies from our water level and flow; masks for PCG; Kit scatter graphs; sky/atmosphere preset |
 | U6 | Agents + Send to Unreal | MCP tools and skills; Send to Unreal from Cargo |
-| U7 | 16K VFX tier + GPU erosion refinement (optional) | 16K builds for VFX shots; a full-resolution erosion pass in Unreal that passes the 1 m realism checks |
+| U7 | 16K VFX tier | 16K builds for VFX shots (memory, tiling, build time) |
 | U8 | Errors, edge cases, final check | Bad input, huge sizes, missing data, old packages; final checker review |
 
-Real places can land in Project 2 (Cargo) and come to Unreal through the package, so they don't need their own milestone.
+Real places are parked (D82). When they come back they land in Cargo first and reach Unreal through the package.
 
 ## Questions for Mike
 1. ~~16K or 8K as the first target?~~ **Decided (Mike, D81): at least 8K for v1**, the max for most AAA studios; Unreal upscales from there. 16K is a later tier for VFX studios' bigger shots (U7).
-2. **GPU erosion in Unreal (U7):** worth it for v1, or ship with the upsampled erosion layer and see if anyone misses it?
-3. **Real places:** Cargo first (Project 2), or also in the Blender add-on before Project 1 ships?
-4. **Show the realism score in the product,** or keep it as an internal quality bar and marketing line?
+2. ~~GPU erosion in v1?~~ **Decided (Mike, D82): yes.** Erosion adds a ton and people should want to use it straight away; it's milestone U2b.
+3. ~~Real places?~~ **Parked (Mike, D82).** Artist-driven first: dial in realism with our types and presets, then try a few real places and see if they look as good.
+4. **Realism score in the product:** undecided; not now (Mike, D82). It stays our internal quality bar.

@@ -11,7 +11,7 @@ Ideas that come up mid-build land here, not in the current milestone. Review at 
 | Quick scale keeps the Width:Depth ratio when one side hits the 1 m minimum | 2026-10-22 | M1 | → M7 (edge cases) |
 | Editing a landscape in Edit Mode does nothing (its base mesh is empty; the shape comes from the node group). Add a "Make Editable" button that applies it to a real mesh for sculpting | 2026-10-22 | M1 | → M4 bake (D74) |
 | Realism check: measure real elevation data (DEMs) for each type's reference place (slope histogram, relief ratio, roughness, hypsometric curve) and tune recipes until ours match; make it an automated part of T6 | 2026-10-22 | M1 | → M2 (Mike, 2026-10-22) |
-| "Real terrain" option: import a free DEM tile (e.g. Copernicus GLO-30, USGS 3DEP) as a heightmap base or stamp | 2026-10-22 | M1 | → Real Place type, Cargo first (PLAN-unreal.md, D78; Mike to confirm) |
+| "Real terrain" option: import a free DEM tile (e.g. Copernicus GLO-30, USGS 3DEP) as a heightmap base or stamp | 2026-10-22 | M1 | Parked (Mike, D82): after realism is dialed in with the artist-first types and presets; then try a few real places |
 | List index drifts when objects are added/removed (stored as a position in scene.objects); store a pointer to the object instead (checker M1 note 1) | 2026-10-22 | M1 gate | → M7 |
 | Saved type stored by enum position; store the type key, or only append new types, BEFORE M2 adds 9 types (checker note 2) | 2026-10-22 | M1 gate | Done in 2.1 (2026-10-22) |
 | Picking a type renames the landscape and overwrites a user's own name; only rename names we generated (checker note 3) | 2026-10-22 | M1 gate | Done in 2.1 (2026-10-22) |

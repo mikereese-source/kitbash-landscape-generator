@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 130  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 134  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -491,6 +491,23 @@ def _build(ng, recipe):
     # Caprock rims are broken back a little, not machined: a short rounded bevel where a block meets open ground.
     rim = math('MULTIPLY', math('SUBTRACT', 1.0, nb_top), math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, 0.05)), 0.0), 2.0))
     top = math('MULTIPLY', top, math('SUBTRACT', 1.0, math('MULTIPLY', rim, 0.08)))
+    # Terraces on Mesa (Mike, M3): its tops and floor are flat and the cliff sheer, so stepping the height
+    # alone did nothing. Instead the block edges break into ledges stepping down from the caprock, where a
+    # block meets open ground: Strength sets how far in the steps reach (up to ~0.25 block), Terraces how many.
+    top_block = top  # the caprock before stepping: every ledge stays hard rock (stepped height made low ledges soft, and erosion notched their edges into lumps; Mike)
+    t_w = math('MAXIMUM', math('MULTIPLY', inp["Terrace Strength"], 0.25), 1e-3)
+    t_n = math('MAXIMUM', math('MULTIPLY', inp["Terraces"], 0.5), 1.0)
+    t_in = math('MINIMUM', math('DIVIDE', d_edge, t_w), 1.0)
+    # Each step a flat ledge, then a short steep riser over its last 15% (frac^6 curved every ledge up into
+    # the next like a scoop; Mike).
+    # Ledges fall gently outward (12% of a step across each) so they shed water off the edge: dead-flat ledges
+    # ponded in the erosion engine, which filled and smoothed them into raised, lumpy lips (Mike).
+    t_fr = math('FRACT', math('MULTIPLY', t_in, t_n))
+    t_stair = math('DIVIDE', math('ADD', math('FLOOR', math('MULTIPLY', t_in, t_n)),
+                                  math('ADD', math('MULTIPLY', t_fr, 0.12), math('MULTIPLY', smooth(t_fr, 0.85, 1.0), 0.88))), t_n)
+    t_stair = math('ADD', 0.25, math('MULTIPLY', math('MINIMUM', t_stair, 1.0), 0.75))  # the lowest ledge stands a quarter up
+    t_on = math('MULTIPLY', math('SUBTRACT', 1.0, nb_top), smooth(inp["Terrace Strength"], 0.0, 0.05))
+    top = math('MULTIPLY', top, math('SUBTRACT', 1.0, math('MULTIPLY', t_on, math('SUBTRACT', 1.0, t_stair))))
     # Talus apron (Monument Valley 1 m lidar, Pass 6): the cliff stands on a wide concave slope of shale
     # and rubble that reaches about half the cliff height and runs ~0.6 block out, stepped by ledges.
     # Built from the distance to the block's edge, so it always hugs the blocks (Pass 5 used a separate
@@ -520,7 +537,7 @@ def _build(ng, recipe):
     mesa = math('ADD', math('ADD', math('MAXIMUM', talus, top), tier), desert)  # all caps at one level (flat strata)
     # Primary: the desert floor between the blocks drains to one end
     mesa = math('ADD', mesa, math('MULTIPLY', math('SUBTRACT', math('ADD', mesa, math('MULTIPLY', math('MULTIPLY', tilt, 0.6), inp["P4"])), mesa), inp["Primary"]))
-    hard_mesa = math('MULTIPLY', math('MAXIMUM', top, smooth(t, 0.92, 1.0)), 0.95)  # caprock and cliff band; talus soft
+    hard_mesa = math('MULTIPLY', math('MAXIMUM', smooth(top_block, 0.2, 0.25), smooth(t, 0.92, 1.0)), 0.95)  # caprock and cliff band; talus soft
 
     def pick_float(index, values):
         n = N.new('GeometryNodeIndexSwitch')
@@ -1018,7 +1035,7 @@ def _build(ng, recipe):
         t_lv = math('ADD', math('ADD', math('MULTIPLY', unit, inp["Terraces"]), t_dip), t_wob)
         t_step = math('ADD', math('FLOOR', t_lv), math('POWER', math('FRACT', t_lv), math('ADD', 1.0, math('MULTIPLY', inp["Terrace Strength"], 7.0))))
         t_unit = math('DIVIDE', math('SUBTRACT', t_step, math('ADD', t_dip, t_wob)), math('MAXIMUM', inp["Terraces"], 1.0))
-        unit = math('ADD', unit, math('MULTIPLY', math('SUBTRACT', t_unit, unit), smooth(inp["Terrace Strength"], 0.0, 0.15)))
+        unit = math('ADD', unit, math('MULTIPLY', math('SUBTRACT', t_unit, unit), inp["Terrace Strength"]))  # across the whole slider (0.15 saturated it)
         unit = math('MINIMUM', math('MAXIMUM', unit, 0.0), 1.0)
     # Peak Sharpness: above 1, unit^s (pointy tops, flatter lows). Below 1, 1 - (1 - unit)^(1/s) (rounded tops,
     # full lows): unit^s has an infinite slope at 0, so at s 0.25 a 1% dip in the ground became ~30% of

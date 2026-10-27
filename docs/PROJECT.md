@@ -92,6 +92,8 @@ Every plan includes an errors & edge cases milestone and a final check.
 
 **Project 2 (separate build, after Project 1 Gold):** rewrite the whole tool in three.js for Cargo, reading the same type JSON (D7).
 
+**Project 3 (separate build, after Project 2):** an Unreal 5.8 plugin that rebuilds the same recipe natively at 4K–16K, with World Partition landing, paint layers from the masks, water bodies, PCG and agents. Plan: [PLAN-unreal.md](PLAN-unreal.md) (proposed 2026-10-27, D78).
+
 ## Gate log
 | Milestone | Tests | Checker | Mike sign-off | Rollback point | Docs updated | Date |
 |-----------|-------|---------|---------------|----------------|--------------|------|

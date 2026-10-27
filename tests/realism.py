@@ -122,6 +122,7 @@ def ours(type_key, style, width_m, real_shape):
     if style:
         ob.lg.style = style
     ob.lg.size_x = ob.lg.size_y = width_m
+    ob.lg.water = False  # terrain only: the water sheet's points aren't on the grid
     ob.lg.final = True
     dg = bpy.context.evaluated_depsgraph_get()
     dg.update()

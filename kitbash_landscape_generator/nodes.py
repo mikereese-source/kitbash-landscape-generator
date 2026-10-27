@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 134  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 136  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -41,10 +41,12 @@ INPUTS = (
     ("P5", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 5"),
     ("P6", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 6"),
     ("P7", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 7"),
-    ("Show Mask", 'NodeSocketInt', 0, 0, 6, "Which mask colours the viewport: 0 none, 1-6 height, slope, curvature, flow, wear, deposit (set by the add-on)"),
+    ("Show Mask", 'NodeSocketInt', 0, 0, 7, "Which mask colours the viewport: 0 none, 1-7 height, slope, curvature, flow, wear, deposit, water depth (set by the add-on)"),
     ("Terraces", 'NodeSocketFloat', 8.0, 1.0, 60.0, "How many terrace steps from lowest to highest ground (rock types)"),
     ("Terrace Strength", 'NodeSocketFloat', 0.0, 0.0, 1.0, "0 none, 1 flat benches between steep steps"),
     ("Terrace Tilt", 'NodeSocketFloat', 0.0, 0.0, 1.0, "How much the rock layers dip to one side, so steps aren't level"),
+    ("Water", 'NodeSocketBool', False, None, None, "Show a water surface at the water level"),
+    ("Water Level", 'NodeSocketFloat', 0.3, 0.0, 1.0, "Water height as a share of the relief: 0 the lowest ground, 1 the highest"),
     ("Mask Heatmap", 'NodeSocketBool', False, None, None, "Mask viewer colours: off grayscale (as engines show the maps), on blue-teal-yellow (set by the add-on)"),
 )
 
@@ -1188,8 +1190,14 @@ def _build(ng, recipe):
     m_change = math('MULTIPLY', math('SUBTRACT', er_r.outputs[2], 0.5), math('MULTIPLY', inp["Erosion"], 2.0))  # -1 cut .. 1 filled
     m_wear = math('MINIMUM', math('MAXIMUM', math('MULTIPLY', m_change, -1.0), 0.0), 1.0)
     m_dep = math('MINIMUM', math('MAXIMUM', m_change, 0.0), 1.0)
+    # lg_depth: water depth under the water level, 0 on land and at the shoreline, 1 at a quarter of the relief
+    # deep; 0 everywhere with Water off. For shore foam, ripples, shallow/deep colour in the M5 water shaders.
+    m_wz = math('MULTIPLY', inp["Water Level"], math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"]))
+    m_depth = math('DIVIDE', math('SUBTRACT', math('ADD', m_stats.outputs["Min"], m_wz), m_pos.outputs["Z"]),
+                   math('MAXIMUM', math('MULTIPLY', math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"]), 0.25), 1e-6))
+    m_depth = math('MULTIPLY', math('MINIMUM', math('MAXIMUM', m_depth, 0.0), 1.0), inp["Water"])
     for m_name, m_val in (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv),
-                          ("lg_flow", m_flow), ("lg_wear", m_wear), ("lg_deposit", m_dep)):
+                          ("lg_flow", m_flow), ("lg_wear", m_wear), ("lg_deposit", m_dep), ("lg_depth", m_depth)):
         st = N.new('GeometryNodeStoreNamedAttribute')
         st.data_type = 'FLOAT'
         st.domain = 'POINT'
@@ -1201,11 +1209,11 @@ def _build(ng, recipe):
     # grayscale or as a heatmap: dark blue (0) through teal to yellow (1), easier for small differences.
     m_pick = N.new('GeometryNodeIndexSwitch')
     m_pick.data_type = 'FLOAT'
-    while len(m_pick.index_switch_items) < 7:
+    while len(m_pick.index_switch_items) < 8:
         m_pick.index_switch_items.new()
     L.new(inp["Show Mask"], m_pick.inputs["Index"])
     m_pick.inputs[1].default_value = 0.0
-    for i, m_val in enumerate((m_height, m_slope, m_curv, m_flow, m_wear, m_dep)):
+    for i, m_val in enumerate((m_height, m_slope, m_curv, m_flow, m_wear, m_dep, m_depth)):
         L.new(m_val, m_pick.inputs[i + 2])
     ramp = N.new('ShaderNodeValToRGB')
     els = ramp.color_ramp.elements
@@ -1234,9 +1242,58 @@ def _build(ng, recipe):
     out_geo = view.outputs[0]
     shade = N.new('GeometryNodeSetShadeSmooth')
     L.new(out_geo, shade.inputs["Geometry"])
-    L.new(shade.outputs[0], gout.inputs["Geometry"])
+    # Water level (M3 step 3.4, D74): a flat sheet over the whole landscape at Water Level of the relief;
+    # ground above it pokes through, so lakes, sea and flooded valleys come from the shape itself. One plain
+    # material for now (full lake/sea/river shaders in M5). Marked lg_water for tests, bake and materials.
+    w_grid = N.new('GeometryNodeMeshGrid')
+    L.new(size_x, w_grid.inputs["Size X"])
+    L.new(size_y, w_grid.inputs["Size Y"])
+    w_grid.inputs["Vertices X"].default_value = 2
+    w_grid.inputs["Vertices Y"].default_value = 2
+    w_z = math('ADD', m_stats.outputs["Min"], math('MULTIPLY', inp["Water Level"], math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"])))
+    w_move = N.new('GeometryNodeTransform')
+    L.new(w_grid.outputs["Mesh"], w_move.inputs["Geometry"])
+    L.new(vec(0.0, 0.0, w_z), w_move.inputs["Translation"])
+    w_mark = N.new('GeometryNodeStoreNamedAttribute')
+    w_mark.data_type = 'BOOLEAN'
+    w_mark.domain = 'POINT'
+    w_mark.inputs["Name"].default_value = "lg_water"
+    w_mark.inputs["Value"].default_value = True
+    L.new(w_move.outputs["Geometry"], w_mark.inputs["Geometry"])
+    w_mat = N.new('GeometryNodeSetMaterial')
+    w_mat.inputs["Material"].default_value = water_material()
+    L.new(w_mark.outputs[0], w_mat.inputs["Geometry"])
+    w_on = N.new('GeometryNodeSwitch')
+    w_on.input_type = 'GEOMETRY'
+    L.new(math('MULTIPLY', inp["Water"], math('LESS_THAN', inp["Pad Cells"], 0.5)), w_on.inputs["Switch"])  # never while erosion samples the grid
+    L.new(w_mat.outputs[0], w_on.inputs["True"])
+    join = N.new('GeometryNodeJoinGeometry')
+    L.new(w_on.outputs[0], join.inputs["Geometry"])
+    L.new(shade.outputs[0], join.inputs["Geometry"])
+    L.new(join.outputs[0], gout.inputs["Geometry"])
     _prune(ng, gout)
     ng["kb_version"] = GROUP_VERSION
+
+
+WATER_MATERIAL = "KB Water"
+
+
+def water_material():
+    """One plain water material (M3): clear blue-green, glossy, see-through. M5 replaces it with real shaders."""
+    mat = bpy.data.materials.get(WATER_MATERIAL)
+    if mat is not None:
+        return mat
+    mat = bpy.data.materials.new(WATER_MATERIAL)
+    mat.diffuse_color = (0.08, 0.28, 0.35, 0.75)  # Solid view
+    if not mat.use_nodes:
+        mat.use_nodes = True
+    bsdf = next((n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+    if bsdf is not None:
+        for name, val in (("Base Color", (0.03, 0.18, 0.22, 1.0)), ("Roughness", 0.04), ("IOR", 1.33),
+                          ("Transmission Weight", 0.85), ("Alpha", 0.85)):
+            if name in bsdf.inputs:
+                bsdf.inputs[name].default_value = val
+    return mat
 
 
 def _prune(ng, out):

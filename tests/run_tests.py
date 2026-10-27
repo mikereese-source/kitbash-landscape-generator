@@ -42,12 +42,15 @@ def fresh_scene():
     bpy.context.scene.cursor.location = (0, 0, 0)
 
 
-def add(kind="mountains", at=(0, 0, 0)):
+def add(kind="mountains", at=(0, 0, 0), keep_water=False):
     scene = bpy.context.scene
     scene.cursor.location = at
     scene.lg_type = kind
     check(bpy.ops.landscape.add() == {'FINISHED'}, "Add Landscape did not finish")
-    return bpy.context.view_layer.objects.active
+    ob = bpy.context.view_layer.objects.active
+    if not keep_water:
+        ob.lg.water = False  # terrain tests read the mesh as a grid; the water sheet's 4 points aren't on it
+    return ob
 
 
 def evaluated_points(ob):
@@ -350,7 +353,7 @@ def _t25():
     return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted"
 
 
-MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit")
+MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_depth")
 
 
 def masks_of(ob):
@@ -393,7 +396,7 @@ def _t9():
     fresh_scene()
     ob = add("mesa")
     check((masks_of(ob)["lg_slope"] > 0.6).mean() > 0.01, "Mesa cliffs should be steep in the slope mask")
-    return f"6 masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
+    return f"7 masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
 
 
 @test("T28", "Mask viewer colours the landscape by the picked mask")
@@ -454,6 +457,47 @@ def _t10():
             done.append(f"mountains {len(merged)} benches for 6")
         done.append(key)
     return "Strength 0 leaves the shape; terraces change " + ", ".join(done)
+
+
+@test("T27", "Water level")
+def _t27():
+    fresh_scene()
+    ob = add("mountains")
+
+    def water_z():
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        co = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        wet = np.zeros(len(me.vertices), bool)
+        if "lg_water" in me.attributes:
+            me.attributes["lg_water"].data.foreach_get("value", wet)
+        ev.to_mesh_clear()
+        return co[wet], co[~wet]
+    check(not ob.lg.water, "Mountains should start without water")
+    w, land = water_z()
+    check(len(w) == 0, "water off should add no water")
+    ob.lg.water, ob.lg.water_level = True, 0.4
+    w, land = water_z()
+    lo, hi = land[:, 2].min(), land[:, 2].max()
+    check(len(w) == 4 and np.ptp(w[:, 2]) < 1e-4, "water should be one flat sheet")
+    check(abs(w[0, 2] - (lo + 0.4 * (hi - lo))) < 0.01 * (hi - lo), "water not at 40% of the relief")
+    check(abs(np.abs(w[:, 0]).max() - ob.lg.size_x / 2) < 1e-3, "water should cover the landscape exactly")
+    below = np.mean(land[:, 2] < w[0, 2])
+    check(0.05 < below < 0.95, f"{below:.0%} of the ground under water: should be partly flooded")
+    d = masks_of(ob)["lg_depth"]
+    check(d.max() > 0.3 and (d > 0).mean() < 0.95 and (d == 0).mean() > 0.05, "water depth mask should be 0 on land, growing under water")
+    z_before = w[0, 2]
+    ob.lg.height_m = ob.lg.height_m * 2
+    w, land = water_z()
+    check(abs(w[0, 2] / z_before - 2.0) < 0.05, "water should follow Height")
+    fresh_scene()
+    ob = add("cliffs", keep_water=True)
+    check(ob.lg.water, "Coastal Cliffs should start with the sea on")
+    return f"off: none; on: flat sheet at 40% covering the landscape, {below:.0%} flooded; follows Height; Cliffs sea on"
 
 
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")

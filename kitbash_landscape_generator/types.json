@@ -131,7 +131,11 @@
       "grain_roughness": 0.5,
       "sharpness": 1.0,
       "feature_label": "Reef Size",
-      "feature_noun": "reef patches"
+      "feature_noun": "reef patches",
+      "water": {
+        "on": true,
+        "level": 1.0
+      }
     },
     "cliffs": {
       "name": "Coastal Cliffs",
@@ -160,7 +164,11 @@
       },
       "feature_label": "Headland Size",
       "feature_noun": "headlands",
-      "terraces": true
+      "terraces": true,
+      "water": {
+        "on": true,
+        "level": 0.06
+      }
     },
     "canyon": {
       "name": "Canyon",

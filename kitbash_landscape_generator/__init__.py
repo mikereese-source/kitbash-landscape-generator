@@ -95,6 +95,8 @@ def apply_type_look(props):
     props["erosion_on"] = bool(er.get("on", False))
     props["erosion_amount"] = float(er.get("amount", 0.5))
     props["terraces"], props["terrace_strength"], props["terrace_tilt"] = 8, 0.0, 0.0  # off until asked for
+    water = recipe.get("water", {})
+    props["water"], props["water_level"] = bool(water.get("on", False)), float(water.get("level", 0.3))
     styles = recipe.get("styles")
     props.style_key = styles[0]["key"] if styles else ""
     _apply_style_look(props)
@@ -209,6 +211,7 @@ def sync_object(ob):
         values[ctl["slot"]] = _control_value(props, ctl)
     values["Show Mask"] = MASK_INDEX.get(props.show_mask, 0)
     values["Terraces"], values["Terrace Strength"], values["Terrace Tilt"] = float(props.terraces), props.terrace_strength, props.terrace_tilt
+    values["Water"], values["Water Level"] = props.water, props.water_level
     values["Mask Heatmap"] = props.mask_colors == 'HEAT'
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
@@ -241,6 +244,7 @@ MASK_ITEMS = (
     ('FLOW', "Flow", "Where water drains: bright along streams and rivers"),
     ('WEAR', "Wear", "Where erosion cut into the ground"),
     ('DEPOSIT', "Deposit", "Where erosion laid down sediment: fans and valley fill"),
+    ('DEPTH', "Water Depth", "How deep the water is: dark at the shoreline, bright in deep water (Water on)"),
 )
 MASK_INDEX = {key: i for i, (key, _n, _d) in enumerate(MASK_ITEMS)}
 
@@ -647,6 +651,10 @@ class LG_ObjectProps(PropertyGroup):
                                     default=0.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     terrace_tilt: FloatProperty(name="Terrace Tilt", description="Level layers, or layers that dip to one side so the steps run at an angle",
                                 default=0.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    water: BoolProperty(name="Water", description="A water surface at the water level: lakes, sea and flooded valleys where the ground is lower",
+                        default=False, update=_sync)
+    water_level: FloatProperty(name="Water Level", description="How high the water comes: 0 the lowest ground, 1 the highest",
+                               default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     mask_colors: EnumProperty(name="Colours", description="How the mask viewer shows a mask",
                               items=(('GRAY', "Grayscale", "Black (0) to white (1), as game engines and material editors show these maps"),
                                      ('HEAT', "Heatmap", "Dark blue (0) through teal to yellow (1): easier to read small differences")),
@@ -1043,6 +1051,15 @@ class LG_PT_main(Panel):
             points = (round(size_x / spacing) + 1) * (round(size_y / spacing) + 1)
             box.label(text=f"A point every {spacing:.2f} m · {points / 1000:,.0f} k points")
 
+        header, box = layout.panel("lg_water", default_closed=True)
+        header.prop(props, "water", text="")
+        header.label(text="Water")
+        if box:
+            row = box.row()
+            row.enabled = props.water
+            row.prop(props, "water_level", slider=True)
+            box.label(text="Plain water for now; full lake, sea and river shaders come with the materials", icon='INFO')
+
         header, box = layout.panel("lg_masks", default_closed=True)
         header.label(text="Masks")
         if box:
@@ -1052,6 +1069,8 @@ class LG_PT_main(Panel):
                 box.label(text=dict((k, d) for k, _n, d in MASK_ITEMS)[props.show_mask])
                 if props.show_mask in ('FLOW', 'WEAR', 'DEPOSIT') and not TYPES.get(_object_type_key(props), {}).get("erosion"):
                     box.label(text="This type has no erosion, so this mask is empty", icon='INFO')
+                if props.show_mask == 'DEPTH' and not props.water:
+                    box.label(text="Turn Water on to see the water depth", icon='INFO')
 
         header, box = layout.panel("lg_shape", default_closed=False)
         header.label(text="Shape")

@@ -199,6 +199,7 @@ def ours(type_key, style, width=float(WIN), relief_m=None):
     ob.lg.size_x = ob.lg.size_y = width  # Final: 2048 points across, so the spacing is width / 2048
     if relief_m:  # whole-feature windows compare form, so ours gets the real relief (Height is the user's)
         ob.lg.height_m = relief_m
+    ob.lg.water = False  # terrain only: the water sheet's points aren't on the grid
     ob.lg.final = True
     dg = bpy.context.evaluated_depsgraph_get()
     dg.update()

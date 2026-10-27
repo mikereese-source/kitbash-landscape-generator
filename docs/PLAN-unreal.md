@@ -12,6 +12,21 @@ your scene fast, in Blender or Unreal and later any DCC Cargo supports. Landscap
 Blender support is a big part of it. The bar: look at least as good as the node-based tools, plus the artistic
 flair (fog, water, clouds, finishing) that takes it over the top.
 
+## Flow (Mike, 2026-10-27)
+**Cargo is where every landscape is first made.** From Cargo: Send to Blender and Send to Unreal today, more apps
+later. Blender and Unreal receive the same package and rebuild it. There's no app-to-app path between them (D80).
+
+**How each app receives it (Mike, D83):**
+- **Blender: plugin-free.** A data package (baked heightmap and masks at the export resolution, material maps
+  and settings, water and fog settings) plus build instructions carried out through the Blender MCP or a small
+  bundled script, using Blender's own tools. No add-on needed, which sidesteps the GPL issue for Blender.
+- **Unreal: plugin allowed** (no GPL issue there). The same package lands without it. With our plugin installed,
+  Unreal adds GPU erosion at full resolution and lets artists keep editing after import.
+- Whatever the app, a render-comparison check proves the result matches the Cargo version.
+- Waiting on Chad's three.js standalone-tool framework (the one Rick is using), so the package follows it. USD is
+  a far-off option.
+
+## The bar
 - **Look:** better than TerrainForge's renders. Real materials, water, grass and sky in the first shot, not grey terrain.
 - **Landing:** at least as native as theirs. The import becomes a World Partition landscape with paint layers,
   water bodies and masks ready for PCG, in one step.

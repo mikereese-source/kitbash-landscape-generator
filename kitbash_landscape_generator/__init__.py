@@ -211,6 +211,8 @@ def sync_object(ob):
         values[ctl["slot"]] = _control_value(props, ctl)
     values["Show Mask"] = MASK_INDEX.get(props.show_mask, 0)
     values["Terraces"], values["Terrace Strength"], values["Terrace Tilt"] = float(props.terraces), props.terrace_strength, props.terrace_tilt
+    if props.terrace_strength <= 0:  # count and tilt do nothing without strength: keep them out of the erosion key
+        values["Terraces"], values["Terrace Tilt"] = 8.0, 0.0
     values["Water"], values["Water Level"] = props.water, props.water_level
     values["Mask Heatmap"] = props.mask_colors == 'HEAT'
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
@@ -232,7 +234,8 @@ def sync_object(ob):
 # replaces it a moment later (in the background build it runs straight away).
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
-             "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap"}
+             "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
+             "Water", "Water Level"}  # water never changes the terrain: no re-erosion
 _pending = {}
 
 

@@ -480,8 +480,11 @@ def _t27():
     check(not ob.lg.water, "Mountains should start without water")
     w, land = water_z()
     check(len(w) == 0, "water off should add no water")
+    lg.sync_object(ob)
+    key = ob.get("lg_erosion_key")
     ob.lg.water, ob.lg.water_level = True, 0.4
     w, land = water_z()
+    check(ob.get("lg_erosion_key") == key, "turning water on re-ran erosion")
     lo, hi = land[:, 2].min(), land[:, 2].max()
     check(len(w) == 4 and np.ptp(w[:, 2]) < 1e-4, "water should be one flat sheet")
     check(abs(w[0, 2] - (lo + 0.4 * (hi - lo))) < 0.01 * (hi - lo), "water not at 40% of the relief")

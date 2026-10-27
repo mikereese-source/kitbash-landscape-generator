@@ -23,8 +23,8 @@ First the KitBash asset team (building scenes and Kit ground planes), then possi
 3. **Six main controls:** Height, Feature Size, Roughness, Peak Sharpness (renamed from Sharpness 2026-10-23), Erosion, Seed (with a Randomize button). Everything else sits in a closed Advanced section.
 4. **Cliff features** (toggles that work on any type): Side Cliffs, Overhangs, Arches, Stalactites, Stalagmites.
 4b. **Cave systems always start with an entrance.** Three layouts: **Entrance** (a grotto cut into a slope), **Entrance + Tunnel** (the entrance extends into a winding passage), and **Entrance + Cavern** (the passage opens into a large chamber). The entrance sits on a steep face found from the slope mask, facing a direction the user can turn. Tunnel controls: Length, Width, Wiggle, Descent. Cavern controls: Size, Ceiling Height. Works on any landscape type (mountains, cliffs, mesa, canyon), and the Cave type uses it by default.
-5. **Terraces and rock layers** (strata) for Mesa, Canyon and Badlands, available as a control on all types.
-6. **Data masks** stored on the mesh as named attributes: height, slope, curvature, flow (where water runs), deposits (where sediment settles).
+5. **Terraces and rock layers** (strata) on the rock types: Mesa, Canyon, Badlands, Coastal Cliffs and Mountains (D74).
+6. **Data masks** stored on the mesh as named attributes: height, slope, curvature, flow (where water runs), wear (where erosion cut), deposits (where sediment settles) and water depth, with a viewer (D74, D75, D77). A **water level** with a plain material (D77).
 7. **Erosion slider:** thermal erosion (slopes slump to a natural angle) plus water gullies that follow the flow mask.
 8. **Auto-material:** rock on steep faces, grass or ground on flats, sand or sediment in deposits, snow up high. Built from the masks. Uses box (triplanar) mapping so caves without UVs still texture correctly.
 9. **Preview / Final toggle and Bake,** so editing stays fast and heavy steps (erosion, caves) are computed once.

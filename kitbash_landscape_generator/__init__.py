@@ -576,7 +576,7 @@ class LG_ObjectProps(PropertyGroup):
                           default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_size_changed)
     size_y: FloatProperty(name="Depth", description="Depth of the landscape in meters",
                           default=200.0, min=1.0, max=100000.0, soft_max=5000.0, unit='LENGTH', update=_size_changed)
-    detail: EnumProperty(name="Detail", description="How many points the landscape is built from: light while editing, heavy for the finished shot", items=(
+    detail: EnumProperty(name="Detail Level", description="How many points the landscape is built from: light while editing, heavy for the finished shot", items=(
         ('PREVIEW', "Preview", "Light and fast, for dialing in the look"),
         ('FINAL', "High", "Full detail for the finished landscape (about 4 million points)"),  # key kept: saved files
         ('ULTRA', "Ultra", "Hero detail for close-up shots. Heavy: about 17 million points")),
@@ -1040,7 +1040,7 @@ class LG_PT_main(Panel):
                       else "Shapes stay the same at any size.")
 
         header, box = layout.panel("lg_detail", default_closed=False)
-        header.label(text="Detail")
+        header.label(text="Detail Level")
         if box:
             row = box.row(align=True)
             row.prop(props, "detail", expand=True)

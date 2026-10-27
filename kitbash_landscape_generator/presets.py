@@ -12,7 +12,8 @@ import bpy
 
 VERSION = 1
 # What a preset holds besides type and style: the look, every per-type control, erosion, seed, size.
-LOOK = ("height", "feature_scale", "roughness", "sharpness", "erosion_amount", "seed", "size_x", "size_y")
+LOOK = ("height", "feature_scale", "roughness", "sharpness", "erosion_amount", "seed", "size_x", "size_y",
+        "terraces", "terrace_strength", "terrace_tilt")
 
 
 def path():

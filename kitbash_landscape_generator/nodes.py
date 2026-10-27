@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 129  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 130  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -42,6 +42,9 @@ INPUTS = (
     ("P6", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 6"),
     ("P7", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 7"),
     ("Show Mask", 'NodeSocketInt', 0, 0, 6, "Which mask colours the viewport: 0 none, 1-6 height, slope, curvature, flow, wear, deposit (set by the add-on)"),
+    ("Terraces", 'NodeSocketFloat', 8.0, 1.0, 60.0, "How many terrace steps from lowest to highest ground (rock types)"),
+    ("Terrace Strength", 'NodeSocketFloat', 0.0, 0.0, 1.0, "0 none, 1 flat benches between steep steps"),
+    ("Terrace Tilt", 'NodeSocketFloat', 0.0, 0.0, 1.0, "How much the rock layers dip to one side, so steps aren't level"),
     ("Mask Heatmap", 'NodeSocketBool', False, None, None, "Mask viewer colours: off grayscale (as engines show the maps), on blue-teal-yellow (set by the add-on)"),
 )
 
@@ -1006,6 +1009,17 @@ def _build(ng, recipe):
     L.new(inner, stats.inputs["Selection"])  # Height is the relief of the landscape, not of its padding
     lo, hi = stats.outputs["Min"], stats.outputs["Max"]
     unit = math('DIVIDE', math('SUBTRACT', raw, lo), math('MAXIMUM', math('SUBTRACT', hi, lo), 1e-6))
+    if recipe in (1, 4, 5, 6, 7):  # Terraces (M3 step 3.3, D74): Mountains, Cliffs, Canyon, Mesa, Badlands
+        # Rock layers: each step is a flat-ish bench, then a short steep rise (frac^p), the layers dip with
+        # Tilt and wander a little so the benches aren't machined; Strength blends from the plain shape.
+        # Applied to the shape before erosion, so erosion breaks the steps up.
+        t_wob = math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', math('MULTIPLY', inp["Feature Scale"], 2.0), 2.0, 0.5).outputs["Fac"], 0.5), 0.35)
+        t_dip = math('MULTIPLY', math('ADD', x, math('MULTIPLY', y, 0.4)), math('MULTIPLY', inp["Terrace Tilt"], 3.0))
+        t_lv = math('ADD', math('ADD', math('MULTIPLY', unit, inp["Terraces"]), t_dip), t_wob)
+        t_step = math('ADD', math('FLOOR', t_lv), math('POWER', math('FRACT', t_lv), math('ADD', 1.0, math('MULTIPLY', inp["Terrace Strength"], 7.0))))
+        t_unit = math('DIVIDE', math('SUBTRACT', t_step, math('ADD', t_dip, t_wob)), math('MAXIMUM', inp["Terraces"], 1.0))
+        unit = math('ADD', unit, math('MULTIPLY', math('SUBTRACT', t_unit, unit), smooth(inp["Terrace Strength"], 0.0, 0.15)))
+        unit = math('MINIMUM', math('MAXIMUM', unit, 0.0), 1.0)
     # Peak Sharpness: above 1, unit^s (pointy tops, flatter lows). Below 1, 1 - (1 - unit)^(1/s) (rounded tops,
     # full lows): unit^s has an infinite slope at 0, so at s 0.25 a 1% dip in the ground became ~30% of
     # the Height and hung under the landscape as needles (Mike, Pass 8). Both are plain unit at s = 1.

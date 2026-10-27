@@ -61,7 +61,8 @@
         "cliff_deg": 60.0
       },
       "feature_label": "Ridge Spacing",
-      "feature_noun": "ridges"
+      "feature_noun": "ridges",
+      "terraces": true
     },
     "dunes": {
       "name": "Sand Dunes",
@@ -158,7 +159,8 @@
         "channel": 0.0003
       },
       "feature_label": "Headland Size",
-      "feature_noun": "headlands"
+      "feature_noun": "headlands",
+      "terraces": true
     },
     "canyon": {
       "name": "Canyon",
@@ -195,7 +197,8 @@
         "cliff_deg": 70.0
       },
       "feature_label": "Channel Spacing",
-      "feature_noun": "channels"
+      "feature_noun": "channels",
+      "terraces": true
     },
     "mesa": {
       "name": "Mesa",
@@ -278,7 +281,8 @@
           "desc": "One standalone butte in the middle, cliffs on every side, for a hero shot",
           "index": 1
         }
-      ]
+      ],
+      "terraces": true
     },
     "badlands": {
       "name": "Badlands",
@@ -337,7 +341,8 @@
             "talus_deg": 40.0
           }
         }
-      ]
+      ],
+      "terraces": true
     },
     "volcanic": {
       "name": "Volcanic",

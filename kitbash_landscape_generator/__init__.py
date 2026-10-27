@@ -94,6 +94,7 @@ def apply_type_look(props):
     er = recipe.get("erosion", {})
     props["erosion_on"] = bool(er.get("on", False))
     props["erosion_amount"] = float(er.get("amount", 0.5))
+    props["terraces"], props["terrace_strength"], props["terrace_tilt"] = 8, 0.0, 0.0  # off until asked for
     styles = recipe.get("styles")
     props.style_key = styles[0]["key"] if styles else ""
     _apply_style_look(props)
@@ -207,6 +208,7 @@ def sync_object(ob):
     for ctl in recipe.get("controls", ()):
         values[ctl["slot"]] = _control_value(props, ctl)
     values["Show Mask"] = MASK_INDEX.get(props.show_mask, 0)
+    values["Terraces"], values["Terrace Strength"], values["Terrace Tilt"] = float(props.terraces), props.terrace_strength, props.terrace_tilt
     values["Mask Heatmap"] = props.mask_colors == 'HEAT'
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
@@ -639,6 +641,12 @@ class LG_ObjectProps(PropertyGroup):
         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     show_mask: EnumProperty(name="Show Mask", description="Colour the viewport by one of the landscape's data masks, the maps materials and scatter use",
                             items=MASK_ITEMS, default='NONE', update=_show_mask_changed)
+    terraces: IntProperty(name="Terraces", description="How many terrace steps from the lowest to the highest ground",
+                          default=8, min=2, max=40, update=_sync)
+    terrace_strength: FloatProperty(name="Terrace Strength", description="None, up to flat benches between steep rock steps",
+                                    default=0.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    terrace_tilt: FloatProperty(name="Terrace Tilt", description="Level layers, or layers that dip to one side so the steps run at an angle",
+                                default=0.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     mask_colors: EnumProperty(name="Colours", description="How the mask viewer shows a mask",
                               items=(('GRAY', "Grayscale", "Black (0) to white (1), as game engines and material editors show these maps"),
                                      ('HEAT', "Heatmap", "Dark blue (0) through teal to yellow (1): easier to read small differences")),
@@ -1063,6 +1071,12 @@ class LG_PT_main(Panel):
             for ctl in recipe.get("controls", ()):
                 if "styles" not in ctl or props.style_key in ctl["styles"]:
                     box.prop(props, ctl["prop"], slider=True)
+            if recipe.get("terraces"):
+                col = box.column(align=True)
+                col.prop(props, "terrace_strength", slider=True)
+                if props.terrace_strength > 0:
+                    col.prop(props, "terraces")
+                    col.prop(props, "terrace_tilt", slider=True)
             if recipe.get("erosion"):
                 box.prop(props, "erosion_amount", slider=True)
                 if ob.name in _pending or ob.name in _jobs:  # so artists know the look is still coming (Mike)

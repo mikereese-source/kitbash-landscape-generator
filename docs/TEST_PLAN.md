@@ -21,7 +21,7 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T22 | M2 | Per-type sliders | auto | Each per-type slider changes its type; the 3 dune styles differ | PASS 2026-10-26 (16 sliders) |
 | T8 | M2 | Controls are plain | auto + manual | Auto: every panel control and button has a tooltip. Manual: a non-specialist explains each one correctly | Auto PASS 2026-10-26 (35 controls, 10 buttons); manual: signed off by Mike 2026-10-26 |
 | T9 | M3 | Masks exist and are 0–1 | auto | height, slope, curvature, flow, wear, deposits attributes present on every type, in 0–1, and flow is high in channels, slope high on cliffs | PASS 2026-10-26 (13 types; 8 eroded types carry flow and wear/deposit) |
-| T10 | M3 | Terraces | auto | On Mesa, Canyon, Badlands, Cliffs and Mountains, terrace count N gives N flat bands on a test slope; strength 0 leaves the shape unchanged | |
+| T10 | M3 | Terraces | auto | On Mesa, Canyon, Badlands, Cliffs and Mountains, terrace count N gives N flat bands on a test slope; strength 0 leaves the shape unchanged | PASS 2026-10-27 (5 rock types; Mountains 5 benches for 6 terraces) |
 | T11 | M4 | Erosion lowers steep slopes | auto | Max slope angle drops as Erosion rises; nothing goes NaN | |
 | T12 | M4 | Final build time | auto | 1 km landscape at Final finishes in ≤ 60 s on the team machine (D14) | |
 | T27 | M3 | Water level | auto | Water on: a flat water surface at the set height covers exactly the ground below it; off: no water geometry; Height changes move it with the landscape | |

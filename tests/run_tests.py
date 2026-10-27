@@ -432,6 +432,30 @@ def _t28():
     return "Height, Slope, Flow differ; Grayscale is gray, Heatmap coloured; None clears it"
 
 
+@test("T10", "Terraces")
+def _t10():
+    done = []
+    for key in ("mesa", "canyon", "badlands", "cliffs", "mountains"):
+        fresh_scene()
+        ob = add(key)
+        ob.lg.erosion_amount = 0.0  # the plain shape, so the steps aren't eroded away
+        plain = evaluated_points(ob)[:, 2].copy()
+        ob.lg.terrace_strength = 0.0
+        check(np.allclose(evaluated_points(ob)[:, 2], plain), f"{key}: Strength 0 changed the shape")
+        ob.lg.terraces, ob.lg.terrace_strength, ob.lg.terrace_tilt = 6, 1.0, 0.0
+        z = evaluated_points(ob)[:, 2]
+        check(not np.allclose(z, plain), f"{key}: terraces did nothing")
+        if key == "mountains":  # steady relief: count the benches in the height histogram
+            zn = (z - z.min()) / np.ptp(z)
+            hist = np.histogram(zn, bins=120)[0].astype(float)
+            peaks = [i for i in range(1, 119) if hist[i] > hist[i - 1] and hist[i] >= hist[i + 1] and hist[i] > 1.8 * np.median(hist)]
+            merged = [p for j, p in enumerate(peaks) if j == 0 or p - peaks[j - 1] > 4]
+            check(4 <= len(merged) <= 8, f"mountains: {len(merged)} benches for 6 terraces")
+            done.append(f"mountains {len(merged)} benches for 6")
+        done.append(key)
+    return "Strength 0 leaves the shape; terraces change " + ", ".join(done)
+
+
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")
 def _t26():
     fresh_scene()

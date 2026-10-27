@@ -27,11 +27,11 @@
    "rough": 0.0276
   },
   "ours": {
-   "relief": 0.1562,
-   "slope50": 34.5,
-   "slope90": 51.6,
-   "hyps": 0.413,
-   "rough": 0.0256
+   "relief": 0.1556,
+   "slope50": 34.6,
+   "slope90": 51.8,
+   "hyps": 0.403,
+   "rough": 0.0258
   },
   "t6": "PASS"
  },
@@ -65,9 +65,9 @@
   "ours": {
    "relief": 0.0483,
    "slope50": 1.1,
-   "slope90": 18.5,
+   "slope90": 18.7,
    "hyps": 0.409,
-   "rough": 0.0485
+   "rough": 0.0486
   }
  },
  "canyon": {
@@ -80,9 +80,9 @@
    "rough": 0.035
   },
   "ours": {
-   "relief": 0.1388,
-   "slope50": 23.7,
-   "slope90": 45.9,
+   "relief": 0.1394,
+   "slope50": 23.8,
+   "slope90": 46.0,
    "hyps": 0.366,
    "rough": 0.0219
   },
@@ -98,13 +98,13 @@
    "rough": 0.0221
   },
   "ours": {
-   "relief": 0.1161,
+   "relief": 0.1163,
    "slope50": 10.6,
-   "slope90": 46.9,
+   "slope90": 46.1,
    "hyps": 0.228,
-   "rough": 0.0488
+   "rough": 0.0478
   },
-  "t6": "FAIL: relief, slope50"
+  "t6": "PASS"
  },
  "badlands": {
   "width_km": 2.0,
@@ -116,11 +116,11 @@
    "rough": 0.0319
   },
   "ours": {
-   "relief": 0.0743,
-   "slope50": 11.1,
+   "relief": 0.0742,
+   "slope50": 10.9,
    "slope90": 46.2,
    "hyps": 0.506,
-   "rough": 0.0791
+   "rough": 0.0792
   },
   "t6": "PASS"
  },
@@ -140,7 +140,7 @@
    "hyps": 0.439,
    "rough": 0.0237
   },
-  "t6": "FAIL: relief, hyps"
+  "t6": "PASS"
  },
  "volcano_strato": {
   "width_km": 30.0,

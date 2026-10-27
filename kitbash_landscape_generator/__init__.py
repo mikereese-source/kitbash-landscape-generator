@@ -1052,8 +1052,8 @@ class LG_PT_main(Panel):
             box.label(text=f"A point every {spacing:.2f} m · {points / 1000:,.0f} k points")
 
         header, box = layout.panel("lg_water", default_closed=True)
+        header.label(text="Water")  # label first, so it lines up with the other section titles (Mike)
         header.prop(props, "water", text="")
-        header.label(text="Water")
         if box:
             row = box.row()
             row.enabled = props.water

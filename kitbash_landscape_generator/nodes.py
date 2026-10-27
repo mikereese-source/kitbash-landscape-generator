@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 128  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 129  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -42,6 +42,7 @@ INPUTS = (
     ("P6", 'NodeSocketFloat', 0.5, -100.0, 100.0, "Per-type control 6"),
     ("P7", 'NodeSocketFloat', 0.0, -100.0, 100.0, "Per-type control 7"),
     ("Show Mask", 'NodeSocketInt', 0, 0, 6, "Which mask colours the viewport: 0 none, 1-6 height, slope, curvature, flow, wear, deposit (set by the add-on)"),
+    ("Mask Heatmap", 'NodeSocketBool', False, None, None, "Mask viewer colours: off grayscale (as engines show the maps), on blue-teal-yellow (set by the add-on)"),
 )
 
 
@@ -1165,8 +1166,8 @@ def _build(ng, recipe):
         L.new(out_geo, st.inputs["Geometry"])
         L.new(m_val, st.inputs["Value"])
         out_geo = st.outputs[0]
-    # Mask viewer (M3 step 3.2): the picked mask as a colour attribute the viewport shows in Solid mode,
-    # dark blue (0) through teal to yellow (1), easy to read on any mask.
+    # Mask viewer (M3 step 3.2): the picked mask as a colour attribute the viewport shows in Solid mode, in
+    # grayscale or as a heatmap: dark blue (0) through teal to yellow (1), easier for small differences.
     m_pick = N.new('GeometryNodeIndexSwitch')
     m_pick.data_type = 'FLOAT'
     while len(m_pick.index_switch_items) < 7:
@@ -1186,7 +1187,18 @@ def _build(ng, recipe):
     view.domain = 'POINT'
     view.inputs["Name"].default_value = "lg_view"
     L.new(out_geo, view.inputs["Geometry"])
-    L.new(ramp.outputs["Color"], view.inputs["Value"])
+    # Grayscale (default, Mike): black 0, white 1, as game engines and material editors show these maps. Stored
+    # as v^2.2 so the viewport's display transform shows the mask's own value, like a non-colour texture.
+    gray_v = math('POWER', math('MAXIMUM', m_pick.outputs[0], 0.0), 2.2)
+    gray = N.new('FunctionNodeCombineColor')
+    for ch in ("Red", "Green", "Blue"):
+        L.new(gray_v, gray.inputs[ch])
+    m_col = N.new('GeometryNodeSwitch')
+    m_col.input_type = 'RGBA'
+    L.new(inp["Mask Heatmap"], m_col.inputs["Switch"])
+    L.new(gray.outputs[0], m_col.inputs["False"])
+    L.new(ramp.outputs["Color"], m_col.inputs["True"])
+    L.new(m_col.outputs[0], view.inputs["Value"])
     L.new(math('GREATER_THAN', inp["Show Mask"], 0.5), view.inputs["Selection"])
     out_geo = view.outputs[0]
     shade = N.new('GeometryNodeSetShadeSmooth')

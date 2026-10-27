@@ -420,9 +420,16 @@ def _t28():
         seen[key] = c[:, 0].copy()
     check(not np.allclose(seen["HEIGHT"], seen["SLOPE"]), "Height and Slope show the same colours")
     check(ob.data.color_attributes.active_color_name == "lg_view", "lg_view is not the shown colour attribute")
+    ob.lg.show_mask = 'HEIGHT'
+    g = view_colors()
+    check(np.allclose(g[:, 0], g[:, 1]) and np.allclose(g[:, 1], g[:, 2]), "Grayscale should be gray (R = G = B)")
+    ob.lg.mask_colors = 'HEAT'
+    h = view_colors()
+    check(not np.allclose(h[:, 0], h[:, 2]), "Heatmap should be coloured")
+    ob.lg.mask_colors = 'GRAY'
     ob.lg.show_mask = 'NONE'
     check(np.allclose(view_colors()[:, :3], 0.0), "None should leave no mask colours")
-    return "Height, Slope, Flow colour the landscape differently; None clears it"
+    return "Height, Slope, Flow differ; Grayscale is gray, Heatmap coloured; None clears it"
 
 
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")

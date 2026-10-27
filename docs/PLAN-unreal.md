@@ -23,8 +23,10 @@ later. Blender and Unreal receive the same package and rebuild it. There's no ap
 - **Unreal: plugin allowed** (no GPL issue there). The same package lands without it. With our plugin installed,
   Unreal adds GPU erosion at full resolution and lets artists keep editing after import.
 - Whatever the app, a render-comparison check proves the result matches the Cargo version.
-- Waiting on Chad's three.js standalone-tool framework (the one Rick is using), so the package follows it. USD is
-  a far-off option.
+- **Chad's three.js standalone-tool framework** (the one Rick is using) gives Project 2 its **UI and visual
+  framework**, so ours looks and works like the other Cargo generators. Its export is a simple OBJ download for
+  simpler generators, so **we build the export layer ourselves on top of it**: the Blender data package with
+  build instructions, the Unreal package, and later other DCCs (D84). USD is a far-off option.
 
 ## The bar
 - **Look:** better than TerrainForge's renders. Real materials, water, grass and sky in the first shot, not grey terrain.

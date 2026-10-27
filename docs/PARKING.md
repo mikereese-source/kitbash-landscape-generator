@@ -6,7 +6,7 @@ Ideas that come up mid-build land here, not in the current milestone. Review at 
 |------|--------|---------------|---------------|
 | Stamps and curves: river curve, crater, volcano cone, U-valley | 2026-10-22 | Pre-build | Pending |
 | Seamless tiling + heightmap export (for Unreal) | 2026-10-22 | Pre-build | Pending |
-| Scatter rocks and plants using the masks | 2026-10-22 | Pre-build | Pending |
+| **Foliage and scatter from the masks (Mike 2026-10-22, expanded 2026-10-26):** once the materials are dialed in, use the masks (slope, height, flow, deposit, curvature) to place grass, shrubs, trees and rocks. Artists load their own models (or KitBash Kits) into a slot list and Geometry Nodes spreads them, with per-layer density, scale and mask rules. Same rules for the three.js and Unreal versions. Dense foliage needs a performance analysis first (instancing, LODs, viewport display limits, density per m², and what each engine can carry) | 2026-10-22 | Pre-build; Mike | After M5 materials, near the end of Project 1 |
 | three.js version for Cargo (standalone, same type JSON) | 2026-10-22 | Pre-build | → Project 2 (own build, after Project 1 Gold) — see D7 |
 | Quick scale keeps the Width:Depth ratio when one side hits the 1 m minimum | 2026-10-22 | M1 | → M7 (edge cases) |
 | Editing a landscape in Edit Mode does nothing (its base mesh is empty; the shape comes from the node group). Add a "Make Editable" button that applies it to a real mesh for sculpting | 2026-10-22 | M1 | → M4 bake (D74) |

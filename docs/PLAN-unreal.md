@@ -83,6 +83,12 @@ A **parity test** checks all three: the same recipe built in each app gives matc
    "where forest would grow". It ships with KitBash PCG graphs for scattering Kits.
 6. **Finishing look:** sky, fog and atmosphere, and clouds (the parked fog/atmosphere step), as one-click moods, so the first look is a finished shot.
 
+## Caves, overhangs and arches in Unreal (Mike, D89)
+Unreal's landscape is a heightmap, like TerrainForge and Gaea, so it can't hold a cave or an overhang. Ours need a
+different route: the M5 cave and overhang geometry goes across as separate meshes (Nanite) placed on the
+landscape, with a landscape hole (visibility mask) cut where a cave opens, and materials matching the landscape
+layers. Plan this in detail with M5 (cliffs, caves, stalactites). It's a feature the heightmap tools can't match.
+
 ## New features this adds to the roadmap
 - **Real places (from TerrainForge): parked (D82).** Artist-driven first: dial in realism with our types and presets, then try a few real DEM tiles (Copernicus 30 m, open 1 m data) and see if they look as good.
 - **A realism score users can see:** undecided, not now (D82). We already measure it per type (T6, T6b) as our quality bar.

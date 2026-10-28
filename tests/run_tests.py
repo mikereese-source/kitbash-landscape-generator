@@ -530,6 +530,7 @@ def _t29():
     with bpy.context.temp_override(active_object=ob, object=ob):
         check(bpy.ops.landscape.restore() == {'FINISHED'}, "Restore did not finish")
     live = bpy.context.view_layer.objects.active
+    check(water.hide_get(), "Restore should hide the baked water with the baked mesh")
     check(live is not ob and lg.landscape_modifier(live) and live.lg.water, "Restore should add a live landscape with the same settings")
     lg.sync_object(live)
     after = evaluated_points(live)

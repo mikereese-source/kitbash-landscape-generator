@@ -968,12 +968,13 @@ class LG_OT_bake(Operator):
         return current_landscape(context) is not None
 
     def invoke(self, context, _event):
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=360)
 
     def draw(self, _context):
         col = self.layout.column()
         col.label(text="The sliders stop working on a baked mesh.")
-        col.label(text="Its settings stay on the mesh, so Restore Landscape can rebuild it.")
+        col.label(text="Its settings stay on the mesh:")
+        col.label(text="Restore Landscape rebuilds it any time.")
         col.prop(self, "save_preset")
 
     def execute(self, context):
@@ -1036,6 +1037,7 @@ class LG_OT_bake(Operator):
             for col in ob.users_collection:
                 col.objects.link(water)
             water.matrix_world = ob.matrix_world.copy()
+            ob["lg_water_obj"] = water.name  # so Restore hides it with the mesh (Mike: the water stayed behind)
         if self.save_preset:
             presets.save(f"{ob.name} (baked)", props, CONTROL_PROPS)
         self.report({'INFO'}, f"Baked {ob.name}" + (" and its water" if water_z is not None else ""))
@@ -1078,6 +1080,9 @@ class LG_OT_restore(Operator):
         sync_object(ob)
         scene.lg_type, scene.cursor.location = keep_type, keep_cursor
         baked.hide_set(True)  # the live one takes its place; the baked mesh stays in the file
+        water = bpy.data.objects.get(baked.get("lg_water_obj", ""))
+        if water is not None:
+            water.hide_set(True)  # the restored landscape has its own water
         return {'FINISHED'}
 
 

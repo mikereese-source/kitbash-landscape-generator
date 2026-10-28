@@ -95,7 +95,8 @@ for each in `sources.json`; CC BY / CC BY-SA / CC0, internal reference only). Co
    - **Lava tube**: a smooth round section, only two or three long horizontal flow ledges, little break-up.
    - Roughness then adds broken rock on top, at sizes the face budget can show. The pass-1 cell pattern and
      dishes go.
-3. **Rocks as separate instances**, never cut into the shell:
+3. **Rocks as separate instances**, never cut into the shell (done 2026-10-28, D107: Rubble 0 means no rock at all; the
+   ramp's rocks go with the ramp):
    - **Breakdown heaps**: fallen blocks piled where they'd fall, under the roof and at the wall foot, big blocks
      lowest, scattered smaller ones around. Rubble sets how many.
    - **Slabby rubble** under limestone beds, round boulders in lava tubes, angular blocks for jointed rock.

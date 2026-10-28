@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 21
+CAVE_VERSION = 23
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -683,7 +683,7 @@ def cave_group():
                   Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.5))),
                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     edge_pts = t.node('GeometryNodeSetPosition', Geometry=edge_pts, Selection=onto.outputs["Is Hit"], Position=onto.outputs["Hit Position"]).outputs[0]
-    edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
+    edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('MULTIPLY', gin["Rubble"], 0.33)))  # Rubble 0: none
     edge_size = t.math('MAXIMUM', t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35))),
                        t.math('MULTIPLY', voxel, 1.6))  # no rock smaller than ~1.6 detail steps (spikes at Preview)
     edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy, Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=rand(0.0, 5.99, 101)).outputs[0],
@@ -756,13 +756,9 @@ def cave_group():
     floor_bump = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
     bump = t.math('ADD', t.math('ADD', breaks, layers), t.math('ADD', scallops, floor_bump))
     rough = t.node('GeometryNodeSetPosition', Geometry=merged, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
-    # Rocks cut exactly from the finished cave (through the rock-detail grid they came out soft and rounded).
-    exact = t.N.new('GeometryNodeMeshBoolean')
-    exact.operation, exact.solver = 'DIFFERENCE', 'MANIFOLD'
-    t.L.new(rough, exact.inputs["Mesh 1"])
-    t.L.new(t.node('GeometryNodeRealizeInstances', Geometry=boulders.outputs[0]).outputs[0], exact.inputs["Mesh 2"])
-    whole = exact.outputs["Mesh"]
-    # One piece: drop any loose bits (a rock wholly inside the space would leave its own little shell).
+    # The shell is only the cave's shape; rocks never touch it (Mike, D107).
+    whole = rough
+    # One piece: drop any loose bits.
     island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
     acc = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=island)
     acc.domain = 'POINT'
@@ -773,6 +769,11 @@ def cave_group():
     loose.domain = 'POINT'
     marked = t.store(loose.outputs[0], "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
-    t.L.new(smooth, gout.inputs["Geometry"])
+    # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not
+    # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.
+    with_rocks = t.node('GeometryNodeJoinGeometry')
+    t.L.new(smooth, with_rocks.inputs[0])
+    t.L.new(boulders.outputs[0], with_rocks.inputs[0])
+    t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

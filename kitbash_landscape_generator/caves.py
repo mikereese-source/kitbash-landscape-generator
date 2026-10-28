@@ -23,7 +23,7 @@ def cave_modifier(ob):
 # prop -> group input
 CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth": "Depth", "wiggle": "Wiggle",
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
-                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble",
+                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "layers": "Layers",
                 "roughness": "Roughness", "seed": "Seed"}
 
 
@@ -78,6 +78,8 @@ class LG_CaveProps(PropertyGroup):
                        default=False, update=_sync)
     rubble: FloatProperty(name="Rubble", description="Fallen rock along the foot of the walls: none, up to big piles of boulders",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    layers: FloatProperty(name="Layers", description="Rock layers along the walls: none, up to strong ledges every few metres",
+                          default=0.4, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     roughness: FloatProperty(name="Roughness", description="Smooth, water-worn walls, or rough broken rock",
                              default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     seed: IntProperty(name="Seed", description="Same seed, same cave. Change it for a new winding and rock",
@@ -105,7 +107,7 @@ class LG_OT_randomize_cave(Operator):
 # What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
-               "ramp", "roughness", "rubble")
+               "ramp", "roughness", "rubble", "layers")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -203,6 +205,7 @@ def draw_section(layout, context):
     col = box.column()
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
+    col.prop(props, "layers", slider=True)
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')

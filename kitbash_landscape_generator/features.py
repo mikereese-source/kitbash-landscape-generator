@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 19
+CAVE_VERSION = 21
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -435,7 +435,7 @@ CAVE_INPUTS = (
     ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
-    ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
+    ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Layers", 'NodeSocketFloat', 0.4), ("Roughness", 'NodeSocketFloat', 0.5),
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
 )
 CAVE_DETAIL = (6.0, 14.0, 26.0)  # voxels across the smaller of the entrance's half width and height
@@ -574,18 +574,25 @@ def cave_group():
                       Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     keep = t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9))
-    # Pivot 45% of the way up from the centre, so each rock sits half buried in the floor or slope it rests on
-    # and rises out of it (resting on the surface it left thin slits under its edge; Mike).
-    lump = t.node('GeometryNodeTransform', Geometry=t.node('GeometryNodeMeshIcoSphere', Radius=1.0, Subdivisions=2).outputs["Mesh"],
-                  Translation=(0.0, 0.0, -0.45)).outputs[0]
-    ln = t.node('ShaderNodeTexNoise', Vector=t.position(), Scale=1.3, Detail=2.0)
-    ln.noise_dimensions = '3D'
-    lumpy = t.node('GeometryNodeSetPosition', Geometry=lump, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0],
-                                                                         scale=t.math('MULTIPLY', t.math('SUBTRACT', ln.outputs["Fac"], 0.5), 0.8))).outputs[0]
+    # Real rock shapes (detail pass 1, Mike: not soft blobs): six broken blocks, each a cube cut by three tilted,
+    # stretched cubes (fixed, so the same seed gives the same rocks), picked at random per rock. Pivot 45% of
+    # the way up, so each rock sits half buried in what it rests on (resting on top left thin slits; Mike).
+    shapes = t.N.new('GeometryNodeGeometryToInstance')
+    for planes in [[((0.436, 0.391, -0.834), (1.045, 1.217, 1.111), (0.055, 0.107, 0.031)), ((-0.724, 0.244, 0.866), (0.913, 1.209, 1.244), (0.115, 0.012, -0.094)), ((0.347, 0.554, 0.589), (1.236, 1.073, 1.067), (-0.083, 0.039, -0.046))], [((0.296, 0.052, -0.844), (1.008, 1.108, 1.148), (-0.054, 0.014, -0.007)), ((0.495, -0.49, 0.099), (0.998, 1.041, 0.973), (-0.031, -0.03, 0.049)), ((0.631, -0.286, 0.251), (0.948, 1.15, 1.047), (-0.069, 0.076, -0.019))], [((0.615, 0.753, 0.894), (0.863, 0.904, 1.065), (0.112, 0.058, -0.104)), ((-0.196, -0.611, 0.633), (1.098, 0.909, 0.933), (0.022, 0.035, 0.033)), ((0.327, 0.662, 0.044), (1.103, 0.952, 0.933), (-0.103, 0.026, 0.074))], [((0.248, -0.009, -0.156), (1.152, 1.141, 1.152), (0.025, 0.068, 0.054)), ((0.543, 0.455, -0.502), (1.051, 1.123, 1.01), (-0.08, 0.018, 0.077)), ((-0.89, -0.584, 0.45), (0.916, 1.071, 1.081), (-0.097, -0.039, 0.1))], [((0.562, 0.727, -0.319), (1.199, 0.976, 1.246), (-0.076, -0.021, 0.104)), ((0.606, 0.404, 0.258), (0.873, 1.002, 0.98), (-0.118, -0.074, -0.05)), ((0.255, -0.056, -0.089), (1.213, 1.029, 1.174), (-0.107, -0.053, 0.056))], [((0.844, 0.733, -0.759), (0.934, 0.978, 0.908), (0.046, 0.04, -0.035)), ((0.405, 0.63, -0.856), (1.203, 1.026, 1.115), (0.08, -0.077, -0.029)), ((-0.657, -0.446, 0.851), (0.853, 0.897, 1.201), (-0.011, -0.019, 0.023))]]:
+        block = t.N.new('GeometryNodeMeshBoolean')
+        block.operation, block.solver = 'INTERSECT', 'MANIFOLD'
+        t.L.new(t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"], block.inputs["Mesh 2"])
+        for rot, scl, off in planes:
+            cut_box = t.node('GeometryNodeTransform', Geometry=t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"],
+                             Translation=off, Rotation=rot, Scale=scl).outputs[0]
+            t.L.new(cut_box, block.inputs["Mesh 2"])
+        seated = t.node('GeometryNodeTransform', Geometry=block.outputs["Mesh"], Translation=(0.0, 0.0, -0.45)).outputs[0]
+        t.L.new(seated, shapes.inputs[0])
+    lumpy = shapes.outputs[0]
     size = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6))),
                   t.math('MULTIPLY', voxel, 1.6))
-    rocks = t.node('GeometryNodeInstanceOnPoints', Points=foot, Selection=keep, Instance=lumpy,
-                   Rotation=t.vec(rand(0.0, 6.28, 41), rand(0.0, 6.28, 43), rand(0.0, 6.28, 47)),
+    rocks = t.node('GeometryNodeInstanceOnPoints', Points=foot, Selection=keep, Instance=lumpy, Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=rand(0.0, 5.99, 97)).outputs[0],
+                   Rotation=t.vec(rand(-0.35, 0.35, 41), rand(-0.35, 0.35, 43), rand(0.0, 6.28, 47)),
                    Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, 53)), t.math('MULTIPLY', size, rand(0.5, 0.9, 59)))).outputs[0]
 
     # Ramp into Chamber (Mike, for players): an embankment of rock along the path, from the passage floor down
@@ -679,23 +686,83 @@ def cave_group():
     edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
     edge_size = t.math('MAXIMUM', t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35))),
                        t.math('MULTIPLY', voxel, 1.6))  # no rock smaller than ~1.6 detail steps (spikes at Preview)
-    edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,
-                        Rotation=t.vec(rand(0.0, 6.28, 71), rand(0.0, 6.28, 73), rand(0.0, 6.28, 79)),
+    edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy, Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=rand(0.0, 5.99, 101)).outputs[0],
+                        Rotation=t.vec(rand(-0.35, 0.35, 71), rand(-0.35, 0.35, 73), rand(0.0, 6.28, 79)),
                         Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
     solids = t.node('GeometryNodeJoinGeometry')
-    for g in (rocks, ramp_mesh, edge_rocks):
-        t.L.new(g, solids.inputs[0])
+    t.L.new(ramp_mesh, solids.inputs[0])
+    boulders = t.node('GeometryNodeJoinGeometry')
+    for g in (rocks, edge_rocks):
+        t.L.new(g, boulders.inputs[0])
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it
     # (merging the rocks into the space carved hollows into the walls instead of piling rock at their foot).
-    rubble, _rock_skin = level_set(solids.outputs[0])
+    rubble, _ramp_skin = level_set(solids.outputs[0])
     carve = t.N.new('GeometryNodeSDFGridBoolean')
     carve.operation = 'DIFFERENCE'
     t.L.new(space, carve.inputs["Grid 1"])
     t.L.new(rubble, carve.inputs["Grid 2"])
     rounded = t.node('GeometryNodeSDFGridFillet', Grid=carve.outputs[0], Iterations=1)  # closes thin slits (pinches)
-    whole = t.node('GeometryNodeGridToMesh', Grid=rounded.outputs[0]).outputs[0]
-    # One piece: drop any loose bits (a rock that just grazed the space left slivers floating).
+    # No ramp: nothing to take out (taking out an empty grid wiped the whole cave).
+    plain = t.node('GeometryNodeGridToMesh', Grid=t.node('GeometryNodeSDFGridFillet', Grid=space, Iterations=1).outputs[0]).outputs[0]
+    with_ramp = t.node('GeometryNodeGridToMesh', Grid=rounded.outputs[0]).outputs[0]
+    pick_mesh = t.N.new('GeometryNodeSwitch')
+    pick_mesh.input_type = 'GEOMETRY'
+    t._set(pick_mesh.inputs['Switch'], t.math('GREATER_THAN', ramp_on, 0.5))
+    t.L.new(plain, pick_mesh.inputs['False'])
+    t.L.new(with_ramp, pick_mesh.inputs['True'])
+    merged = pick_mesh.outputs[0]
+
+    # Wall detail (detail pass 1, Mike): the floor (faces looking down, out of the cave's space) stays a
+    # walkable, gently uneven floor; walls and roof get
+    #   breaks: big bulges and hollows plus finer broken rock (Roughness),
+    #   cracks: narrow joints between blocks of rock (Roughness),
+    #   rock layers: ledges along the walls, tilted and wandering, one every few metres (Layers),
+    #   scallops: shallow water-worn dishes, strongest where the rock is smooth.
+    # Everything sized to the passage and at least a couple of rock-detail steps, or it can't show.
+    nrm = t.node('GeometryNodeInputNormal').outputs[0]
+    nz = t.xyz(nrm)["Z"]
+    wall = t.smooth(nz, -0.8, -0.35)  # not the floor
+    upright = t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.55, 0.9))  # standing walls only
+    R = gin["Roughness"]
+    sp = t.vmath('ADD', t.position(), t.vec(seed, t.math('MULTIPLY', seed, 0.7), 0.0))
+
+    def noise(scale, detail, kind='FBM'):
+        n = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', sp, t.vec(scale, scale, scale)), Scale=1.0, Detail=detail, Roughness=0.6)
+        n.noise_dimensions, n.noise_type = '3D', kind
+        return t.math('SUBTRACT', n.outputs["Fac"], 0.5)
+
+    def cells(scale, feature):
+        v = t.node('ShaderNodeTexVoronoi', Vector=t.vmath('DIVIDE', sp, t.vec(scale, scale, scale)), Scale=1.0)
+        v.voronoi_dimensions, v.feature = '3D', feature
+        return v.outputs["Distance"]
+
+    big = t.math('MULTIPLY', noise(t.math('MULTIPLY', r, 2.5), 2.0), t.math('MULTIPLY', r, 0.45))
+    fine = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', r, 0.3))
+    crack_cell = t.math('MAXIMUM', t.math('MULTIPLY', W, 0.35), t.math('MULTIPLY', voxel, 8.0))
+    crack = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(cells(crack_cell, 'DISTANCE_TO_EDGE'), 0.0, 0.08)),
+                   t.math('MULTIPLY', r, 0.12))
+    breaks = t.math('MULTIPLY', t.math('ADD', t.math('ADD', big, fine), crack), t.math('MULTIPLY', R, wall))
+    bed = t.math('MAXIMUM', t.math('MULTIPLY', H, 0.14), t.math('MULTIPLY', voxel, 2.5))
+    pz = t.xyz(t.position())
+    tilted = t.math('ADD', t.math('ADD', pz["Z"], t.math('MULTIPLY', pz["X"], 0.06)),
+                    t.math('MULTIPLY', noise(t.math('MULTIPLY', W, 3.0), 1.0), t.math('MULTIPLY', bed, 1.4)))
+    ledge = t.math('SUBTRACT', t.smooth(t.math('FRACT', t.math('DIVIDE', tilted, bed)), 0.65, 0.95), 0.5)
+    layers = t.math('MULTIPLY', t.math('MULTIPLY', ledge, t.math('MULTIPLY', r, -0.2)),
+                    t.math('MULTIPLY', t.math('MULTIPLY', gin["Layers"], upright), t.math('ADD', 0.6, t.math('MULTIPLY', noise(W, 1.0), 1.6))))
+    dish = t.math('POWER', t.math('MAXIMUM', t.math('SUBTRACT', 1.0, t.math('MULTIPLY', cells(t.math('MAXIMUM', t.math('MULTIPLY', W, 0.12), t.math('MULTIPLY', voxel, 3.0)), 'F1'), 1.6)), 0.0), 2.0)
+    scallops = t.math('MULTIPLY', t.math('MULTIPLY', dish, t.math('MULTIPLY', r, 0.06)),
+                      t.math('MULTIPLY', wall, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', R, 0.6))))
+    floor_bump = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
+    bump = t.math('ADD', t.math('ADD', breaks, layers), t.math('ADD', scallops, floor_bump))
+    rough = t.node('GeometryNodeSetPosition', Geometry=merged, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
+    # Rocks cut exactly from the finished cave (through the rock-detail grid they came out soft and rounded).
+    exact = t.N.new('GeometryNodeMeshBoolean')
+    exact.operation, exact.solver = 'DIFFERENCE', 'MANIFOLD'
+    t.L.new(rough, exact.inputs["Mesh 1"])
+    t.L.new(t.node('GeometryNodeRealizeInstances', Geometry=boulders.outputs[0]).outputs[0], exact.inputs["Mesh 2"])
+    whole = exact.outputs["Mesh"]
+    # One piece: drop any loose bits (a rock wholly inside the space would leave its own little shell).
     island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
     acc = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=island)
     acc.domain = 'POINT'
@@ -704,19 +771,7 @@ def cave_group():
     loose = t.node('GeometryNodeDeleteGeometry', Geometry=whole,
                    Selection=t.math('LESS_THAN', acc.outputs["Total"], t.math('SUBTRACT', biggest.outputs["Max"], 0.5)))
     loose.domain = 'POINT'
-    merged = loose.outputs[0]
-
-    # Rock on walls and roof, sized to the passage; the floor (faces looking down, out of the cave's space)
-    # stays a walkable, gently uneven floor.
-    nrm = t.node('GeometryNodeInputNormal').outputs[0]
-    wall = t.smooth(t.xyz(nrm)["Z"], -0.8, -0.35)
-    rn = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(r, r, r)), t.vec(seed, 0.0, 0.0)),
-                Scale=1.4, Detail=4.0, Roughness=0.6)
-    rn.noise_dimensions = '3D'
-    bump = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', rn.outputs["Fac"], 0.5), gin["Roughness"]),
-                  t.math('ADD', t.math('MULTIPLY', t.math('MULTIPLY', r, 0.5), wall), t.math('MULTIPLY', H, 0.06)))
-    rough = t.node('GeometryNodeSetPosition', Geometry=merged, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
-    marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
+    marked = t.store(loose.outputs[0], "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     t.L.new(smooth, gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION

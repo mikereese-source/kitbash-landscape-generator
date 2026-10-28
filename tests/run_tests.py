@@ -511,9 +511,12 @@ def _t29():
     ob.lg.water, ob.lg.water_level = True, 0.3
     lg.sync_object(ob)
     before = evaluated_points(ob)
+    arr = ob.modifiers.new("Artist array", 'ARRAY')  # the artist's own modifier must not be baked in twice
+    arr.count = 2
     with bpy.context.temp_override(active_object=ob, object=ob):
         check(bpy.ops.landscape.bake(save_preset=False) == {'FINISHED'}, "Bake did not finish")
-    check(not ob.modifiers and not ob.lg.is_landscape, "baked object should be a plain mesh")
+    check(list(ob.modifiers) == [arr] and not ob.lg.is_landscape, "baked object should keep only the artist's modifiers")
+    check(not any(m is not None and m.name.startswith(lg.nodes.WATER_MATERIAL) for m in ob.data.materials), "water material left on the ground")
     me = ob.data
     for name in ("lg_height", "lg_slope", "lg_flow", "lg_depth"):
         check(name in me.attributes, f"bake lost the {name} mask")
@@ -532,7 +535,10 @@ def _t29():
     after = evaluated_points(live)
     land = after[:-4] if live.lg.water else after
     check(np.allclose(np.sort(land[:, 2]), np.sort(zb.reshape(-1, 3)[:, 2]), atol=1e-3 * np.ptp(zb)), "restored landscape doesn't match the baked mesh")
-    return "plain mesh with masks, water its own object, settings kept; Restore rebuilds the same heights"
+    ob[lg.RECIPE_KEY] = '{"type": "no_such_type"}'
+    with bpy.context.temp_override(active_object=ob, object=ob):
+        check(bpy.ops.landscape.restore() == {'CANCELLED'}, "Restore should refuse an unknown type")
+    return "plain mesh with masks, water its own object, artist modifiers untouched; Restore rebuilds the same heights, refuses unknown types"
 
 
 @test("T11", "Erosion lowers steep slopes")

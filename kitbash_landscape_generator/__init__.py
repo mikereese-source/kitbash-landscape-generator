@@ -978,11 +978,23 @@ class LG_OT_bake(Operator):
 
     def execute(self, context):
         ob = current_landscape(context)
+        if ob.name in _pending or ob.name in _jobs:
+            self.report({'WARNING'}, "Erosion is still running: bake once the eroded look has arrived")
+            return {'CANCELLED'}
         props = ob.lg
         recipe = presets.capture(props, CONTROL_PROPS)
+        mod = landscape_modifier(ob)
+        # Bake only the landscape: the artist's own modifiers (Array, Displace...) stay live on top of the
+        # baked mesh; baking them in as well applied them twice (M4 checker).
+        others = [(m, m.show_viewport) for m in ob.modifiers if m.name != mod.name]  # by name: bpy wrappers differ per access
+        for m, _on in others:
+            m.show_viewport = False
+        ob.update_tag()
+        context.view_layer.update()  # re-evaluate with only the landscape on (dg.update alone kept a stale result)
         dg = context.evaluated_depsgraph_get()
-        dg.update()
         me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+        for m, on in others:
+            m.show_viewport = on
         me.name = f"{ob.name} baked"
         # Water becomes its own object (Mike): one flat quad at the water level, with its own material.
         water_z = None
@@ -1000,7 +1012,9 @@ class LG_OT_bake(Operator):
                 bm.to_mesh(me)
                 bm.free()
             me.attributes.remove(me.attributes["lg_water"])
-        mod = landscape_modifier(ob)
+        for i in reversed(range(len(me.materials))):  # the water's material slot went with the water
+            if me.materials[i] is not None and me.materials[i].name.startswith(nodes.WATER_MATERIAL):
+                me.materials.pop(index=i)
         img = bpy.data.images.get(ob.get("lg_erosion_img", ""))
         old = ob.data
         ob.modifiers.remove(mod)
@@ -1041,15 +1055,28 @@ class LG_OT_restore(Operator):
 
     def execute(self, context):
         baked = context.active_object
-        data = json.loads(baked[RECIPE_KEY])
-        if data.get("type") in TYPES:
-            context.scene.lg_type = data["type"]
-        context.scene.cursor.location = baked.matrix_world.translation
+        try:
+            data = json.loads(baked[RECIPE_KEY])
+        except (TypeError, ValueError):
+            self.report({'WARNING'}, "This mesh's stored settings can't be read")
+            return {'CANCELLED'}
+        if data.get("type") not in TYPES:
+            self.report({'WARNING'}, f"Its landscape type ({data.get('type')}) isn't in this version of the add-on")
+            return {'CANCELLED'}
+        scene = context.scene
+        keep_type, keep_cursor = scene.lg_type, scene.cursor.location.copy()
+        scene.lg_type = data["type"]
+        scene.cursor.location = baked.matrix_world.translation
         bpy.ops.landscape.add()
         ob = context.view_layer.objects.active
+        for col in list(ob.users_collection):  # beside the baked mesh, in its collections
+            col.objects.unlink(ob)
+        for col in baked.users_collection:
+            col.objects.link(ob)
         presets.apply(ob.lg, data, TYPES)
         ob.matrix_world = baked.matrix_world.copy()
         sync_object(ob)
+        scene.lg_type, scene.cursor.location = keep_type, keep_cursor
         baked.hide_set(True)  # the live one takes its place; the baked mesh stays in the file
         return {'FINISHED'}
 

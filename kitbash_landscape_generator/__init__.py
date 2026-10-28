@@ -18,7 +18,7 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup, UIList
 
-from . import erosion, nodes, presets
+from . import caves, erosion, nodes, presets
 
 MODIFIER_NAME = "KB Landscape"
 HERE = os.path.dirname(__file__)
@@ -1236,16 +1236,6 @@ class LG_PT_main(Panel):
             row.prop(props, "water_level", slider=True)
             box.label(text="Plain water for now; full lake, sea and river shaders come with the materials", icon='INFO')
 
-        header, box = layout.panel("lg_caves", default_closed=True)
-        header.label(text="Caves")
-        if box:
-            box.prop(props, "cave_layout")
-            col = box.column()
-            col.enabled = props.cave_layout != 'NONE'
-            col.prop(props, "cave_size")
-            col.prop(props, "cave_height")
-            col.prop(props, "cave_x", slider=True)
-            col.prop(props, "cave_y", slider=True)
 
         header, box = layout.panel("lg_masks", default_closed=True)
         header.label(text="Masks")
@@ -1318,12 +1308,14 @@ def register():
         ('LIST', "List", "Show all types as a list", 'LONGDISPLAY', 0),
         ('GRID', "Grid", "Show all types as thumbnails", 'IMGDISPLAY', 1)))
     bpy.app.handlers.load_post.append(_on_load)
+    caves.register()  # the Caves panel sits under the main one
     bpy.app.timers.register(_refresh_all, first_interval=0.1)  # landscapes already open when enabled
 
 
 def unregister():
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
+    caves.unregister()
     del bpy.types.Scene.lg_types_view
     del bpy.types.Scene.lg_preset
     del bpy.types.Scene.lg_type

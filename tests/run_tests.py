@@ -598,62 +598,55 @@ def _t30():
     return f"12 m entrance, {len(cave)} cave points, only the border open, rest untouched, {dt:.2f} s; {w1:.1f} m -> {w2:.1f} m at 2x size"
 
 
-def walk_in(ob):
-    """Measure a cave entrance: (floor meets the ground outside, share of floor with rock overhead, median
-    floor-to-roof gap, open edges, non-manifold edges). Mike: you walk in at ground level."""
+def cave_mesh(ob):
+    """The cave object's evaluated mesh: (points, closed, floor-face centres, faces)."""
     import bmesh
-    from mathutils import Vector
-    from mathutils.bvhtree import BVHTree
     dg = bpy.context.evaluated_depsgraph_get()
     dg.update()
     ev = ob.evaluated_get(dg)
     me = ev.to_mesh()
     bm = bmesh.new()
     bm.from_mesh(me)
-    open_edges = sum(1 for e in bm.edges if e.is_boundary)
-    bad = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)
-    cave = me.attributes.get("lg_cave")
-    check(cave is not None, "no cave carved")
-    flags = [d.value for d in cave.data]
-    floor = [Vector(f.center) for f, c in zip(me.polygons, flags) if c and f.normal.z > 0.9]
-    check(len(floor) > 10, f"the cave has no floor ({len(floor)} up-facing cave faces)")
-    floor_z = min(p.z for p in floor)
-    tree = BVHTree.FromBMesh(bm)
-    gaps = []
-    for p in floor:
-        hit = tree.ray_cast(p + Vector((0, 0, 0.05)), Vector((0, 0, 1)))
-        if hit[0] is not None:
-            gaps.append(hit[3] + 0.05)
-    roof = len(gaps) / len(floor)
-    # The ground outside: non-cave points near the floor's footprint, below roof height.
-    cave_pts = {i for f, c in zip(me.polygons, flags) if c for i in f.vertices}
-    fx = np.array([[p.x, p.y] for p in floor])
-    lo, hi = fx.min(axis=0), fx.max(axis=0)
-    w = ob.lg.cave_size
-    meet = min((abs(v.co.z - floor_z) for v in me.vertices if v.index not in cave_pts
-                and lo[0] - w < v.co.x < hi[0] + w and lo[1] - w < v.co.y < hi[1] + w
-                and v.co.z < floor_z + ob.lg.cave_height * 0.5), default=1e9)
+    closed = all(e.is_manifold for e in bm.edges) and len(bm.edges) > 0
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    floor = np.array([f.center[:] for f in me.polygons if f.normal.z < -0.95])
+    n = len(me.polygons)
     bm.free()
     ev.to_mesh_clear()
-    return meet, roof, float(np.median(gaps)) if gaps else 0.0, open_edges, bad
+    return co.reshape(-1, 3), closed, floor, n
 
 
-@test("T14", "Walk-in cave entrance")
+@test("T14", "Cave object: closed, walk-in floor, real-size mouth")
 def _t14():
-    out = []
-    for kind in ("mountains", "mesa", "cliffs"):
-        fresh_scene()
-        ob = add(kind)
-        _p, base_open, _b, _c, _s = mesh_report(ob)
-        ob.lg.cave_layout = 'ENTRANCE'
-        h = ob.lg.cave_height
-        meet, roof, gap, open_edges, bad = walk_in(ob)
-        check(open_edges == base_open and bad == 0, f"{kind}: not watertight ({open_edges} open vs {base_open}, {bad} non-manifold)")
-        check(meet < 0.2 * h, f"{kind}: the cave floor doesn't meet the ground outside (step {meet:.2f} m, entrance {h:.1f} m tall)")
-        check(roof > 0.6, f"{kind}: only {roof:.0%} of the floor has rock overhead")
-        check(0.5 * h < gap < 1.5 * h, f"{kind}: floor to roof {gap:.1f} m, entrance set to {h:.1f} m")
-        out.append(f"{kind} step {meet:.2f} m, roof over {roof:.0%}, {gap:.1f}/{h:.1f} m tall")
-    return "; ".join(out)
+    fresh_scene()
+    check(bpy.ops.landscape.add_cave() == {'FINISHED'}, "Add Cave did not finish")
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    check(c.is_cave and lg.caves.cave_modifier(ob), "Add Cave should make a cave object")
+    t0 = time.time()
+    pts, closed, floor, n = cave_mesh(ob)
+    dt = time.time() - t0
+    check(closed, "the cave mesh should be closed (usable as a Boolean cutter)")
+    near = floor[floor[:, 1] < c.depth * 0.5]
+    check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.05 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
+    sec = pts[np.abs(pts[:, 1] - c.width * 0.5) < c.width * 0.08]
+    w, h = np.ptp(sec[:, 0]), sec[:, 2].max()
+    check(abs(w / c.width - 1) < 0.3 and abs(h / c.height - 1) < 0.3, f"mouth {w:.1f} x {h:.1f} m, set {c.width:.0f} x {c.height:.0f} m")
+    check(c.depth < pts[:, 1].max() < c.depth + c.width, f"cave should run back about {c.depth:.0f} m, reaches {pts[:, 1].max():.1f} m")
+    check(pts[:, 1].min() < 0, "the front should poke out in front of the mouth, through the face")
+    c.chamber, c.ceiling = 30.0, 15.0
+    pc, closed2, _f, _n = cave_mesh(ob)
+    back = pc[pc[:, 1] > c.depth * 0.8]
+    check(closed2 and np.ptp(back[:, 0]) > 20 and back[:, 2].max() > 11, f"chamber should be about 30 m wide, 15 m tall: {np.ptp(back[:, 0]):.1f} x {back[:, 2].max():.1f} m")
+    c.chamber, c.drop = 0.0, 5.0
+    pd, closed3, _f, _n = cave_mesh(ob)
+    low = pd[pd[:, 1] > c.depth * 0.85, 2].min()
+    check(closed3 and -6.0 < low < -4.0, f"Drop 5 m: the floor at the back should be about 5 m down, got {low:.1f} m")
+    c.drop, c.seed = 0.0, 7
+    p7, _c, _f, _n = cave_mesh(ob)
+    check(len(p7) != len(pts) or not np.allclose(p7, pts), "a new seed should change the cave")
+    return f"closed, {n:,} faces in {dt:.2f} s; mouth {w:.1f} x {h:.1f} m (set 12 x 6), flat floor, {pts[:, 1].max():.0f} m deep; chamber, drop, seed work"
 
 
 @test("T11", "Erosion lowers steep slopes")

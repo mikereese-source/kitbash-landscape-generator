@@ -59,6 +59,19 @@ A typical walk-in is about 1.5–2:1.
 - [Alaska DFG: karst cave habitats (entrance and twilight zones)](https://adfg.alaska.gov/static/species/wildlife_action_plan/appendix5_karst_cave_habitats.pdf)
 - [Natural Arch and Bridge Society: cave arch taxonomy](https://naturalarches.org/archinfo/taxonomy-cave.htm)
 
-## Still to get (needs Mike's OK to download)
-Public-domain photos (NPS, USGS) of each reference, saved to `docs/research/caves/` for a side-by-side sheet
-with our renders, the way the terrain photo review worked.
+## Photos (downloaded 2026-10-28, Mike approved)
+Saved with the other downloaded references in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-photos\`
+(11 files, about 30 MB; licence and source page for each in `sources.json`). Contact sheet:
+`docs/research/caves-contact-sheet.jpg`. Public domain (NPS, USGS, Library of Congress) or CC BY-SA, used as
+internal reference only, never shipped.
+
+What each shows, and what we take from it:
+| File | Shows | Take for 5.2 |
+|---|---|---|
+| `cathedral-caverns-entrance-2019.png` (CC BY-SA 4.0) | Looking out from inside: a very wide, low mouth, nearly flat roof, floor level with the forest outside | The walk-in target: flat floor flush with the ground, flat roof, about 5:1 |
+| `mammoth-historic-entrance.jpg`, `-nps.jpg` (public domain) | Steps down a wooded hollow to a mouth under a ledge of layered limestone; water drips off the lip | The mouth sits at the foot of a rock face at the head of a hollow; the roof lip overhangs (drip line); the floor is the hollow's floor |
+| `cliff-palace-alcove-nps.jpg`, `cliff-palace-usgs.jpg` (public domain) | A deep alcove under sandstone caprock, partway up the canyon wall, on a ledge | Mesa/Canyon shelters can open on a ledge in the cliff, not only at its foot; flat roof under the caprock |
+| `fingals-cave-entrance.jpg`, `fingals-cave-staffa-tip.jpg` (CC BY-SA 2.0) | A tall arched sea cave in basalt columns at the waterline | Coastal Cliffs: taller than wide, floor at sea level |
+| `lava-beds-skull-cave-entrance.jpg` (CC BY-SA 4.0) | A collapse entrance: a wide, dark, rounded mouth below the plain, thin lava roof | Volcanic: a rounded tube mouth in a collapse hollow; the roof is thin |
+| `cathedral-caverns-interior-stalactites-loc-0290.jpg`, `-interior-loc-0292.jpg` (public domain) | Inside: hanging formations and a flowstone wall | For step 5.4 (stalactites), not the entrance |
+| `lava-tube-collapse-line-aerial-usgs.jpg` (public domain) | Aerial: a line of roof collapses along a lava tube | Background only: collapses line up along the tube |

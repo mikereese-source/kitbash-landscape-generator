@@ -1188,6 +1188,8 @@ class LG_PT_main(Panel):
             row.operator(LG_OT_preset_rename.bl_idname, text="", icon='GREASEPENCIL')
             row.operator(LG_OT_preset_delete.bl_idname, text="", icon='TRASH')
 
+        caves.draw_section(layout, context)
+
         ob = current_landscape(context)
         if ob is None:
             if context.active_object is not None and RECIPE_KEY in context.active_object.keys():

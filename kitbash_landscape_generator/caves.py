@@ -4,7 +4,7 @@ meters, then carve into a landscape or use as a Boolean cutter on any mesh."""
 
 import bpy
 from bpy.props import BoolProperty, FloatProperty, IntProperty, PointerProperty
-from bpy.types import Operator, Panel, PropertyGroup
+from bpy.types import Operator, PropertyGroup
 
 from . import features, nodes
 
@@ -87,41 +87,40 @@ class LG_OT_add_cave(Operator):
         return {'FINISHED'}
 
 
-class LG_PT_cave(Panel):
-    bl_label = "Caves"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Landscape"
-    bl_options = {'DEFAULT_CLOSED'}
+def draw_section(layout, context):
+    """The Caves section of the main panel: Add Cave, then the active cave's controls. A section of the main
+    panel, not its own panel: Blender kept a separate one above the main panel, folded shut (Mike couldn't find it)."""
+    ob = context.active_object
+    is_cave = ob is not None and ob.lg_cave.is_cave
+    header, box = layout.panel("lg_caves", default_closed=False)
+    header.label(text="Caves")
+    if not box:
+        return
+    box.operator(LG_OT_add_cave.bl_idname, icon='ADD')
+    if not is_cave:
+        box.label(text="Select a cave to change it.")
+        return
+    props = ob.lg_cave
+    col = box.column()
+    col.label(text=ob.name, icon='MESH_UVSPHERE')
+    col.prop(props, "width")
+    col.prop(props, "height")
+    col.prop(props, "depth")
+    col.prop(props, "wiggle", slider=True)
+    col.prop(props, "narrowing", slider=True)
+    col.prop(props, "drop")
+    col = box.column()
+    col.prop(props, "chamber")
+    row = col.row()
+    row.enabled = props.chamber > 0
+    row.prop(props, "ceiling")
+    col = box.column()
+    col.prop(props, "roughness", slider=True)
+    col.prop(props, "seed")
+    col.prop(props, "fine")
 
-    def draw(self, context):
-        layout = self.layout
-        layout.operator(LG_OT_add_cave.bl_idname, icon='ADD')
-        ob = context.active_object
-        if ob is None or not ob.lg_cave.is_cave:
-            layout.label(text="Select a cave to change it.")
-            return
-        props = ob.lg_cave
-        col = layout.column()
-        col.label(text=ob.name, icon='MESH_UVSPHERE')
-        col.prop(props, "width")
-        col.prop(props, "height")
-        col.prop(props, "depth")
-        col.prop(props, "wiggle", slider=True)
-        col.prop(props, "narrowing", slider=True)
-        col.prop(props, "drop")
-        col = layout.column()
-        col.prop(props, "chamber")
-        row = col.row()
-        row.enabled = props.chamber > 0
-        row.prop(props, "ceiling")
-        col = layout.column()
-        col.prop(props, "roughness", slider=True)
-        col.prop(props, "seed")
-        col.prop(props, "fine")
 
-
-classes = (LG_CaveProps, LG_OT_add_cave, LG_PT_cave)
+classes = (LG_CaveProps, LG_OT_add_cave)
 
 
 def register():

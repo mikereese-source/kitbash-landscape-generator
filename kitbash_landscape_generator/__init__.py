@@ -1164,6 +1164,9 @@ class LG_PT_main(Panel):
                         for key in keys:
                             col.prop_enum(scene, "lg_type", key)
                         col.separator()
+                    # Caves (Mike): their own group at the bottom; a cave is an object you place, not a landscape.
+                    col.label(text="Caves")
+                    col.operator(caves.LG_OT_add_cave.bl_idname, icon='ADD')
                 else:
                     # shortcut: Blender add-on buttons draw icons at a fixed small size, so a big image can't
                     # itself be a button; the name button under each image picks it. The gallery popup above
@@ -1176,6 +1179,9 @@ class LG_PT_main(Panel):
                         # pushes the name off-centre.
                         cell.operator(LG_OT_pick_type.bl_idname, text=name,
                                       depress=key == (scene.lg_type_key or TYPES_FILE["default"])).type_key = key
+                    cell = grid.column(align=True)
+                    cell.label(text="Caves")
+                    cell.operator(caves.LG_OT_add_cave.bl_idname, icon='ADD')
 
         header, box = layout.panel("lg_presets", default_closed=True)
         header.label(text="Presets")

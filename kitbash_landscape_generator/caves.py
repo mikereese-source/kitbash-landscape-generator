@@ -88,17 +88,14 @@ class LG_OT_add_cave(Operator):
 
 
 def draw_section(layout, context):
-    """The Caves section of the main panel: Add Cave, then the active cave's controls. A section of the main
-    panel, not its own panel: Blender kept a separate one above the main panel, folded shut (Mike couldn't find it)."""
+    """The selected cave's controls, as a section of the main panel (a separate panel sat above the main one,
+    folded shut, and Mike couldn't find it). Add Cave is in the type list, under Caves."""
     ob = context.active_object
-    is_cave = ob is not None and ob.lg_cave.is_cave
-    header, box = layout.panel("lg_caves", default_closed=False)
-    header.label(text="Caves")
-    if not box:
+    if ob is None or not ob.lg_cave.is_cave:  # Add Cave lives in the type list, under Caves (Mike)
         return
-    box.operator(LG_OT_add_cave.bl_idname, icon='ADD')
-    if not is_cave:
-        box.label(text="Select a cave to change it.")
+    header, box = layout.panel("lg_caves", default_closed=False)
+    header.label(text="Cave")
+    if not box:
         return
     props = ob.lg_cave
     col = box.column()

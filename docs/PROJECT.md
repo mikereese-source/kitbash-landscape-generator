@@ -88,11 +88,12 @@ Every plan includes an errors & edge cases milestone and a final check.
 |---|---|---|
 | 5.1 | Volume patch core (settles D9): only a box around each feature goes through the SDF stage; the grid cells under it are cut out and the patch is stitched back watertight. Coarse voxels at Preview, fine at High; a voxel budget falls back to coarser voxels with a warning (E5). Masks carried onto the patch | L — done 2026-10-28 (T30 PASS, 25/25; D92) |
 | 5.2 | Cave object (D93): a standalone cave you place like the butte. A noisy rock hull outside, the cave inside; Entrance Width, Height, Depth, Wiggle; shows its hull until carved. Built from the 5.1 SDF pieces (T14 reworked for it) | L — first pass 2026-10-28 (T14 PASS, 26/26); awaiting Mike's look |
-| 5.3 | Carve and cut: pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut); the same hull works as a cutter on any mesh, Kits included, with a Boolean modifier | M |
+| 5.3 | Carve and cut: pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut), so the mouth shows as a real opening in the face (Mike: still to come); the same hull works as a cutter on any mesh, Kits included, with a Boolean modifier | M |
 | 5.4 | Stalactites and stalagmites inside the cave object: instanced cones with the unsharp pass (D11), ceilings and floors only (T15) | M |
 | 5.5 | Cave landscape type (shown in the gallery, D31): styles Wide Walk-in, Rock Shelter, Sea Cave, Lava Tube (RESEARCH-caves.md), each a landscape shaped for its cave with the cave object carved in | L |
 | 5.6 | Cliff features: Side Cliffs, Overhangs, Arches, with the same cut | M–L |
 | 5.7 | Bake and Restore with caves; the cave as its own mesh for Unreal (D89); tests, then the gate: checker, rollback zip, Mike sign-off | M |
+| 5.8 | Drag handles (gizmos, D94): drag the landscape's Width and Depth in the viewport (Python GizmoGroup; the grabbed edge moves, the opposite edge stays put, Mike 2026-10-23), and the cave's Entrance Width, Entrance Height and Depth. Before M6 (Mike) | M |
 **Build**
 | # | Milestone | Definition of done | Status |
 |---|-----------|--------------------|--------|

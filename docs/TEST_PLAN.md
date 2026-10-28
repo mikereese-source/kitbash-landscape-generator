@@ -29,6 +29,7 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T29 | M4 | Bake to mesh | auto | Bake leaves a plain mesh with the masks, water as its own object with its material, settings kept on the mesh; Restore rebuilds a live landscape with the same heights | PASS 2026-10-28 (auto; tried in Blender by Mike) |
 | T13 | M6 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
 | T14 | M5 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
+| T30 | M5 | Cave patch watertight, local, real size | auto | Only the landscape border is open, no non-manifold edges, points away from the cave unchanged, cave keeps its width when the landscape doubles | PASS 2026-10-28 |
 | T15 | M5 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |
 | T16 | M6 | Caves texture without UVs | manual | No stretching on cave walls | |
 | T17 | M7 | Save, reopen, rescale | manual | A saved file reopens identical and still rescales correctly | |

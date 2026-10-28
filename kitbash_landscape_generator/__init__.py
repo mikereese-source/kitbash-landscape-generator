@@ -214,6 +214,8 @@ def sync_object(ob):
     if props.terrace_strength <= 0:  # count and tilt do nothing without strength: keep them out of the erosion key
         values["Terraces"], values["Terrace Tilt"] = 8.0, 0.0
     values["Water"], values["Water Level"] = props.water, props.water_level
+    values["Cave"] = CAVE_INDEX[props.cave_layout]
+    values["Cave X"], values["Cave Y"], values["Cave Size"] = props.cave_x, props.cave_y, props.cave_size
     values["Mask Heatmap"] = props.mask_colors == 'HEAT'
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
@@ -235,8 +237,25 @@ def sync_object(ob):
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
              "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
-             "Water", "Water Level"}  # water never changes the terrain: no re-erosion
+             "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size"}  # water and caves never change the eroded terrain: no re-erosion
 _pending = {}
+
+
+CAVE_ITEMS = (
+    ('NONE', "None", "No cave"),
+    ('ENTRANCE', "Entrance", "A grotto cut into the ground"),
+    ('TUNNEL', "Entrance + Tunnel", "The entrance runs on into a winding passage"),
+    ('CAVERN', "Entrance + Cavern", "The passage opens into a large chamber"),
+)
+CAVE_INDEX = {key: i for i, (key, _n, _d) in enumerate(CAVE_ITEMS)}
+
+
+def _cave_changed(props, context):
+    # Real-size caves (D91): the first cave on a landscape starts at a size that suits it, capped to fit.
+    if props.cave_layout != 'NONE' and not props.cave_size_set:
+        props["cave_size"] = min(max(min(props.size_x, props.size_y) * 0.06, 3.0), 60.0)
+        props["cave_size_set"] = True
+    _sync(props, context)
 
 
 MASK_ITEMS = (
@@ -658,6 +677,15 @@ class LG_ObjectProps(PropertyGroup):
                         default=False, update=_sync)
     water_level: FloatProperty(name="Water Level", description="How high the water comes: 0 the lowest ground, 1 the highest",
                                default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    cave_layout: EnumProperty(name="Cave", description="Carve a cave into the landscape. Every cave starts with an entrance",
+                              items=CAVE_ITEMS, default='NONE', update=_cave_changed)
+    cave_x: FloatProperty(name="Across", description="Where the cave sits across the landscape, left to right",
+                          default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    cave_y: FloatProperty(name="Front to Back", description="Where the cave sits from the front edge to the back",
+                          default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    cave_size: FloatProperty(name="Entrance Width", description="How wide the cave mouth is, in real size: it stays the same when you resize the landscape",
+                             default=12.0, min=0.5, soft_max=200.0, unit='LENGTH', update=_sync)
+    cave_size_set: BoolProperty(default=False)
     mask_colors: EnumProperty(name="Colours", description="How the mask viewer shows a mask",
                               items=(('GRAY', "Grayscale", "Black (0) to white (1), as game engines and material editors show these maps"),
                                      ('HEAT', "Heatmap", "Dark blue (0) through teal to yellow (1): easier to read small differences")),
@@ -1202,6 +1230,16 @@ class LG_PT_main(Panel):
             row.enabled = props.water
             row.prop(props, "water_level", slider=True)
             box.label(text="Plain water for now; full lake, sea and river shaders come with the materials", icon='INFO')
+
+        header, box = layout.panel("lg_caves", default_closed=True)
+        header.label(text="Caves")
+        if box:
+            box.prop(props, "cave_layout")
+            col = box.column()
+            col.enabled = props.cave_layout != 'NONE'
+            col.prop(props, "cave_size")
+            col.prop(props, "cave_x", slider=True)
+            col.prop(props, "cave_y", slider=True)
 
         header, box = layout.panel("lg_masks", default_closed=True)
         header.label(text="Masks")

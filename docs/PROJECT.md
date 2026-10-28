@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M5 — Cliffs, caves, stalactites (plan next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
+**Current milestone:** M5 — Cliffs, caves, stalactites (step 5.1 done; 5.2 next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
 **Last updated:** 2026-10-28
 
 ## Pre-build checklist
@@ -82,6 +82,16 @@ Every plan includes an errors & edge cases milestone and a final check.
 | 4.1 | Bake to Mesh: a plain editable mesh keeping the masks; water its own object; settings kept on the mesh and saved as a preset; Restore Landscape rebuilds it (T29) | S–M — done 2026-10-28 |
 | 4.2 | T11 erosion lowers steep slopes, T12 1 km at High in 60 s or less | S — done 2026-10-28 (T12 17.3 s) |
 | 4.3 | Gate: checker, rollback zip, Mike sign-off | S — done 2026-10-28 (D90) |
+
+**M5 steps (approved 2026-10-28, D91; checkpoint after each)**
+| Step | What | Size |
+|---|---|---|
+| 5.1 | Volume patch core (settles D9): only a box around each feature goes through the SDF stage; the grid cells under it are cut out and the patch is stitched back watertight. Coarse voxels at Preview, fine at High; a voxel budget falls back to coarser voxels with a warning (E5). Masks carried onto the patch | L — done 2026-10-28 (T30 PASS, 25/25; D92) |
+| 5.2 | Caves: Entrance, Entrance + Tunnel, Entrance + Cavern (D10). Entrance placed on a steep face from the slope mask, with a Facing control; Tunnel Length, Width, Wiggle, Descent; Cavern Size, Ceiling Height (T14) | L |
+| 5.3 | Cliff features: Side Cliffs (slopes steepened into rock walls), Overhangs (walls undercut), Arches (a hole through a fin or ridge) | M–L |
+| 5.4 | Stalactites and stalagmites: instanced cones with the unsharp pass for sharp tips (D11), only on cave ceilings and floors (T15) | M |
+| 5.5 | Cave type in the gallery (hidden since D31); Bake and Restore with patches; the patch as its own mesh for Unreal (D89) | M |
+| 5.6 | Tests (T14, T15, seam, timing, E5), then the gate: checker, rollback zip, Mike sign-off | M |
 
 **Build**
 | # | Milestone | Definition of done | Status |

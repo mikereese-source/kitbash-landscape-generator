@@ -22,6 +22,9 @@ RESULTS = []
 
 def test(tid, name):
     def wrap(fn):
+        only = os.environ.get("LG_ONLY")  # e.g. LG_ONLY=T30,T29 runs just those
+        if only and tid not in only.split(","):
+            return fn
         try:
             detail = fn()
             RESULTS.append((tid, name, True, detail or ""))
@@ -316,7 +319,7 @@ def _t24():
     with bpy.data.libraries.load(nodes.LIBRARY, link=False) as (src, dst):
         names = list(src.node_groups)
         dst.node_groups = list(names)  # a copy: Blender swaps the names for the loaded groups in place
-    stale = [ng.name for ng in dst.node_groups if ng.get("kb_version") != nodes.GROUP_VERSION]
+    stale = [ng.name for ng in dst.node_groups if ng.name.startswith(nodes.GROUP_NAME) and ng.get("kb_version") != nodes.GROUP_VERSION]  # sub-groups (KB Landscape Cut) have their own version
     for ng in dst.node_groups:
         bpy.data.node_groups.remove(ng)
     want = {f"{nodes.GROUP_NAME} {t['recipe']:02d}" for t in lg.TYPES.values()}
@@ -542,6 +545,58 @@ def _t29():
     return "plain mesh with masks, water its own object, artist modifiers untouched; Restore rebuilds the same heights, refuses unknown types"
 
 
+def mesh_report(ob):
+    """Evaluated mesh: points, open (boundary) edges, non-manifold edges, cave faces and their bounds."""
+    import bmesh
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    open_edges = sum(1 for e in bm.edges if e.is_boundary)
+    bad = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    cave = me.attributes.get("lg_cave")
+    cave_pts = np.zeros((0, 3))
+    if cave is not None:
+        flags = [d.value for d in cave.data]
+        idx = sorted({i for f, flag in zip(me.polygons, flags) if flag for i in f.vertices})
+        cave_pts = co.reshape(-1, 3)[idx]
+    slope = me.attributes.get("lg_slope")
+    slope_ok = slope is not None and all(math.isfinite(d.value) for d in slope.data)
+    bm.free()
+    ev.to_mesh_clear()
+    return co.reshape(-1, 3), open_edges, bad, cave_pts, slope_ok
+
+
+@test("T30", "Cave patch: watertight, local, real size")
+def _t30():
+    fresh_scene()
+    ob = add("mountains")
+    base, base_open, _bad, _c, _s = mesh_report(ob)
+    ob.lg.cave_layout = 'ENTRANCE'
+    check(abs(ob.lg.cave_size - 12.0) < 1e-6, f"a 200 m landscape's first cave should start 12 m wide, got {ob.lg.cave_size}")
+    t0 = time.time()
+    pts, open_edges, bad, cave, slope_ok = mesh_report(ob)
+    dt = time.time() - t0
+    check(len(cave) > 50, "no cave carved")
+    check(open_edges == base_open and bad == 0, f"seam not watertight: {open_edges} open edges (landscape border {base_open}), {bad} non-manifold")
+    check(slope_ok, "cave walls are missing the masks")
+    c = cave.mean(axis=0)
+    far = lambda p: p[np.hypot(p[:, 0] - c[0], p[:, 1] - c[1]) > ob.lg.cave_size * 2 + 4.0]
+    a, b = far(base), far(pts)
+    check(len(a) == len(b) and np.allclose(np.sort(a[:, 2]), np.sort(b[:, 2])), "the cave changed the landscape away from it")
+    w1 = np.ptp(cave[:, 0])
+    set_size(ob, 400.0)
+    _p, open2, bad2, cave2, _s = mesh_report(ob)
+    check(open2 > 0 and bad2 == 0 and len(cave2) > 50, "cave lost on a bigger landscape")
+    w2 = np.ptp(cave2[:, 0])
+    check(abs(w2 / w1 - 1.0) < 0.2, f"cave should keep its real size when the landscape doubles: {w1:.1f} m -> {w2:.1f} m")
+    return f"12 m entrance, {len(cave)} cave points, only the border open, rest untouched, {dt:.2f} s; {w1:.1f} m -> {w2:.1f} m at 2x size"
+
+
 @test("T11", "Erosion lowers steep slopes")
 def _t11():
     fresh_scene()
@@ -660,7 +715,7 @@ def _t7():
 def _t8():
     # Not drawn in the panel: bookkeeping, or the raw values behind the meter/percent sliders.
     internal = {"rna_type", "name", "is_landscape", "type_key", "look_set", "style_key", "final", "ultra",
-                "height", "feature_scale", "roughness", "sharpness"}
+                "height", "feature_scale", "roughness", "sharpness", "cave_size_set"}
     props = [p for p in bpy.types.Object.bl_rna.properties["lg"].fixed_type.properties if p.identifier not in internal]
     missing = [p.identifier for p in props if len((p.description or "").strip()) < 10]
     check(not missing, f"controls without a tooltip: {missing}")

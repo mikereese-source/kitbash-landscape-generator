@@ -427,14 +427,15 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 10
+CAVE_VERSION = 14
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
     ("Depth", 'NodeSocketFloat', 30.0), ("Wiggle", 'NodeSocketFloat', 0.3), ("Turn", 'NodeSocketFloat', 0.0),
     ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
-    ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0), ("Roughness", 'NodeSocketFloat', 0.5),
+    ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
+    ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
 )
 CAVE_DETAIL = (6.0, 14.0, 26.0)  # voxels across the smaller of the entrance's half width and height
@@ -502,6 +503,7 @@ def cave_group():
     # Each section's height, floor to roof: the entrance's Height, growing to the chamber's Ceiling Height.
     tall = t.math('ADD', t.math('MULTIPLY', H, t.math('SUBTRACT', 1.0, chamber)), t.math('MULTIPLY', gin["Ceiling Height"], chamber))
     path = t.node('GeometryNodeSetPosition', Geometry=line.outputs[0], Offset=t.vec(t.math('ADD', sway, bend), 0.0, floor_at)).outputs[0]
+    path = t.store(t.store(path, "c_s", s), "c_narrow", narrow)
 
     # Each section is built at its true size before meshing: a dome as wide as the passage and as tall as the
     # section, standing on its own floor height; all of them merged as one volume. (Stretching one tube after
@@ -524,8 +526,9 @@ def cave_group():
                    Voxel_Size=voxel, Band_Width=3)
     space_mesh = t.node('GeometryNodeGridToMesh', Grid=space.outputs[0]).outputs[0]
 
-    # Rubble at the foot of the walls (Mike: rocks, a blend like Mesa's talus), merged into the same volume:
-    # two rows of rock lumps along the passage, one each side, of varied size, thinner with less Roughness.
+    # Rubble at the foot of the walls (Mike: rocks, a blend like Mesa's talus), taken out of the same space:
+    # two rows of rock lumps along the passage, one each side, of varied size. Rubble sets how many and how
+    # big (0 none); Roughness is only the rock surface, as on the landscapes (Mike).
     def rand(lo, hi, offset):
         n = t.N.new('FunctionNodeRandomValue')
         n.data_type = 'FLOAT'
@@ -561,20 +564,71 @@ def cave_group():
                       Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                       Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
-    keep = t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('ADD', 0.15, t.math('MULTIPLY', gin["Roughness"], 0.7)))
+    keep = t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9))
     lump = t.node('GeometryNodeMeshIcoSphere', Radius=1.0, Subdivisions=2).outputs["Mesh"]
     ln = t.node('ShaderNodeTexNoise', Vector=t.position(), Scale=1.3, Detail=2.0)
     ln.noise_dimensions = '3D'
     lumpy = t.node('GeometryNodeSetPosition', Geometry=lump, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0],
                                                                          scale=t.math('MULTIPLY', t.math('SUBTRACT', ln.outputs["Fac"], 0.5), 0.8))).outputs[0]
-    size = t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37))
+    size = t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6)))
     rocks = t.node('GeometryNodeInstanceOnPoints', Points=foot, Selection=keep, Instance=lumpy,
                    Rotation=t.vec(rand(0.0, 6.28, 41), rand(0.0, 6.28, 43), rand(0.0, 6.28, 47)),
                    Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, 53)), t.math('MULTIPLY', size, rand(0.5, 0.9, 59)))).outputs[0]
 
-    # Space minus rock: the domes' space as one signed-distance field, the rubble taken out of it (merging the
-    # rocks into the space carved hollows into the walls instead of piling rock at their foot).
-    rubble = t.node('GeometryNodeMeshToSDFGrid', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=rocks).outputs[0],
+    # Ramp into Chamber (Mike, for players): a causeway of rock along the path, from the passage floor down
+    # into the sunk chamber, so it can be walked down instead of jumped. Thin slabs every half metre along the
+    # path, each topped at the path's own floor there, about the passage's width, with rocks along its edges.
+    # (Without it the merged domes' floors leave steps where the floor drops.)
+    ramp_on = t.math('MULTIPLY', t.math('MULTIPLY', gin["Ramp"], has_chamber), t.math('GREATER_THAN', gin["Chamber Drop"], 0.0))
+    walk = t.node('GeometryNodeResampleCurve', Curve=t.node('GeometryNodeMeshToCurve', Mesh=path).outputs[0], Length=0.5)
+    walk.inputs["Mode"].default_value = 'Length'
+    walk_c = walk.outputs[0]
+    tan = t.xyz(t.node('GeometryNodeInputTangent').outputs[0])
+    walk_c = t.store(walk_c, "c_heading", t.math('ARCTAN2', t.math('MULTIPLY', tan["X"], -1.0), tan["Y"]))
+    walk_pts = t.node('GeometryNodeCurveToPoints', Curve=walk_c)
+    walk_pts.mode = 'EVALUATED'
+    # Walkable: from where the chamber begins (s 0.6) the ramp falls at most 1 in 2 (about 27 degrees) until it
+    # meets the chamber floor, running out into the chamber as a causeway if it must (following the floor's own
+    # curve was over 50 degrees in a short cave).
+    wp = t.xyz(t.position())
+    # Start where the chamber begins, or earlier if the slope needs more room to reach the chamber floor by the
+    # end of the path (a short cave ran out of path and ended the ramp in a drop).
+    y06 = t.math('MINIMUM', t.math('ADD', y0, t.math('MULTIPLY', t.math('SUBTRACT', D, y0), 0.6)),
+                 t.math('SUBTRACT', D, t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), 1.0)))
+    graded = t.math('SUBTRACT', t.math('MULTIPLY', t.math('MULTIPLY', gin["Drop"], -1.0), t.named("c_s")),
+                    t.math('MULTIPLY', t.math('MAXIMUM', t.math('SUBTRACT', wp["Y"], y06), 0.0), 0.5))
+    # Straight down the grade to the chamber floor, not along the floor's own S-curve (steeper mid-way).
+    bottom = t.math('SUBTRACT', t.math('MULTIPLY', t.math('MULTIPLY', gin["Drop"], -1.0), t.named("c_s")), gin["Chamber Drop"])
+    walk_top = t.node('GeometryNodeSetPosition', Geometry=walk_pts.outputs["Points"],
+                      Position=t.vec(wp["X"], wp["Y"], t.math('MAXIMUM', graded, bottom))).outputs[0]
+    on_ramp = t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.named("c_s"), 0.45))
+    slab_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
+    slab = t.node('GeometryNodeTransform', Geometry=slab_box, Translation=(0.0, 0.0, -0.5)).outputs[0]  # top at the point
+    deep = t.math('ADD', t.math('ADD', gin["Chamber Drop"], gin["Drop"]), t.math('MULTIPLY', H, 2.0))
+    slabs = t.node('GeometryNodeInstanceOnPoints', Points=walk_top, Selection=on_ramp, Instance=slab,
+                   Rotation=t.vec(0.0, 0.0, t.named("c_heading")),
+                   Scale=t.vec(t.math('MULTIPLY', t.named("c_narrow"), 1.6), 1.2, deep)).outputs[0]
+    edge = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
+    edge.domain = 'POINT'
+    edges = t.node('GeometryNodeJoinGeometry')
+    t.L.new(walk_top, edges.inputs[0])
+    t.L.new(t.store(edge.outputs["Geometry"], "c_side", 1.0), edges.inputs[0])
+    out_dir = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)  # the slab's local X
+    edge_pts = t.node('GeometryNodeSetPosition', Geometry=edges.outputs[0],
+                      Offset=t.vmath('SCALE', out_dir, scale=t.math('MULTIPLY', t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0),
+                                                                     t.math('MULTIPLY', t.named("c_narrow"), 0.8)))).outputs[0]
+    edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.25, t.math('MULTIPLY', gin["Rubble"], 0.5))))
+    edge_size = t.math('MULTIPLY', t.named("c_narrow"), rand(0.12, 0.28, 67))
+    edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,
+                        Rotation=t.vec(rand(0.0, 6.28, 71), rand(0.0, 6.28, 73), rand(0.0, 6.28, 79)),
+                        Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
+    solids = t.node('GeometryNodeJoinGeometry')
+    for g in (rocks, slabs, edge_rocks):
+        t.L.new(g, solids.inputs[0])
+
+    # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it
+    # (merging the rocks into the space carved hollows into the walls instead of piling rock at their foot).
+    rubble = t.node('GeometryNodeMeshToSDFGrid', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=solids.outputs[0]).outputs[0],
                     Voxel_Size=voxel, Band_Width=3)
     carve = t.N.new('GeometryNodeSDFGridBoolean')
     carve.operation = 'DIFFERENCE'

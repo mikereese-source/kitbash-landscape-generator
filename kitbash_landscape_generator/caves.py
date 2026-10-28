@@ -23,7 +23,7 @@ def cave_modifier(ob):
 # prop -> group input
 CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth": "Depth", "wiggle": "Wiggle",
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
-                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop",
+                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble",
                 "roughness": "Roughness", "seed": "Seed"}
 
 
@@ -74,6 +74,10 @@ class LG_CaveProps(PropertyGroup):
                            default=10.0, min=1.0, soft_max=150.0, unit='LENGTH', update=_sync)
     chamber_drop: FloatProperty(name="Chamber Drop", description="Sink the chamber's floor below the passage, so it opens out into a big space",
                                 default=0.0, min=0.0, soft_max=100.0, unit='LENGTH', update=_sync)
+    ramp: BoolProperty(name="Ramp into Chamber", description="A rocky ramp from the passage down into the sunk chamber, so it can be walked down. Off: a drop to climb or jump",
+                       default=False, update=_sync)
+    rubble: FloatProperty(name="Rubble", description="Fallen rock along the foot of the walls: none, up to big piles of boulders",
+                          default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     roughness: FloatProperty(name="Roughness", description="Smooth, water-worn walls, or rough broken rock",
                              default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     seed: IntProperty(name="Seed", description="Same seed, same cave. Change it for a new winding and rock",
@@ -150,8 +154,12 @@ def draw_section(layout, context):
     row = col.row()
     row.enabled = props.chamber > 0
     row.prop(props, "chamber_drop")
+    row = col.row()
+    row.enabled = props.chamber > 0 and props.chamber_drop > 0
+    row.prop(props, "ramp")
     col = box.column()
     col.prop(props, "roughness", slider=True)
+    col.prop(props, "rubble", slider=True)
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')

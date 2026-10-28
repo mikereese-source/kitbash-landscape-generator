@@ -649,6 +649,16 @@ def _t14():
     pk, closed4, _f, _n = cave_mesh(ob)
     sunk = pk[pk[:, 1] > c.depth * 0.85, 2].min()
     check(closed4 and sunk < -6.0, f"Chamber Drop 8 m: the chamber floor should sink about 8 m, got {sunk:.1f} m")
+    c.ramp, c.wiggle = True, 0.0  # Ramp into Chamber: a walkable slope down the middle, not a drop
+    pr, closed_r, _f, _n = cave_mesh(ob)
+    mid = pr[(np.abs(pr[:, 0]) < c.width * 0.15) & (pr[:, 1] > c.depth * 0.45) & (pr[:, 1] < c.depth + c.chamber * 0.4)]
+    bins = {}
+    for x, y, z in mid:
+        bins.setdefault(int(y), []).append(z)
+    walk = [min(v) for _k, v in sorted(bins.items())]
+    worst = max(abs(a - b) for a, b in zip(walk, walk[1:]))
+    check(closed_r and worst < 0.8 and walk[0] - walk[-1] > 5.0, f"ramp should walk down about 8 m at a walkable slope: drops {walk[0] - walk[-1]:.1f} m, worst step {worst:.2f} m")
+    c.ramp = False
     c.chamber, c.chamber_drop, c.wiggle, c.depth = 0.0, 0.0, 1.0, 60.0  # room for a swing each way
     pw, _c, _f, _n = cave_mesh(ob)
     mid = pw[(pw[:, 1] > c.width) & (pw[:, 2] > c.height * 0.3)]
@@ -657,7 +667,13 @@ def _t14():
     c.detail = 'HIGH'
     _p, closed5, _f, n_high = cave_mesh(ob)
     check(closed5 and n_high > n * 2, f"High detail should build a finer cave: {n:,} -> {n_high:,} faces")
-    c.detail, c.seed = 'PREVIEW', 7
+    c.detail = 'PREVIEW'
+    c.rubble = 0.0
+    _p, _c0, _f0, n0 = cave_mesh(ob)
+    c.rubble = 1.0
+    _p, _c1, _f1, n1 = cave_mesh(ob)
+    check(n1 > n0, f"Rubble 1 should pile more rock than Rubble 0: {n0:,} vs {n1:,} faces")
+    c.rubble, c.seed = 0.5, 7
     p7, _c, _f, _n = cave_mesh(ob)
     check(len(p7) != len(pts) or not np.allclose(p7, pts), "a new seed should change the cave")
     seed = c.seed

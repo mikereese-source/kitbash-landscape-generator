@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 18
+CAVE_VERSION = 19
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -617,7 +617,8 @@ def cave_group():
     # Only while the ramp still stands above the chamber floor (past that its edge rocks ran on across the
     # chamber in a line; Mike).
     walk_top = t.store(walk_top, "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom))
-    on_ramp = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.45),
+    # Scree from about where the floor starts to fall, not along the whole level start of the ramp.
+    on_ramp = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', wp["Y"], t.math('SUBTRACT', y06, t.math('MULTIPLY', rc, 0.5))),
                                                  t.math('GREATER_THAN', t.named("c_above"), 0.3)))
     # The ramp's width wanders (0.6 to 1.1 of the passage), so its edges aren't ruler-straight.
     rw = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), Scale=1.5, Detail=2.0)
@@ -629,7 +630,11 @@ def cave_group():
     # sloping out about 35 degrees down to just into the chamber floor, ends closed.
     ramp_c = t.store(t.store(t.store(walk_c, "c_rtop", t.math('MAXIMUM', graded, bottom)),
                              "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom)), "c_ramp_w", ramp_w)
-    on_curve = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.45),
+    # From as far back as the chamber's space reaches over the passage (a wide chamber reaches back past where
+    # the slope begins, and the floor dropped away before the ramp picked up: a gap; Mike), level with the
+    # passage floor until the slope starts.
+    reach_back = t.math('SUBTRACT', t.math('SUBTRACT', y06, rc), W)
+    on_curve = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.xyz(t.position())["Y"], reach_back),
                                                   t.math('GREATER_THAN', t.named("c_above"), 0.3)))
     trim_c = t.node('GeometryNodeDeleteGeometry', Geometry=ramp_c, Selection=t.math('LESS_THAN', on_curve, 0.5))
     trim_c.domain = 'POINT'

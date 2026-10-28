@@ -26,10 +26,10 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T12 | M4 | Final build time | auto | 1 km landscape at Final finishes in ≤ 60 s on the team machine (D14) | PASS 2026-10-28 (17.3 s) |
 | T27 | M3 | Water level | auto | Water on: a flat water surface at the set height covers exactly the ground below it; off: no water geometry; Height changes move it with the landscape | PASS 2026-10-27 |
 | T28 | M3 | Mask viewer | auto + manual | Auto: Show Mask writes the picked mask as the lg_view colour attribute, different per mask, cleared by None. Manual: the 3D view switches to Solid / Attribute colour and back | PASS 2026-10-26 (auto; viewport checked by Mike) |
-| T29 | M4 | Bake to mesh | auto | Bake leaves a plain mesh with the masks, water as its own object with its material, settings kept on the mesh; Restore rebuilds a live landscape with the same heights | PASS 2026-10-28 |
-| T13 | M5 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
-| T14 | M6 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
-| T15 | M6 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |
+| T29 | M4 | Bake to mesh | auto | Bake leaves a plain mesh with the masks, water as its own object with its material, settings kept on the mesh; Restore rebuilds a live landscape with the same heights | PASS 2026-10-28 (auto; tried in Blender by Mike) |
+| T13 | M6 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
+| T14 | M5 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
+| T15 | M5 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |
 | T16 | M6 | Caves texture without UVs | manual | No stretching on cave walls | |
 | T17 | M7 | Save, reopen, rescale | manual | A saved file reopens identical and still rescales correctly | |
 | T18 | M1 | Landscape tab | auto | A "Landscape" tab exists in the 3D Viewport sidebar; Add Landscape sits at the top and creates a landscape at the 3D cursor || PASS 2026-10-22 (auto part; button-at-top is a manual check) |

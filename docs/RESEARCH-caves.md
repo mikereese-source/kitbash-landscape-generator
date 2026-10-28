@@ -59,6 +59,29 @@ A typical walk-in is about 1.5–2:1.
 - [Alaska DFG: karst cave habitats (entrance and twilight zones)](https://adfg.alaska.gov/static/species/wildlife_action_plan/appendix5_karst_cave_habitats.pdf)
 - [Natural Arch and Bridge Society: cave arch taxonomy](https://naturalarches.org/archinfo/taxonomy-cave.htm)
 
+## Cave interiors: what real walls look like (2026-10-28, for the detail reset, D105)
+11 photos in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-interiors\` (licence and source page
+for each in `sources.json`; CC BY / CC BY-SA / CC0, internal reference only). Contact sheet:
+`docs/research/cave-interiors-contact-sheet.jpg`.
+
+| Photo | Shows | What it means for the build |
+|---|---|---|
+| `bedding-crossbedded-limestone-mammoth.jpg` | Limestone in flat beds, 0.2–2 m thick, running unbroken for tens of metres; thin slabs fallen off the wall below | Layers are **flat, long, straight planes** with varied thickness, a little ledge or undercut at each, not wavy noise; slabby rubble under them |
+| `passage-mammoth-1.jpg`, `-2.jpg` | Big walk-through passages: a flat roof along one bed, walls stepping in and out bed by bed, an undercut at the foot, rubble along the walls, a smooth sediment floor | Roof flattens along a bed; walls step with the beds; rubble piles at the wall foot |
+| `breakdown-sea-cave-rockfall.jpg` | A heap of big angular blocks fallen from the roof, under walls cut by straight vertical joints | Breakdown is **heaped** (a cone or apron of blocks, big ones at the bottom), not a row; jointed walls are **flat planes**, not cell patterns |
+| `sea-cave-interior-aorangaia.jpg` | A tall sea cave: vertical joint-controlled walls, a smooth wave-worn band at the waterline | Sea caves: tall, vertical fractures, a smoothed band low down |
+| `lava-tube-lava-river-cave.jpg`, `lava-tube-thurston.jpg` | Round-arched tubes, smooth glazed walls with horizontal flow lines and ledges, a rubbly floor | Lava tubes: **smooth round section**, a few long horizontal ledges (flow levels), little rock break-up |
+| `scallops-great-onyx-1.jpg`, `-2.jpg` | Water-worn scallops a few cm to about 30 cm across | Too small for geometry at our sizes; **a material / normal-map detail for M6**, not mesh |
+| `flowstone-eroded-mammoth.jpg`, `flowstone-timpanogos.jpg` | Draping flowstone and curtains hanging from ledges | Belongs with the stalactites (pass 2, 5.4) |
+
+**Takeaways:**
+1. Real cave walls are built from **planes**: bedding planes (flat, layered) and joints (vertical). The pass-1
+   cell pattern (Voronoi joints, scallop dishes) is what read as a turtle shell; it doesn't match any of these.
+2. The look depends on the **rock**: layered limestone (beds, flat roof), jointed rock or sea cave (vertical
+   planes), lava tube (smooth tube, flow ledges). That suggests a **Rock** choice on the cave.
+3. Fallen rock is **heaped** under where it fell, biggest blocks lowest.
+4. Small detail (scallops, flowstone texture, crystals) is for the M6 material, not the mesh.
+
 ## Photos (downloaded 2026-10-28, Mike approved)
 Saved with the other downloaded references in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-photos\`
 (11 files, about 30 MB; licence and source page for each in `sources.json`). Contact sheet:

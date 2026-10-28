@@ -88,10 +88,10 @@ Every plan includes an errors & edge cases milestone and a final check.
 |---|---|---|
 | 5.1 | Volume patch core (settles D9): only a box around each feature goes through the SDF stage; the grid cells under it are cut out and the patch is stitched back watertight. Coarse voxels at Preview, fine at High; a voxel budget falls back to coarser voxels with a warning (E5). Masks carried onto the patch | L — done 2026-10-28 (T30 PASS, 25/25; D92) |
 | 5.2 | Cave object (D93): a standalone cave you place like the butte. A noisy rock hull outside, the cave inside; Entrance Width, Height, Depth, Wiggle; shows its hull until carved. Built from the 5.1 SDF pieces (T14 reworked for it) | L — done 2026-10-28 (Mike: "Yes, move on"; D96–D102, T14 PASS, 26/26) |
-| 5.2c | Cave detail pass 1 (D103): real rock shapes (angular boulders and scree, cut exactly) and wall detail (rock layers and ledges with a Layers slider, water-worn scallops, big and small breaks) | M — first pass 2026-10-28 (D104); awaiting Mikes look |
+| 5.2c | Cave detail reset (D105): shell density per Detail Level (about 150k / 1M / 4M faces), rocks and scree as swappable instances (not cut into the shell), wall detail rebuilt from interior photo references | M–L |
 | 5.2b | Cave path you draw (D96, Mike): the cave can follow an editable curve. Drag its points to shape the passage, add strands to branch it; every strand keeps the cave's size, drop and chamber settings. Built-in Blender handles, so no gizmo needed for the path | M |
 | 5.3 | Carve and cut: pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut), so the mouth shows as a real opening in the face (Mike: still to come); the same hull works as a cutter on any mesh, Kits included, with a Boolean modifier | M |
-| 5.4 | Stalactites and stalagmites inside the cave object: instanced cones with the unsharp pass (D11), ceilings and floors only (T15) | M |
+| 5.4 | Stalactites and stalagmites inside the cave object as swappable instances (D105), sharp tips (D11), ceilings and floors only (T15) | M |
 | 5.4b | Cave detail pass 3: floor detail (puddle hollows, flat breakdown slabs, sediment patches) (Mike, D103) | M |
 | 5.5 | Cave landscape type (shown in the gallery, D31): styles Wide Walk-in, Rock Shelter, Sea Cave, Lava Tube (RESEARCH-caves.md), each a landscape shaped for its cave with the cave object carved in | L |
 | 5.6 | Cliff features: Side Cliffs, Overhangs, Arches, with the same cut | M–L |

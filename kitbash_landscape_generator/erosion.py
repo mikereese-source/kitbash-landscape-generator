@@ -56,6 +56,8 @@ DEFAULTS = {
     "lean_axis": 1,      # ...along X (1) or Y (0)
     "apron": 0.0,        # talus aprons below hard caprock reach this share of the width out (0 = none)...
     "apron_rise": 0.5,   # ...and climb this share of the cliff height up its foot
+    "min_cap": 0.0,      # caprock narrower than this share of the width breaks off into talus (thin fins; 0 = keep)...
+    "fin_tol": 0.06,     # ...and spurs that narrow standing more than this share of the relief proud are cut down
     "pediment": 0.0,     # beyond the apron the floor still falls away from the caprock, this share of the cliff
                          # height over four apron reaches, so the floor drains to washes between the blocks
     "hardness": 0.4,     # how much rock hardness varies from place to place (0 = even); harder patches
@@ -312,6 +314,45 @@ def lean(z, share):
     return np.array([np.interp(src[r], cols, z[r]) for r in range(n)])
 
 
+def _grow(m, r, shrink):
+    """Binary erode (shrink) or dilate a mask by r cells, 8 neighbours per step."""
+    n, k = m.shape
+    for _ in range(int(r)):
+        p = np.pad(m, 1, mode="edge")
+        nb = [p[1 + di:1 + di + n, 1 + dj:1 + dj + k] for di, dj in D8]
+        m = np.logical_and.reduce([m] + nb) if shrink else np.logical_or.reduce([m] + nb)
+    return m
+
+
+def _minmax(z, r, fn):
+    n, k = z.shape
+    for _ in range(int(r)):
+        p = np.pad(z, 1, mode="edge")
+        z = fn([z] + [p[1 + di:1 + di + n, 1 + dj:1 + dj + k] for di, dj in D8], axis=0)
+    return z
+
+
+def cut_fins(z, r, tol):
+    """Lower ground that stands more than `tol` of the relief above a morphological opening of radius r:
+    spurs and fins narrower than ~2r cells come down to rubble height (tol above their surroundings);
+    anything wider, and every slope and valley, is untouched."""
+    opened = _minmax(_minmax(z, r, np.min), r, np.max)
+    cap = opened + tol * max(float(np.ptp(z)), 1e-12)
+    return np.minimum(z, cap)
+
+
+def break_thin_caps(z, hard, r):
+    """Caprock narrower than 2r cells can't stand as a cliff: it breaks off and slumps (Mike: thin fins and
+    strips along Mesa blocks). Those cells drop to the floor and lose their hardness, so the apron and erosion
+    turn them into talus spurs; wide blocks are untouched (a morphological opening of the cap mask)."""
+    cap = hard > 0.8
+    thin = cap & ~_grow(_grow(cap, r, True), r, False)
+    if not thin.any():
+        return z, hard
+    z = np.where(thin, float(z.min()) + 0.15 * (z - float(z.min())), z)  # a stub of rubble, not a hole
+    return z, np.where(thin, 0.0, hard)
+
+
 def apron(z, cap, reach, rise, pediment=0.0):
     """Concave talus aprons around caprock (`cap` True): ground within `reach` cells rises to `rise` of
     the caps' height at the cliff foot, falling to the floor at the edge of the reach, and a gentle
@@ -362,6 +403,8 @@ def erode(h, settings=None, hard=None, masks=False):
     h = lean(h, s["lean"]) if s["lean_axis"] == 1 else lean(h.T, s["lean"]).T  # first, so fine detail matches
     target = h
     n0 = max(target.shape)
+    if s["min_cap"] > 0 and hard is not None:
+        target, hard = break_thin_caps(target, np.asarray(hard, dtype=np.float64), max(int(round(s["min_cap"] * n0 / 2)), 1))
     if s["apron"] > 0 and hard is not None:
         target = apron(target, np.asarray(hard) > 0.8, s["apron"] * n0, s["apron_rise"], s["pediment"])
     target = (fill(target, s["floor_slope"] / (n0 - 1)) if s["target_pits"] == "fill"
@@ -513,6 +556,8 @@ def erode(h, settings=None, hard=None, masks=False):
     # notches and drips along every border (the "edge frame", Pass 1-3).
     w = np.clip(1.0 - d_edge / max(s["edge_blend"], 1e-6), 0.0, 1.0) if s["edge_blend"] > 0 else 0.0
     z = z * (1.0 - w) + target * w
+    if s["min_cap"] > 0:  # knife-edge spurs left between alcoves cut into hard cliffs break off too (Mike)
+        z = cut_fins(z, max(int(round(s["min_cap"] * max(n, m) / 2)), 1), s["fin_tol"])
     z = fill(z)
     return (z, erosion_masks(h, z)) if masks else z
 
@@ -564,4 +609,14 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     z2, (fl, ch) = erode(h, masks=True)
     assert fl.shape == h.shape and 0.0 <= fl.min() and fl.max() <= 1.0 and 0.0 <= ch.min() and ch.max() <= 1.0, "masks out of range"
     assert fl[-2, :].mean() > fl[1, :].mean(), "flow should gather downhill"
+    cap_t = np.zeros((64, 64))
+    cap_t[10:40, 10:40] = 1.0  # a wide block
+    cap_t[45:47, 5:60] = 1.0   # a 2-cell fin
+    zt, ht = break_thin_caps(cap_t.copy(), cap_t.copy(), 3)
+    assert zt[25, 25] == 1.0 and zt[46, 30] < 0.2 and ht[46, 30] == 0.0, "thin caprock should break, wide stay"
+    ridge = np.zeros((64, 64))
+    ridge[:, 20:44] = 1.0       # a wide plateau
+    ridge[30:32, 0:20] = 1.0    # a 2-cell fin off its side
+    cf = cut_fins(ridge, 3, 0.06)
+    assert cf[10, 30] == 1.0 and cf[31, 5] <= 0.07, "fins should drop, the plateau stay"
     print("erosion self-check OK")

@@ -98,11 +98,11 @@
    "rough": 0.0221
   },
   "ours": {
-   "relief": 0.1163,
-   "slope50": 10.6,
-   "slope90": 46.1,
-   "hyps": 0.228,
-   "rough": 0.0478
+   "relief": 0.1161,
+   "slope50": 10.1,
+   "slope90": 45.4,
+   "hyps": 0.225,
+   "rough": 0.045
   },
   "t6": "PASS"
  },

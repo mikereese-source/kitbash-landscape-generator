@@ -6,7 +6,7 @@ import os
 import bpy
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 136  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 138  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -451,7 +451,7 @@ def _build(ng, recipe):
     fl = N.new('ShaderNodeTexNoise')
     fl.noise_dimensions = '3D'
     L.new(pj, fl.inputs["Vector"])
-    L.new(math('MULTIPLY', inp["Feature Scale"], 25.0), fl.inputs["Scale"])
+    L.new(math('MULTIPLY', inp["Feature Scale"], 12.0), fl.inputs["Scale"])  # 25: notches closer than their depth left thin blades (Mike)
     fl.inputs["Detail"].default_value = 2.0
     fl_c = N.new('ShaderNodeVectorMath')
     fl_c.operation = 'SUBTRACT'
@@ -460,7 +460,7 @@ def _build(ng, recipe):
     fl_s = N.new('ShaderNodeVectorMath')
     fl_s.operation = 'SCALE'
     L.new(fl_c.outputs[0], fl_s.inputs[0])
-    L.new(math('DIVIDE', math('ADD', 0.02, math('MULTIPLY', inp["Roughness"], 0.06)), inp["Feature Scale"]), fl_s.inputs["Scale"])
+    L.new(math('DIVIDE', math('ADD', 0.01, math('MULTIPLY', inp["Roughness"], 0.03)), inp["Feature Scale"]), fl_s.inputs["Scale"])  # flutes shallower than they are wide
     pj_f = N.new('ShaderNodeVectorMath')
     pj_f.operation = 'ADD'
     L.new(pj, pj_f.inputs[0])
@@ -485,11 +485,20 @@ def _build(ng, recipe):
         r = math('SQRT', math('ADD', math('MULTIPLY', sv.outputs["X"], sv.outputs["X"]), math('MULTIPLY', sv.outputs["Y"], sv.outputs["Y"])))
         hero = math('ADD', math('SUBTRACT', 0.95, math('MULTIPLY', r, 1.6)), math('MULTIPLY', math('SUBTRACT', field, 0.5), 0.4))
         return pick_field(inp["Style"], (field, hero))
-    v = block_value(joint_cells('F1').outputs["Position"])
-    v2 = block_value(joint_cells('F2').outputs["Position"])  # the neighbouring block across the nearest edge
+    j1, j2 = joint_cells('F1'), joint_cells('F2')
+    v = block_value(j1.outputs["Position"])
+    v2 = block_value(j2.outputs["Position"])  # the neighbouring block across the nearest edge
+    # How wide the block is toward that neighbour: half the distance between the two sites (in blocks).
+    # Sliver blocks (sites close together) can't stand as cliffs; real ones that thin break off (Mike: thin strips).
+    j_d = N.new('ShaderNodeVectorMath')
+    j_d.operation = 'DISTANCE'
+    L.new(j1.outputs["Position"], j_d.inputs[0])
+    L.new(j2.outputs["Position"], j_d.inputs[1])
+    j_half = math('MULTIPLY', math('MULTIPLY', j_d.outputs["Value"], inp["Feature Scale"]), 1.75)  # scale 3.5 * FS, halved
     d_edge = joint_cells('DISTANCE_TO_EDGE').outputs["Distance"]  # in blocks (~1 across)
     top = smooth(v, edge, math('ADD', edge, 0.002))  # sheer caprock edge
     nb_top = smooth(v2, edge, math('ADD', edge, 0.002))
+    top = math('MULTIPLY', top, math('ADD', nb_top, math('MULTIPLY', math('SUBTRACT', 1.0, nb_top), smooth(j_half, 0.22, 0.3))))  # no slivers
     # Caprock rims are broken back a little, not machined: a short rounded bevel where a block meets open ground.
     rim = math('MULTIPLY', math('SUBTRACT', 1.0, nb_top), math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, math('DIVIDE', d_edge, 0.05)), 0.0), 2.0))
     top = math('MULTIPLY', top, math('SUBTRACT', 1.0, math('MULTIPLY', rim, 0.08)))

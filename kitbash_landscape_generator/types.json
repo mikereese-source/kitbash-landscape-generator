@@ -272,7 +272,9 @@
         "channel": 7e-05,
         "deposit": 0.2,
         "apron": 0.07,
-        "pediment": 0.12
+        "pediment": 0.12,
+        "min_cap": 0.025,
+        "fin_tol": 0.15
       },
       "feature_label": "Mesa Size",
       "feature_noun": "mesas",

@@ -585,16 +585,75 @@ def _t30():
     check(open_edges == base_open and bad == 0, f"seam not watertight: {open_edges} open edges (landscape border {base_open}), {bad} non-manifold")
     check(slope_ok, "cave walls are missing the masks")
     c = cave.mean(axis=0)
-    far = lambda p: p[np.hypot(p[:, 0] - c[0], p[:, 1] - c[1]) > ob.lg.cave_size * 2 + 4.0]
+    reach = ob.lg.cave_size * 3 + 1.5 * max(ob.lg.cave_size, 2 * ob.lg.cave_height) + 4.0  # the cave plus the face raised over its mouth
+    far = lambda p: p[np.hypot(p[:, 0] - c[0], p[:, 1] - c[1]) > reach]
     a, b = far(base), far(pts)
     check(len(a) == len(b) and np.allclose(np.sort(a[:, 2]), np.sort(b[:, 2])), "the cave changed the landscape away from it")
-    w1 = np.ptp(cave[:, 0])
+    w1 = float(np.linalg.norm(np.ptp(cave, axis=0)))  # its 3D extent: the mouth may face another way at a new size
     set_size(ob, 400.0)
     _p, open2, bad2, cave2, _s = mesh_report(ob)
     check(open2 > 0 and bad2 == 0 and len(cave2) > 50, "cave lost on a bigger landscape")
-    w2 = np.ptp(cave2[:, 0])
+    w2 = float(np.linalg.norm(np.ptp(cave2, axis=0)))
     check(abs(w2 / w1 - 1.0) < 0.2, f"cave should keep its real size when the landscape doubles: {w1:.1f} m -> {w2:.1f} m")
     return f"12 m entrance, {len(cave)} cave points, only the border open, rest untouched, {dt:.2f} s; {w1:.1f} m -> {w2:.1f} m at 2x size"
+
+
+def walk_in(ob):
+    """Measure a cave entrance: (floor meets the ground outside, share of floor with rock overhead, median
+    floor-to-roof gap, open edges, non-manifold edges). Mike: you walk in at ground level."""
+    import bmesh
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    open_edges = sum(1 for e in bm.edges if e.is_boundary)
+    bad = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)
+    cave = me.attributes.get("lg_cave")
+    check(cave is not None, "no cave carved")
+    flags = [d.value for d in cave.data]
+    floor = [Vector(f.center) for f, c in zip(me.polygons, flags) if c and f.normal.z > 0.9]
+    check(len(floor) > 10, f"the cave has no floor ({len(floor)} up-facing cave faces)")
+    floor_z = min(p.z for p in floor)
+    tree = BVHTree.FromBMesh(bm)
+    gaps = []
+    for p in floor:
+        hit = tree.ray_cast(p + Vector((0, 0, 0.05)), Vector((0, 0, 1)))
+        if hit[0] is not None:
+            gaps.append(hit[3] + 0.05)
+    roof = len(gaps) / len(floor)
+    # The ground outside: non-cave points near the floor's footprint, below roof height.
+    cave_pts = {i for f, c in zip(me.polygons, flags) if c for i in f.vertices}
+    fx = np.array([[p.x, p.y] for p in floor])
+    lo, hi = fx.min(axis=0), fx.max(axis=0)
+    w = ob.lg.cave_size
+    meet = min((abs(v.co.z - floor_z) for v in me.vertices if v.index not in cave_pts
+                and lo[0] - w < v.co.x < hi[0] + w and lo[1] - w < v.co.y < hi[1] + w
+                and v.co.z < floor_z + ob.lg.cave_height * 0.5), default=1e9)
+    bm.free()
+    ev.to_mesh_clear()
+    return meet, roof, float(np.median(gaps)) if gaps else 0.0, open_edges, bad
+
+
+@test("T14", "Walk-in cave entrance")
+def _t14():
+    out = []
+    for kind in ("mountains", "mesa", "cliffs"):
+        fresh_scene()
+        ob = add(kind)
+        _p, base_open, _b, _c, _s = mesh_report(ob)
+        ob.lg.cave_layout = 'ENTRANCE'
+        h = ob.lg.cave_height
+        meet, roof, gap, open_edges, bad = walk_in(ob)
+        check(open_edges == base_open and bad == 0, f"{kind}: not watertight ({open_edges} open vs {base_open}, {bad} non-manifold)")
+        check(meet < 0.2 * h, f"{kind}: the cave floor doesn't meet the ground outside (step {meet:.2f} m, entrance {h:.1f} m tall)")
+        check(roof > 0.6, f"{kind}: only {roof:.0%} of the floor has rock overhead")
+        check(0.5 * h < gap < 1.5 * h, f"{kind}: floor to roof {gap:.1f} m, entrance set to {h:.1f} m")
+        out.append(f"{kind} step {meet:.2f} m, roof over {roof:.0%}, {gap:.1f}/{h:.1f} m tall")
+    return "; ".join(out)
 
 
 @test("T11", "Erosion lowers steep slopes")

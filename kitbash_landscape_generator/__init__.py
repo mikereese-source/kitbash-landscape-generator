@@ -216,6 +216,8 @@ def sync_object(ob):
     values["Water"], values["Water Level"] = props.water, props.water_level
     values["Cave"] = CAVE_INDEX[props.cave_layout]
     values["Cave X"], values["Cave Y"], values["Cave Size"] = props.cave_x, props.cave_y, props.cave_size
+    values["Cave Height"] = props.cave_height
+    values["Cave Depth"] = 1.5 * max(props.cave_size, 2.0 * props.cave_height)  # Entrance: a shelter about 1.5x as deep as wide
     values["Mask Heatmap"] = props.mask_colors == 'HEAT'
     managed = {"Erosion", "Erosion Map"}  # set by the erosion engine below, not reset on every sync
     # Eroded types always use the drained primary shape; Erosion Amount 0 shows it with full fine detail
@@ -237,7 +239,7 @@ def sync_object(ob):
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
              "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
-             "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size"}  # water and caves never change the eroded terrain: no re-erosion
+             "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth"}  # water and caves never change the eroded terrain: no re-erosion
 _pending = {}
 
 
@@ -254,6 +256,7 @@ def _cave_changed(props, context):
     # Real-size caves (D91): the first cave on a landscape starts at a size that suits it, capped to fit.
     if props.cave_layout != 'NONE' and not props.cave_size_set:
         props["cave_size"] = min(max(min(props.size_x, props.size_y) * 0.06, 3.0), 60.0)
+        props["cave_height"] = props["cave_size"] * 0.5  # about 2:1, a typical walk-in (RESEARCH-caves.md)
         props["cave_size_set"] = True
     _sync(props, context)
 
@@ -685,6 +688,8 @@ class LG_ObjectProps(PropertyGroup):
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     cave_size: FloatProperty(name="Entrance Width", description="How wide the cave mouth is, in real size: it stays the same when you resize the landscape",
                              default=12.0, min=0.5, soft_max=200.0, unit='LENGTH', update=_sync)
+    cave_height: FloatProperty(name="Entrance Height", description="How tall the cave mouth is, floor to roof, in real size",
+                               default=6.0, min=0.5, soft_max=100.0, unit='LENGTH', update=_sync)
     cave_size_set: BoolProperty(default=False)
     mask_colors: EnumProperty(name="Colours", description="How the mask viewer shows a mask",
                               items=(('GRAY', "Grayscale", "Black (0) to white (1), as game engines and material editors show these maps"),
@@ -1238,6 +1243,7 @@ class LG_PT_main(Panel):
             col = box.column()
             col.enabled = props.cave_layout != 'NONE'
             col.prop(props, "cave_size")
+            col.prop(props, "cave_height")
             col.prop(props, "cave_x", slider=True)
             col.prop(props, "cave_y", slider=True)
 

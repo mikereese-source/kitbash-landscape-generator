@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 139  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 142  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -54,6 +54,8 @@ INPUTS = (
     ("Cave X", 'NodeSocketFloat', 0.5, 0.0, 1.0, "Where the cave sits across the landscape: 0 the left edge, 1 the right"),
     ("Cave Y", 'NodeSocketFloat', 0.5, 0.0, 1.0, "Where the cave sits front to back: 0 the front edge, 1 the back"),
     ("Cave Size", 'NodeSocketFloat', 12.0, 0.5, 1000.0, "Entrance width in meters (real size: it doesn't grow with the landscape, D91)"),
+    ("Cave Height", 'NodeSocketFloat', 6.0, 0.5, 500.0, "Entrance height in meters, floor to roof"),
+    ("Cave Depth", 'NodeSocketFloat', 18.0, 1.0, 5000.0, "How far the entrance runs into the rock, in meters (set by the add-on per layout)"),
 )
 
 
@@ -1180,36 +1182,32 @@ def _build(ng, recipe):
         out_geo = drop.outputs[0]
     # Caves (M5, D91): a closed cutter mesh carved out of the grid by the local patch (features.py), before
     # the masks so cave walls get them too. Never while the erosion engine samples the full grid.
-    # Step 5.1: a half-buried sphere at Cave X/Y; the entrance, tunnel and cavern shapes come in 5.2.
-    c_radius = math('MULTIPLY', inp["Cave Size"], 0.5)
-    c_pt = N.new('GeometryNodePoints')
-    c_pt.inputs["Count"].default_value = 1
+    # Step 5.2: a walk-in entrance at the foot of the face nearest Cave X/Y (RESEARCH-caves.md).
+    c_ent = N.new('GeometryNodeGroup')
+    c_ent.node_tree = features.entrance_group()
+    L.new(out_geo, c_ent.inputs["Terrain"])
     L.new(vec(math('MULTIPLY', math('SUBTRACT', inp["Cave X"], 0.5), size_x),
-              math('MULTIPLY', math('SUBTRACT', inp["Cave Y"], 0.5), size_y),
-              math('MULTIPLY', ref, 10.0)), c_pt.inputs["Position"])
-    c_ray = N.new('GeometryNodeRaycast')
-    L.new(out_geo, c_ray.inputs["Target Geometry"])
-    c_ray.inputs["Ray Direction"].default_value = (0.0, 0.0, -1.0)
-    L.new(math('MULTIPLY', ref, 20.0), c_ray.inputs["Ray Length"])
-    c_drop = N.new('GeometryNodeSetPosition')
-    L.new(c_pt.outputs[0], c_drop.inputs["Geometry"])
-    L.new(c_ray.outputs["Hit Position"], c_drop.inputs["Position"])
-    L.new(vec(0.0, 0.0, math('MULTIPLY', c_radius, -0.3)), c_drop.inputs["Offset"])
-    c_sdf = N.new('GeometryNodePointsToSDFGrid')
-    L.new(c_drop.outputs[0], c_sdf.inputs["Points"])
-    L.new(c_radius, c_sdf.inputs["Radius"])
-    # Voxels: 8 across the radius at Preview, 16 at Final/Ultra; never under 0.1 m.
-    c_fine = math('MAXIMUM', inp["Final"], inp["Ultra"])
-    L.new(math('MAXIMUM', math('DIVIDE', c_radius, math('ADD', 8.0, math('MULTIPLY', c_fine, 8.0))), 0.1), c_sdf.inputs["Voxel Size"])
-    c_mesh = N.new('GeometryNodeGridToMesh')
-    L.new(c_sdf.outputs[0], c_mesh.inputs["Grid"])
+              math('MULTIPLY', math('SUBTRACT', inp["Cave Y"], 0.5), size_y), 0.0), c_ent.inputs["Target"])
+    L.new(inp["Cave Size"], c_ent.inputs["Width"])
+    L.new(inp["Cave Height"], c_ent.inputs["Height"])
+    L.new(inp["Cave Depth"], c_ent.inputs["Depth"])
+    # Layered rock (Cliffs, Canyon, Mesa, Badlands) roofs follow a bed and are nearly flat; lava tubes round.
+    c_ent.inputs["Flat Roof"].default_value = {4: 1.0, 5: 1.0, 6: 1.0, 7: 1.0, 8: 0.0}.get(recipe, 0.4)
+    L.new(math('MAXIMUM', math('MULTIPLY', ref, 0.12), math('MULTIPLY', inp["Cave Size"], 3.0)), c_ent.inputs["Search"])
+    L.new(spacing, c_ent.inputs["Spacing"])
+    L.new(math('MAXIMUM', inp["Final"], inp["Ultra"]), c_ent.inputs["Fine"])
     c_on = N.new('GeometryNodeSwitch')
     c_on.input_type = 'GEOMETRY'
     L.new(math('MULTIPLY', math('GREATER_THAN', inp["Cave"], 0.5), math('LESS_THAN', inp["Pad Cells"], 0.5)), c_on.inputs["Switch"])
-    L.new(c_mesh.outputs[0], c_on.inputs["True"])
+    L.new(c_ent.outputs["Cutter"], c_on.inputs["True"])
     c_cut = N.new('GeometryNodeGroup')
     c_cut.node_tree = features.cut_group()
-    L.new(out_geo, c_cut.inputs["Geometry"])
+    c_land = N.new('GeometryNodeSwitch')  # the ground with the face over the mouth raised
+    c_land.input_type = 'GEOMETRY'
+    L.new(c_on.inputs["Switch"].links[0].from_socket, c_land.inputs["Switch"])
+    L.new(out_geo, c_land.inputs["False"])
+    L.new(c_ent.outputs["Terrain"], c_land.inputs["True"])
+    L.new(c_land.outputs[0], c_cut.inputs["Geometry"])
     L.new(c_on.outputs[0], c_cut.inputs["Cutter"])
     L.new(math('MAXIMUM', math('MULTIPLY', spacing, 2.0), 1.0), c_cut.inputs["Margin"])
     out_geo = c_cut.outputs[0]

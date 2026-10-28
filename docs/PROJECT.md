@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M4 — Erosion finish + bake (steps 4.1–4.2 done; gate next). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
+**Current milestone:** M5 — Cliffs, caves, stalactites (plan next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
 **Last updated:** 2026-10-28
 
 ## Pre-build checklist
@@ -81,7 +81,7 @@ Every plan includes an errors & edge cases milestone and a final check.
 |---|---|---|
 | 4.1 | Bake to Mesh: a plain editable mesh keeping the masks; water its own object; settings kept on the mesh and saved as a preset; Restore Landscape rebuilds it (T29) | S–M — done 2026-10-28 |
 | 4.2 | T11 erosion lowers steep slopes, T12 1 km at High in 60 s or less | S — done 2026-10-28 (T12 17.3 s) |
-| 4.3 | Gate: checker, rollback zip, Mike sign-off | S |
+| 4.3 | Gate: checker, rollback zip, Mike sign-off | S — done 2026-10-28 (D90) |
 
 **Build**
 | # | Milestone | Definition of done | Status |
@@ -89,7 +89,7 @@ Every plan includes an errors & edge cases milestone and a final check.
 | M1 | Scale-correct core | The Landscape sidebar tab is in place, and Add Landscape creates a live GN landscape at the 3D cursor. Size X/Y, Fit to selection, meters-per-vertex detail, Preview/Final work. 3 types (Rolling Hills, Mountains, Sand Dunes). Shapes match at 10 m, 100 m and 1 km (T1) | Done — gate passed, Mike signed off 2026-10-22 |
 | M2 | All types + simple controls | All 13 surface types (D30, D37) plus the main controls, the erosion engine (moved into M2 by the realism push, D53/D54; Erosion Amount slider D63) and Randomize. Every control has a plain tooltip. Recipes load from the JSON type file. Realism check: each type's slope spread, relief ratio, height distribution and roughness match measured real elevation data for its reference place (T6 30 m, T6b 1 m, T6m Moon; D52) | PASSED 2026-10-26 (D73) |
 | M3 | Terraces, masks, water level | Terraces/strata control on the rock types (Mesa, Canyon, Badlands, Cliffs, Mountains). Height, slope, curvature, flow, wear and deposits stored as named attributes and viewable in the viewport. A water level with a plain material (D74) | PASSED 2026-10-28 (D86) |
-| M4 | Erosion finish + bake | Small milestone (Mike, D74): erosion itself shipped in M2 (D53/D54). Bake the landscape to a plain editable mesh that keeps its masks (warns the sliders stop); T11 (erosion lowers steep slopes) and T12 (1 km at High in 60 s or less) | Not started |
+| M4 | Erosion finish + bake | Small milestone (Mike, D74): erosion itself shipped in M2 (D53/D54). Bake the landscape to a plain editable mesh that keeps its masks (warns the sliders stop); T11 (erosion lowers steep slopes) and T12 (1 km at High in 60 s or less) | PASSED 2026-10-28 (D90) |
 | M5 | Cliffs, caves, stalactites | Side Cliffs, Overhangs, Arches, Stalactites, Stalagmites toggles and the Cave type, through the SDF stage, baked at Final | Not started |
 | M6 | Auto-material | Rock/ground/sand/snow material driven by masks, box-mapped, works in Cycles and Eevee; full water shaders (lake, sea, river) on the M3 water level: surface ripples and wind as a bump/normal pattern, shore foam, small shallow-water ripples and shallow-to-deep colour driven by the lg_depth mask (Mike, 2026-10-27). Material controls that remap the masks so artists dial in where each layer goes, like the Shape controls (Mike, 2026-10-26): e.g. Snow Line and Snow on Slopes, Rock Angle, Grass Amount, Wetness in channels, Sediment in deposits; each with a blend softness. Masks stay raw 0–1 data; the controls live in the material | Not started |
 | M7 | Errors & edge cases | Bad input, tiny/huge sizes, too many vertices, missing JSON, undo, save/reopen, old files all handled and tested | Not started |

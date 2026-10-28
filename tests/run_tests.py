@@ -652,7 +652,11 @@ def _t14():
     pw, _c, _f, _n = cave_mesh(ob)
     mid = pw[(pw[:, 1] > c.width) & (pw[:, 2] > c.height * 0.3)]
     check(mid[:, 0].min() < -c.width * 0.3 and mid[:, 0].max() > c.width * 0.3, "Wiggle should swing both left and right")
-    c.wiggle, c.seed = 0.3, 7
+    c.wiggle = 0.3
+    c.detail = 'HIGH'
+    _p, closed5, _f, n_high = cave_mesh(ob)
+    check(closed5 and n_high > n * 2, f"High detail should build a finer cave: {n:,} -> {n_high:,} faces")
+    c.detail, c.seed = 'PREVIEW', 7
     p7, _c, _f, _n = cave_mesh(ob)
     check(len(p7) != len(pts) or not np.allclose(p7, pts), "a new seed should change the cave")
     return f"closed, {n:,} faces in {dt:.2f} s; mouth {w:.1f} x {h:.1f} m (set 12 x 6), flat floor, {pts[:, 1].max():.0f} m deep; chamber, drop, seed work"

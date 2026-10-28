@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 2
+CAVE_VERSION = 3
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -435,8 +435,9 @@ CAVE_INPUTS = (
     ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0), ("Roughness", 'NodeSocketFloat', 0.5),
-    ("Seed", 'NodeSocketInt', 0), ("Fine", 'NodeSocketBool', False),
+    ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
 )
+CAVE_DETAIL = (6.0, 14.0, 26.0)  # voxels across the smaller of the entrance's half width and height
 
 
 def cave_group():
@@ -500,8 +501,14 @@ def cave_group():
     path = t.node('GeometryNodeSetPosition', Geometry=line.outputs[0], Offset=t.vec(t.math('ADD', sway, bend), 0.0, floor_at)).outputs[0]
     path = t.store(t.store(t.store(path, "c_stretch", stretch), "c_floor", floor_at), "c_radius", radius)
     spheres = t.node('GeometryNodeMeshToPoints', Mesh=path, Radius=radius).outputs[0]
-    voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)),
-                                     t.math('ADD', 6.0, t.math('MULTIPLY', gin["Fine"], 8.0))), 0.08)
+    per = t.node('GeometryNodeIndexSwitch')  # Detail Level: voxels across the entrance
+    per.data_type = 'FLOAT'
+    while len(per.index_switch_items) < len(CAVE_DETAIL):
+        per.index_switch_items.new()
+    t._set(per.inputs["Index"], gin["Detail"])
+    for i, v in enumerate(CAVE_DETAIL):
+        per.inputs[i + 1].default_value = v
+    voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)), per.outputs[0]), 0.04)
     sdf = t.node('GeometryNodePointsToSDFGrid', Points=spheres, Radius=t.node('GeometryNodeInputRadius').outputs[0], Voxel_Size=voxel)
     tube = t.node('GeometryNodeGridToMesh', Grid=sdf.outputs[0]).outputs[0]
 

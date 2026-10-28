@@ -3,7 +3,7 @@
 meters, then carve into a landscape or use as a Boolean cutter on any mesh."""
 
 import bpy
-from bpy.props import BoolProperty, FloatProperty, IntProperty, PointerProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty
 from bpy.types import Operator, PropertyGroup
 
 from . import features, nodes
@@ -22,7 +22,7 @@ def cave_modifier(ob):
 CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth": "Depth", "wiggle": "Wiggle",
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
                 "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop",
-                "roughness": "Roughness", "seed": "Seed", "fine": "Fine"}
+                "roughness": "Roughness", "seed": "Seed"}
 
 
 def sync_cave(ob):
@@ -31,8 +31,20 @@ def sync_cave(ob):
         return
     for prop, sock in CAVE_SOCKETS.items():
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
+    nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
     ob.update_tag()
 
+
+
+DETAIL_ITEMS = (('PREVIEW', "Preview", "Light and fast, for placing and shaping the cave"),
+                ('HIGH', "High", "Full rock detail for the finished cave"),
+                ('ULTRA', "Ultra", "Hero detail for close-up shots inside the cave. Heavy"))
+DETAIL_INDEX = {key: i for i, (key, _n, _d) in enumerate(DETAIL_ITEMS)}
+
+
+def rock_spacing(props):
+    """Meters between rock detail points, as the node group works it out (for the panel)."""
+    return max(min(props.width * 0.5, max(props.height, 0.5)) / features.CAVE_DETAIL[DETAIL_INDEX[props.detail]], 0.04)
 
 def _sync(props, _context):
     sync_cave(props.id_data)
@@ -64,8 +76,8 @@ class LG_CaveProps(PropertyGroup):
                              default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     seed: IntProperty(name="Seed", description="Same seed, same cave. Change it for a new winding and rock",
                       default=0, min=0, max=99999, update=_sync)
-    fine: BoolProperty(name="High Detail", description="Finer rock on the walls. Slower to update",
-                       default=False, update=_sync)
+    detail: EnumProperty(name="Detail Level", description="How finely the cave's rock is built: light while placing it, heavy for the finished shot",
+                         items=DETAIL_ITEMS, default='PREVIEW', update=_sync)
 
 
 class LG_OT_add_cave(Operator):
@@ -123,7 +135,11 @@ def draw_section(layout, context):
     col = box.column()
     col.prop(props, "roughness", slider=True)
     col.prop(props, "seed")
-    col.prop(props, "fine")
+    header, sub = box.panel("lg_cave_detail", default_closed=False)
+    header.label(text="Detail Level")
+    if sub:
+        sub.row(align=True).prop(props, "detail", expand=True)
+        sub.label(text=f"Rock detail every {rock_spacing(props):.2f} m")
 
 
 classes = (LG_CaveProps, LG_OT_add_cave)

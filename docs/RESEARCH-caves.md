@@ -100,7 +100,10 @@ for each in `sources.json`; CC BY / CC BY-SA / CC0, internal reference only). Co
      lowest, scattered smaller ones around. Rubble sets how many.
    - **Slabby rubble** under limestone beds, round boulders in lava tubes, angular blocks for jointed rock.
    - **Swappable**: each kind comes from a rock collection (KitBash rocks by default); swap in your own meshes
-     for a game look. Made real when baked; instances in Unreal.
+     for a game look. Instances in Blender too (Mike): live instances while editing; at Bake each rock becomes a
+     linked duplicate of its source rock (shares the mesh, like Alt+D), so the file stays light, single rocks can
+     still be moved or deleted, and editing or swapping a source rock updates every copy. USD/glTF keep the
+     instancing; FBX writes each as its own mesh. Instances in Unreal.
 4. **Stalactites and stalagmites (pass 2)** the same way, as instances (with flowstone drapes from ledges).
 5. **Floor detail (pass 3)**: the smooth sediment floor from the Mammoth passages, puddle hollows, slabs.
 6. **Material detail (M6)**: scallops, flowstone and crystal texture as normal maps.

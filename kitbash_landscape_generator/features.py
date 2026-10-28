@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 15
+CAVE_VERSION = 16
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -617,15 +617,38 @@ def cave_group():
                                                  t.math('GREATER_THAN', t.named("c_above"), 0.3)))
     slab_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
     slab = t.node('GeometryNodeTransform', Geometry=slab_box, Translation=(0.0, 0.0, -0.5)).outputs[0]  # top at the point
-    deep = t.math('ADD', t.math('ADD', gin["Chamber Drop"], gin["Drop"]), t.math('MULTIPLY', H, 2.0))
     # The ramp's width wanders (0.6 to 1.1 of the passage), so its edges aren't ruler-straight.
     rw = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), Scale=1.5, Detail=2.0)
     rw.noise_dimensions = '3D'
     ramp_w = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 1.2, t.math('MULTIPLY', rw.outputs["Fac"], 1.0)))
     walk_top = t.store(walk_top, "c_ramp_w", ramp_w)
+    rise = t.math('ADD', t.named("c_above"), 1.0)  # walkway top down to just into the chamber floor
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=walk_top, Selection=on_ramp, Instance=slab,
                    Rotation=t.vec(0.0, 0.0, t.named("c_heading")),
-                   Scale=t.vec(t.named("c_ramp_w"), 1.2, deep)).outputs[0]
+                   Scale=t.vec(t.named("c_ramp_w"), 1.2, rise)).outputs[0]
+    # Side slopes: a right-angled wedge (vertical face against the walkway, sloping face outside), one each
+    # side, as tall as the walkway stands above the floor and 1.4x as wide (about 35 degrees).
+    wedge_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
+    wq = t.xyz(t.position())
+    corner = t.math('MULTIPLY', t.math('GREATER_THAN', wq["X"], 0.0), t.math('GREATER_THAN', wq["Z"], 0.0))
+    wedge = t.node('GeometryNodeSetPosition', Geometry=wedge_box,
+                   Position=t.vec(t.math('ADD', t.math('SUBTRACT', wq["X"], corner), 0.5), wq["Y"], t.math('SUBTRACT', wq["Z"], 0.5))).outputs[0]
+    # (top-outer edge folded onto top-inner: x 0..1 outward, z -1..0, the slope from (0, 0) to (1, -1))
+    flanks_at = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
+    flanks_at.domain = 'POINT'
+    flank_pts = t.node('GeometryNodeJoinGeometry')
+    t.L.new(walk_top, flank_pts.inputs[0])
+    t.L.new(t.store(flanks_at.outputs["Geometry"], "c_side", 1.0), flank_pts.inputs[0])
+    flank_side = t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0)
+    flank_dir = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)
+    flank_pos = t.node('GeometryNodeSetPosition', Geometry=flank_pts.outputs[0],
+                       Offset=t.vmath('SCALE', flank_dir, scale=t.math('MULTIPLY', flank_side, t.math('MULTIPLY', t.named("c_ramp_w"), 0.49)))).outputs[0]
+    # Left side turned half a turn, so its slope faces out too (mirroring would turn the mesh inside out).
+    flank_turn = t.math('ADD', t.named("c_heading"), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.named("c_side")), 3.14159))
+    flank_rise = t.math('ADD', t.named("c_above"), 1.0)
+    flanks = t.node('GeometryNodeInstanceOnPoints', Points=flank_pos, Selection=on_ramp, Instance=wedge,
+                    Rotation=t.vec(0.0, 0.0, flank_turn),
+                    Scale=t.vec(t.math('MULTIPLY', flank_rise, 1.4), 1.2, flank_rise)).outputs[0]
     edge = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
     edge.domain = 'POINT'
     edges = t.node('GeometryNodeJoinGeometry')
@@ -635,18 +658,22 @@ def cave_group():
     # Edge rocks scattered, not a row (Mike: it looked man-made): sparse, pushed in or out from the edge and
     # along it at random, mostly small with the odd boulder.
     heading_v = t.vec(t.math('MULTIPLY', t.math('SINE', t.named("c_heading")), -1.0), t.math('COSINE', t.named("c_heading")), 0.0)
+    # On the side slopes, anywhere from the walkway's edge to their foot, dropped onto the slope below.
+    out_k = rand(0.0, 1.0, 83)
     sideways = t.math('MULTIPLY', t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0),
-                      t.math('MULTIPLY', t.named("c_ramp_w"), rand(0.35, 0.62, 83)))
+                      t.math('ADD', t.math('MULTIPLY', t.named("c_ramp_w"), 0.45),
+                             t.math('MULTIPLY', t.math('MULTIPLY', out_k, out_k), t.math('MULTIPLY', t.named("c_above"), 1.3))))
     edge_pts = t.node('GeometryNodeSetPosition', Geometry=edges.outputs[0],
-                      Offset=t.vmath('ADD', t.vmath('SCALE', out_dir, scale=sideways),
-                                     t.vmath('SCALE', heading_v, scale=rand(-1.5, 1.5, 89)))).outputs[0]
+                      Offset=t.vmath('ADD', t.vmath('ADD', t.vmath('SCALE', out_dir, scale=sideways),
+                                                    t.vmath('SCALE', heading_v, scale=rand(-1.5, 1.5, 89))),
+                                     t.vec(0.0, 0.0, t.math('MULTIPLY', t.math('MULTIPLY', out_k, out_k), t.math('MULTIPLY', t.named("c_above"), -0.93))))).outputs[0]
     edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
     edge_size = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35)))
     edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,
                         Rotation=t.vec(rand(0.0, 6.28, 71), rand(0.0, 6.28, 73), rand(0.0, 6.28, 79)),
                         Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
     solids = t.node('GeometryNodeJoinGeometry')
-    for g in (rocks, slabs, edge_rocks):
+    for g in (rocks, slabs, flanks, edge_rocks):
         t.L.new(g, solids.inputs[0])
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it

@@ -2,6 +2,8 @@
 """The cave object (M5 step 5.2, D93): a standalone cave you place in the scene like the butte, sized in real
 meters, then carve into a landscape or use as a Boolean cutter on any mesh."""
 
+import random
+
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty
 from bpy.types import Operator, PropertyGroup
@@ -80,6 +82,22 @@ class LG_CaveProps(PropertyGroup):
                          items=DETAIL_ITEMS, default='PREVIEW', update=_sync)
 
 
+class LG_OT_randomize_cave(Operator):
+    bl_idname = "landscape.randomize_cave"
+    bl_label = "Randomize"
+    bl_description = "Try a new cave with the same settings: new rock, swings and talus (new seed)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and context.active_object.lg_cave.is_cave
+
+    def execute(self, context):
+        props = context.active_object.lg_cave
+        props.seed = (props.seed + random.randint(1, 99998)) % 100000  # always a different seed
+        return {'FINISHED'}
+
+
 class LG_OT_add_cave(Operator):
     bl_idname = "landscape.add_cave"
     bl_label = "Add Cave"
@@ -134,7 +152,9 @@ def draw_section(layout, context):
     row.prop(props, "chamber_drop")
     col = box.column()
     col.prop(props, "roughness", slider=True)
-    col.prop(props, "seed")
+    row = col.row(align=True)  # as on the landscapes
+    row.prop(props, "seed")
+    row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')
     header, sub = box.panel("lg_cave_detail", default_closed=False)
     header.label(text="Detail Level")
     if sub:
@@ -142,7 +162,7 @@ def draw_section(layout, context):
         sub.label(text=f"Rock detail every {rock_spacing(props):.2f} m")
 
 
-classes = (LG_CaveProps, LG_OT_add_cave)
+classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave)
 
 
 def register():

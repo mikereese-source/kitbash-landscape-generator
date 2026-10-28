@@ -660,6 +660,8 @@ def _t14():
     c.detail, c.seed = 'PREVIEW', 7
     p7, _c, _f, _n = cave_mesh(ob)
     check(len(p7) != len(pts) or not np.allclose(p7, pts), "a new seed should change the cave")
+    seed = c.seed
+    check(bpy.ops.landscape.randomize_cave() == {'FINISHED'} and c.seed != seed, "Randomize should pick a new seed")
     return f"closed, {n:,} faces in {dt:.2f} s; mouth {w:.1f} x {h:.1f} m (set 12 x 6), flat floor, {pts[:, 1].max():.0f} m deep; chamber, drop, seed work"
 
 

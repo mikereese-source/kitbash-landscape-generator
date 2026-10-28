@@ -108,6 +108,25 @@ for each in `sources.json`; CC BY / CC BY-SA / CC0, internal reference only). Co
 5. **Floor detail (pass 3)**: the smooth sediment floor from the Mammoth passages, puddle hollows, slabs.
 6. **Material detail (M6)**: scallops, flowstone and crystal texture as normal maps.
 
+## Cave rocks: a set of rock types (2026-10-28, Mike)
+10 photos in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-rocks\` (licences in `sources.json`).
+Contact sheet: `docs/research/cave-rocks-contact-sheet.jpg`. References only: every rock mesh is built by us.
+
+| Family | References | Shape | Where, and how much |
+|---|---|---|---|
+| **Breakdown blocks** | `breakdown-limestone-giants-coffin-5.jpg`, `-12.jpg` (Mammoth) | Big box-like blocks, two faces flat along the beds, broken ends, sharp edges; car to house sized | Limestone: a few big heaps under the roof, otherwise sparse |
+| **Slabby scree** | `scree-limestone-parsonshole.jpg`, `scree-limestone-geograph.jpg` | Thin, flat, angular plates and chips, lying flat, piled at the wall foot | Limestone and jointed rock: aprons along the walls, many small pieces |
+| **Water-worn boulders and cobbles** | `boulders-rounded-seven-sisters.jpg`, `rocks-ocean-floor-st-martins.jpg`, `boulders-rounded-lava-maui.jpg` | Smooth rounded ovals, sizes sorted from cobbles to boulders | Sea caves: dense, a whole floor of them |
+| **Lava rubble (clinker)** | `lava-tube-el-malpais-nps.jpg` (collapse pile), `lava-aa-flow-top.jpg` (texture) | Rough, irregular, jagged blocks, pitted surface | Lava tubes: moderate, along the walls and piled under roof collapses |
+| (material only) | `lava-pahoehoe-and-aa.jpg`, `lava-aa-flow-top.jpg` | Surface texture: ropey and clinkery lava | M6 material |
+
+**How I'd build the rock set:** a small library of our own rock meshes, about 8 variants per family, built once
+from the shapes above (blocks and slabs cut from boxes by a few planes with chipped corners; cobbles as smooth
+squashed spheres; clinker as rough jagged lumps). They're stored in a hidden **KB Cave Rocks** collection, one
+sub-collection per family. The cave's Rock choice picks the mix and the amount (sea caves dense, limestone
+sparse with breakdown heaps, lava tubes moderate), and Rubble scales it. Artists can swap any sub-collection for
+their own rocks.
+
 ## Photos (downloaded 2026-10-28, Mike approved)
 Saved with the other downloaded references in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-photos\`
 (11 files, about 30 MB; licence and source page for each in `sources.json`). Contact sheet:

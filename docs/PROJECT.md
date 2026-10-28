@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M4 — Erosion finish + bake (next). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
+**Current milestone:** M4 — Erosion finish + bake (steps 4.1–4.2 done; gate next). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
 **Last updated:** 2026-10-28
 
 ## Pre-build checklist
@@ -75,6 +75,13 @@ Every plan includes an errors & edge cases milestone and a final check.
 | 3.3 | Terraces / strata control (count, strength, tilt) on Mesa, Canyon, Badlands, Coastal Cliffs and Mountains (T10) | M — done 2026-10-27 (T10 PASS, 20/20) |
 | 3.4 | Water level: on/off water plane at a set height for any landscape (lakes, sea, rivers) with one plain water material; full water shaders come in M5 (T27) | S–M — done 2026-10-27 (T27 PASS, 21/21; lg_depth mask added) |
 | 3.5 | Tests, then the gate: checker, rollback zip, Mike sign-off | M — done 2026-10-28 (checker: 1 must-fix, fixed; Mike signed off) |
+
+**M4 steps (approved 2026-10-28, D87; checkpoint after each)**
+| Step | What | Size |
+|---|---|---|
+| 4.1 | Bake to Mesh: a plain editable mesh keeping the masks; water its own object; settings kept on the mesh and saved as a preset; Restore Landscape rebuilds it (T29) | S–M — done 2026-10-28 |
+| 4.2 | T11 erosion lowers steep slopes, T12 1 km at High in 60 s or less | S — done 2026-10-28 (T12 17.3 s) |
+| 4.3 | Gate: checker, rollback zip, Mike sign-off | S |
 
 **Build**
 | # | Milestone | Definition of done | Status |

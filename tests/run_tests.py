@@ -8,6 +8,7 @@ node inputs directly, so they catch the Blender 5.2 "value set but not rebuilt" 
 import math
 import os
 import sys
+import time
 import traceback
 
 import bpy
@@ -501,6 +502,69 @@ def _t27():
     ob = add("cliffs", keep_water=True)
     check(ob.lg.water, "Coastal Cliffs should start with the sea on")
     return f"off: none; on: flat sheet at 40% covering the landscape, {below:.0%} flooded; follows Height; Cliffs sea on"
+
+
+@test("T29", "Bake to mesh keeps the shape and masks; Restore rebuilds it")
+def _t29():
+    fresh_scene()
+    ob = add("mountains")
+    ob.lg.water, ob.lg.water_level = True, 0.3
+    lg.sync_object(ob)
+    before = evaluated_points(ob)
+    with bpy.context.temp_override(active_object=ob, object=ob):
+        check(bpy.ops.landscape.bake(save_preset=False) == {'FINISHED'}, "Bake did not finish")
+    check(not ob.modifiers and not ob.lg.is_landscape, "baked object should be a plain mesh")
+    me = ob.data
+    for name in ("lg_height", "lg_slope", "lg_flow", "lg_depth"):
+        check(name in me.attributes, f"bake lost the {name} mask")
+    check(len(me.vertices) == len(before) - 4, "water should leave the landscape mesh")
+    water = bpy.data.objects.get(f"{ob.name}_Water")
+    check(water is not None and len(water.data.vertices) == 4, "water should be its own 4-point object")
+    check(water.data.materials and water.data.materials[0].name.startswith(lg.nodes.WATER_MATERIAL), "water lost its material")
+    zb = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", zb)
+    check(lg.RECIPE_KEY in ob.keys(), "settings not kept on the baked mesh")
+    with bpy.context.temp_override(active_object=ob, object=ob):
+        check(bpy.ops.landscape.restore() == {'FINISHED'}, "Restore did not finish")
+    live = bpy.context.view_layer.objects.active
+    check(live is not ob and lg.landscape_modifier(live) and live.lg.water, "Restore should add a live landscape with the same settings")
+    lg.sync_object(live)
+    after = evaluated_points(live)
+    land = after[:-4] if live.lg.water else after
+    check(np.allclose(np.sort(land[:, 2]), np.sort(zb.reshape(-1, 3)[:, 2]), atol=1e-3 * np.ptp(zb)), "restored landscape doesn't match the baked mesh")
+    return "plain mesh with masks, water its own object, settings kept; Restore rebuilds the same heights"
+
+
+@test("T11", "Erosion lowers steep slopes")
+def _t11():
+    fresh_scene()
+    ob = add("mountains")
+    out = []
+    for amount in (0.0, 0.5, 1.0):
+        ob.lg.erosion_amount = amount
+        lg.sync_object(ob)
+        p = evaluated_points(ob)
+        check(np.isfinite(p).all(), f"Erosion {amount}: NaN in the landscape")
+        n = int(round(np.sqrt(len(p))))
+        z = p[:n * n, 2].reshape(n, n)
+        gy, gx = np.gradient(z, ob.lg.size_x / (n - 1))
+        out.append(float(np.percentile(np.degrees(np.arctan(np.hypot(gx, gy))), 99)))
+    check(out[1] < out[0] and out[2] <= out[1] + 0.5, f"steepest slopes should drop as erosion rises: {[round(v, 1) for v in out]}")
+    return "99th-percentile slope " + " -> ".join(f"{v:.1f}" for v in out) + " deg at Erosion 0 / 0.5 / 1"
+
+
+@test("T12", "Final build time")
+def _t12():
+    fresh_scene()
+    t0 = time.time()
+    ob = add("mountains")
+    ob.lg.size_x = ob.lg.size_y = 1000.0
+    ob.lg.final = True
+    lg.sync_object(ob)
+    evaluated_points(ob)
+    dt = time.time() - t0
+    check(dt <= 60.0, f"1 km at High took {dt:.0f} s (limit 60 s)")
+    return f"1 km Mountains at High with erosion: {dt:.1f} s (limit 60 s)"
 
 
 @test("T26", "Proportional Feature Scaling: any size change keeps feature size")

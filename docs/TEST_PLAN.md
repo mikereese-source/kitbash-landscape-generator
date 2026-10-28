@@ -22,10 +22,11 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T8 | M2 | Controls are plain | auto + manual | Auto: every panel control and button has a tooltip. Manual: a non-specialist explains each one correctly | Auto PASS 2026-10-26 (35 controls, 10 buttons); manual: signed off by Mike 2026-10-26 |
 | T9 | M3 | Masks exist and are 0–1 | auto | height, slope, curvature, flow, wear, deposits attributes present on every type, in 0–1, and flow is high in channels, slope high on cliffs | PASS 2026-10-27 (7 masks incl. lg_depth; 13 types) |
 | T10 | M3 | Terraces | auto | On Mesa, Canyon, Badlands, Cliffs and Mountains, terrace count N gives N flat bands on a test slope; strength 0 leaves the shape unchanged | PASS 2026-10-27 (5 rock types; Mountains 5 benches for 6 terraces) |
-| T11 | M4 | Erosion lowers steep slopes | auto | Max slope angle drops as Erosion rises; nothing goes NaN | |
-| T12 | M4 | Final build time | auto | 1 km landscape at Final finishes in ≤ 60 s on the team machine (D14) | |
+| T11 | M4 | Erosion lowers steep slopes | auto | Max slope angle drops as Erosion rises; nothing goes NaN | PASS 2026-10-28 (slope p99 62.2 -> 61.9 -> 60.2 deg) |
+| T12 | M4 | Final build time | auto | 1 km landscape at Final finishes in ≤ 60 s on the team machine (D14) | PASS 2026-10-28 (17.3 s) |
 | T27 | M3 | Water level | auto | Water on: a flat water surface at the set height covers exactly the ground below it; off: no water geometry; Height changes move it with the landscape | PASS 2026-10-27 |
 | T28 | M3 | Mask viewer | auto + manual | Auto: Show Mask writes the picked mask as the lg_view colour attribute, different per mask, cleared by None. Manual: the 3D view switches to Solid / Attribute colour and back | PASS 2026-10-26 (auto; viewport checked by Mike) |
+| T29 | M4 | Bake to mesh | auto | Bake leaves a plain mesh with the masks, water as its own object with its material, settings kept on the mesh; Restore rebuilds a live landscape with the same heights | PASS 2026-10-28 |
 | T13 | M5 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
 | T14 | M6 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
 | T15 | M6 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |

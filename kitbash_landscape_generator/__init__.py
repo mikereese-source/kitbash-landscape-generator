@@ -950,6 +950,110 @@ class LG_UL_landscapes(UIList):
         return flags, []
 
 
+RECIPE_KEY = "lg_recipe"  # the landscape's full settings, kept on a baked mesh so it can be rebuilt
+
+
+class LG_OT_bake(Operator):
+    bl_idname = "landscape.bake"
+    bl_label = "Bake to Mesh"
+    bl_description = ("Turn the landscape into a plain mesh you can sculpt and edit, keeping its masks. The "
+                      "sliders stop working; its settings are kept so it can be restored")
+    bl_options = {'REGISTER', 'UNDO'}
+
+    save_preset: BoolProperty(name="Save as preset", default=True,
+                              description="Also keep its settings as a preset you can load on any landscape")
+
+    @classmethod
+    def poll(cls, context):
+        return current_landscape(context) is not None
+
+    def invoke(self, context, _event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, _context):
+        col = self.layout.column()
+        col.label(text="The sliders stop working on a baked mesh.")
+        col.label(text="Its settings stay on the mesh, so Restore Landscape can rebuild it.")
+        col.prop(self, "save_preset")
+
+    def execute(self, context):
+        ob = current_landscape(context)
+        props = ob.lg
+        recipe = presets.capture(props, CONTROL_PROPS)
+        dg = context.evaluated_depsgraph_get()
+        dg.update()
+        me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+        me.name = f"{ob.name} baked"
+        # Water becomes its own object (Mike): one flat quad at the water level, with its own material.
+        water_z = None
+        wet = me.attributes.get("lg_water")
+        if wet is not None:
+            import bmesh
+            flags = [False] * len(me.vertices)
+            wet.data.foreach_get("value", flags)
+            if any(flags):
+                water_z = next(v.co.z for v, f in zip(me.vertices, flags) if f)
+                bm = bmesh.new()
+                bm.from_mesh(me)
+                bm.verts.ensure_lookup_table()
+                bmesh.ops.delete(bm, geom=[bm.verts[i] for i, f in enumerate(flags) if f], context='VERTS')
+                bm.to_mesh(me)
+                bm.free()
+            me.attributes.remove(me.attributes["lg_water"])
+        mod = landscape_modifier(ob)
+        img = bpy.data.images.get(ob.get("lg_erosion_img", ""))
+        old = ob.data
+        ob.modifiers.remove(mod)
+        ob.data = me
+        if old.users == 0:
+            bpy.data.meshes.remove(old)
+        if img is not None and img.users == 0:
+            bpy.data.images.remove(img)  # the erosion map lives on in the mesh now
+        props.is_landscape = False
+        for key in ("lg_erosion_img", "lg_erosion_key", "lg_erosion_want"):
+            ob.pop(key, None)
+        ob[RECIPE_KEY] = json.dumps(recipe)
+        if water_z is not None:
+            wme = bpy.data.meshes.new(f"{ob.name} water")
+            hx, hy = props.size_x / 2, props.size_y / 2
+            wme.from_pydata([(-hx, -hy, water_z), (hx, -hy, water_z), (hx, hy, water_z), (-hx, hy, water_z)], [], [(0, 1, 2, 3)])
+            wme.materials.append(nodes.water_material())
+            water = bpy.data.objects.new(f"{ob.name}_Water", wme)
+            for col in ob.users_collection:
+                col.objects.link(water)
+            water.matrix_world = ob.matrix_world.copy()
+        if self.save_preset:
+            presets.save(f"{ob.name} (baked)", props, CONTROL_PROPS)
+        self.report({'INFO'}, f"Baked {ob.name}" + (" and its water" if water_z is not None else ""))
+        return {'FINISHED'}
+
+
+class LG_OT_restore(Operator):
+    bl_idname = "landscape.restore"
+    bl_label = "Restore Landscape"
+    bl_description = "Rebuild the live landscape this mesh was baked from, with all its settings, beside it"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.active_object
+        return ob is not None and RECIPE_KEY in ob.keys()
+
+    def execute(self, context):
+        baked = context.active_object
+        data = json.loads(baked[RECIPE_KEY])
+        if data.get("type") in TYPES:
+            context.scene.lg_type = data["type"]
+        context.scene.cursor.location = baked.matrix_world.translation
+        bpy.ops.landscape.add()
+        ob = context.view_layer.objects.active
+        presets.apply(ob.lg, data, TYPES)
+        ob.matrix_world = baked.matrix_world.copy()
+        sync_object(ob)
+        baked.hide_set(True)  # the live one takes its place; the baked mesh stays in the file
+        return {'FINISHED'}
+
+
 class LG_PT_main(Panel):
     bl_label = "KitBash Landscape Generator"
     bl_space_type = 'VIEW_3D'
@@ -1021,6 +1125,10 @@ class LG_PT_main(Panel):
 
         ob = current_landscape(context)
         if ob is None:
+            if context.active_object is not None and RECIPE_KEY in context.active_object.keys():
+                box = layout.box()
+                box.label(text="A baked landscape: its sliders are kept on it.")
+                box.operator(LG_OT_restore.bl_idname, icon='LOOP_BACK')
             return
         mod = landscape_modifier(ob)
         props = ob.lg
@@ -1107,9 +1215,16 @@ class LG_PT_main(Panel):
             row.prop(props, "seed")
             row.operator(LG_OT_randomize.bl_idname, text="Randomize", icon='FILE_REFRESH')
 
+        header, box = layout.panel("lg_bake", default_closed=True)
+        header.label(text="Bake")
+        if box:
+            box.label(text="A plain mesh to sculpt and edit; water becomes its own object")
+            box.operator(LG_OT_bake.bl_idname, icon='MESH_GRID')
+
 
 classes = (LG_ObjectProps, LG_OT_add_landscape, LG_OT_scale_size, LG_OT_pick_type, LG_OT_randomize, LG_OT_reset_look,
            LG_OT_fit_selection, LG_OT_preset_save, LG_OT_preset_load, LG_OT_preset_rename, LG_OT_preset_delete,
+           LG_OT_bake, LG_OT_restore,
            LG_UL_landscapes, LG_PT_main)
 
 

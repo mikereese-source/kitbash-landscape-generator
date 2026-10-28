@@ -840,6 +840,11 @@ class LG_OT_reset_look(Operator):
         return {'FINISHED'}
 
 
+def _active_cave(context):
+    ob = context.active_object
+    return ob if ob is not None and ob.lg_cave.is_cave else None
+
+
 # Saved looks (presets.py): name a landscape's full look, load it in any project (Mike, 2026-10-25).
 CONTROL_PROPS = sorted({c["prop"] for t in TYPES.values() for c in t.get("controls", ())})
 _preset_items = []
@@ -847,27 +852,31 @@ _preset_items = []
 
 def _preset_enum(_self, _context):
     _preset_items.clear()
-    for i, name in enumerate(sorted(presets.load_all(), key=str.lower)):
-        _preset_items.append((name, name, f"Load the look saved as {name}", i))
+    all_presets = presets.load_all()
+    for i, name in enumerate(sorted(all_presets, key=str.lower)):
+        _preset_items.append((name, name, f"Load the look saved as {name}", 'MESH_UVSPHERE' if all_presets[name].get("kind") == "cave" else 'NONE', i))
     if not _preset_items:
-        _preset_items.append(("", "No saved presets yet", "Save a look you like with Save Preset", 0))
+        _preset_items.append(("", "No saved presets yet", "Save a look you like with Save Preset", 'NONE', 0))
     return _preset_items
 
 
 class LG_OT_preset_save(Operator):
     bl_idname = "landscape.preset_save"
     bl_label = "Save Preset"
-    bl_description = "Save this landscape's whole look (type, style, every slider, seed, erosion, size) under a name, for any project"
+    bl_description = "Save the selected cave's or this landscape's whole look (every slider, seed, size) under a name, for any project"
     bl_options = {'REGISTER'}
     name: StringProperty(name="Name", default="My Landscape")
 
     @classmethod
     def poll(cls, context):
-        return current_landscape(context) is not None
+        return _active_cave(context) is not None or current_landscape(context) is not None
 
     def invoke(self, context, _event):
-        ob = current_landscape(context)
-        self.name = f"My {TYPES.get(_object_type_key(ob.lg), {}).get('name', 'Landscape')}"
+        if _active_cave(context):
+            self.name = "My Cave"
+        else:
+            ob = current_landscape(context)
+            self.name = f"My {TYPES.get(_object_type_key(ob.lg), {}).get('name', 'Landscape')}"
         return context.window_manager.invoke_props_dialog(self)
 
     def execute(self, context):
@@ -875,7 +884,13 @@ class LG_OT_preset_save(Operator):
         if not name:
             self.report({'WARNING'}, "Give the preset a name")
             return {'CANCELLED'}
-        presets.save(name, current_landscape(context).lg, CONTROL_PROPS)
+        cave = _active_cave(context)
+        if cave:  # same list as the landscapes, marked as a cave (Mike: no separate cave presets)
+            all_presets = presets.load_all()
+            all_presets[name] = caves.capture(cave.lg_cave)
+            presets._write(all_presets)
+        else:
+            presets.save(name, current_landscape(context).lg, CONTROL_PROPS)
         context.scene.lg_preset = name
         self.report({'INFO'}, f"Saved preset {name}")
         return {'FINISHED'}
@@ -884,7 +899,7 @@ class LG_OT_preset_save(Operator):
 class LG_OT_preset_load(Operator):
     bl_idname = "landscape.preset_load"
     bl_label = "Load"
-    bl_description = "Give the selected landscape the picked preset's look (with no landscape selected, add a new one)"
+    bl_description = "Give the selected landscape or cave the picked preset's look (with none selected, add a new one)"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -892,6 +907,14 @@ class LG_OT_preset_load(Operator):
         if not data:
             self.report({'WARNING'}, "Pick a saved preset first")
             return {'CANCELLED'}
+        if data.get("kind") == "cave":
+            ob = _active_cave(context)
+            if ob is None:
+                bpy.ops.landscape.add_cave()
+                ob = context.view_layer.objects.active
+            caves.apply(ob.lg_cave, data)
+            caves.sync_cave(ob)
+            return {'FINISHED'}
         ob = current_landscape(context)
         if ob is None:
             if data.get("type") in TYPES:

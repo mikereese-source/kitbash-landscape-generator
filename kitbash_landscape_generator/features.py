@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 16
+CAVE_VERSION = 17
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -574,7 +574,10 @@ def cave_group():
                       Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     keep = t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9))
-    lump = t.node('GeometryNodeMeshIcoSphere', Radius=1.0, Subdivisions=2).outputs["Mesh"]
+    # Pivot 45% of the way up from the centre, so each rock sits half buried in the floor or slope it rests on
+    # and rises out of it (resting on the surface it left thin slits under its edge; Mike).
+    lump = t.node('GeometryNodeTransform', Geometry=t.node('GeometryNodeMeshIcoSphere', Radius=1.0, Subdivisions=2).outputs["Mesh"],
+                  Translation=(0.0, 0.0, -0.45)).outputs[0]
     ln = t.node('ShaderNodeTexNoise', Vector=t.position(), Scale=1.3, Detail=2.0)
     ln.noise_dimensions = '3D'
     lumpy = t.node('GeometryNodeSetPosition', Geometry=lump, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0],
@@ -667,6 +670,14 @@ def cave_group():
                       Offset=t.vmath('ADD', t.vmath('ADD', t.vmath('SCALE', out_dir, scale=sideways),
                                                     t.vmath('SCALE', heading_v, scale=rand(-1.5, 1.5, 89))),
                                      t.vec(0.0, 0.0, t.math('MULTIPLY', t.math('MULTIPLY', out_k, out_k), t.math('MULTIPLY', t.named("c_above"), -0.93))))).outputs[0]
+    ramp_body = t.node('GeometryNodeJoinGeometry')
+    t.L.new(slabs, ramp_body.inputs[0])
+    t.L.new(flanks, ramp_body.inputs[0])
+    ramp_mesh = t.node('GeometryNodeRealizeInstances', Geometry=ramp_body.outputs[0]).outputs[0]
+    onto = t.node('GeometryNodeRaycast', Target_Geometry=ramp_mesh,
+                  Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.5))),
+                  Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
+    edge_pts = t.node('GeometryNodeSetPosition', Geometry=edge_pts, Selection=onto.outputs["Is Hit"], Position=onto.outputs["Hit Position"]).outputs[0]
     edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
     edge_size = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35)))
     edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,

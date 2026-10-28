@@ -102,6 +102,48 @@ class LG_OT_randomize_cave(Operator):
         return {'FINISHED'}
 
 
+# What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
+# landscapes, Reset keeps the layout and detail you picked).
+SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
+               "ramp", "roughness", "rubble")
+PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
+
+
+class LG_OT_reset_cave(Operator):
+    bl_idname = "landscape.reset_cave"
+    bl_label = "Reset"
+    bl_description = "Put the cave's sizes and shape back to the starting cave (keeps Seed and Detail Level)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and context.active_object.lg_cave.is_cave
+
+    def execute(self, context):
+        props = context.active_object.lg_cave
+        for name in SHAPE_PROPS:
+            props.property_unset(name)  # back to the property's default
+        sync_cave(context.active_object)
+        return {'FINISHED'}
+
+
+def capture(props):
+    """A cave preset: the same file and list as the landscape presets (Mike), marked kind "cave"."""
+    data = {"kind": "cave"}
+    for name in PRESET_PROPS:
+        data[name] = getattr(props, name)
+    return data
+
+
+def apply(props, data):
+    for name in PRESET_PROPS:
+        if name in data:
+            try:
+                setattr(props, name, data[name])
+            except (TypeError, ValueError):
+                pass
+
+
 class LG_OT_add_cave(Operator):
     bl_idname = "landscape.add_cave"
     bl_label = "Add Cave"
@@ -134,6 +176,7 @@ def draw_section(layout, context):
         return
     header, box = layout.panel("lg_caves", default_closed=False)
     header.label(text="Cave")
+    header.operator(LG_OT_reset_cave.bl_idname, text="Reset", icon='LOOP_BACK')
     if not box:
         return
     props = ob.lg_cave
@@ -170,7 +213,7 @@ def draw_section(layout, context):
         sub.label(text=f"Rock detail every {rock_spacing(props):.2f} m")
 
 
-classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave)
+classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave, LG_OT_reset_cave)
 
 
 def register():

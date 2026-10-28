@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 17
+CAVE_VERSION = 18
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -582,14 +582,14 @@ def cave_group():
     ln.noise_dimensions = '3D'
     lumpy = t.node('GeometryNodeSetPosition', Geometry=lump, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0],
                                                                          scale=t.math('MULTIPLY', t.math('SUBTRACT', ln.outputs["Fac"], 0.5), 0.8))).outputs[0]
-    size = t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6)))
+    size = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6))),
+                  t.math('MULTIPLY', voxel, 1.6))
     rocks = t.node('GeometryNodeInstanceOnPoints', Points=foot, Selection=keep, Instance=lumpy,
                    Rotation=t.vec(rand(0.0, 6.28, 41), rand(0.0, 6.28, 43), rand(0.0, 6.28, 47)),
                    Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, 53)), t.math('MULTIPLY', size, rand(0.5, 0.9, 59)))).outputs[0]
 
-    # Ramp into Chamber (Mike, for players): a causeway of rock along the path, from the passage floor down
-    # into the sunk chamber, so it can be walked down instead of jumped. Thin slabs every half metre along the
-    # path, each topped at the path's own floor there, about the passage's width, with rocks along its edges.
+    # Ramp into Chamber (Mike, for players): an embankment of rock along the path, from the passage floor down
+    # into the sunk chamber, so it can be walked down instead of jumped, with scree on its slopes.
     # (Without it the merged domes' floors leave steps where the floor drops.)
     ramp_on = t.math('MULTIPLY', t.math('MULTIPLY', gin["Ramp"], has_chamber), t.math('GREATER_THAN', gin["Chamber Drop"], 0.0))
     walk = t.node('GeometryNodeResampleCurve', Curve=t.node('GeometryNodeMeshToCurve', Mesh=path).outputs[0], Length=0.5)
@@ -597,6 +597,7 @@ def cave_group():
     walk_c = walk.outputs[0]
     tan = t.xyz(t.node('GeometryNodeInputTangent').outputs[0])
     walk_c = t.store(walk_c, "c_heading", t.math('ARCTAN2', t.math('MULTIPLY', tan["X"], -1.0), tan["Y"]))
+    walk_c = t.store(walk_c, "c_mid", t.position(), 'FLOAT_VECTOR')
     walk_pts = t.node('GeometryNodeCurveToPoints', Curve=walk_c)
     walk_pts.mode = 'EVALUATED'
     # Walkable: from where the chamber begins (s 0.6) the ramp falls at most 1 in 2 (about 27 degrees) until it
@@ -618,40 +619,36 @@ def cave_group():
     walk_top = t.store(walk_top, "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom))
     on_ramp = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.45),
                                                  t.math('GREATER_THAN', t.named("c_above"), 0.3)))
-    slab_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
-    slab = t.node('GeometryNodeTransform', Geometry=slab_box, Translation=(0.0, 0.0, -0.5)).outputs[0]  # top at the point
     # The ramp's width wanders (0.6 to 1.1 of the passage), so its edges aren't ruler-straight.
     rw = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), Scale=1.5, Detail=2.0)
     rw.noise_dimensions = '3D'
     ramp_w = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 1.2, t.math('MULTIPLY', rw.outputs["Fac"], 1.0)))
     walk_top = t.store(walk_top, "c_ramp_w", ramp_w)
-    rise = t.math('ADD', t.named("c_above"), 1.0)  # walkway top down to just into the chamber floor
-    slabs = t.node('GeometryNodeInstanceOnPoints', Points=walk_top, Selection=on_ramp, Instance=slab,
-                   Rotation=t.vec(0.0, 0.0, t.named("c_heading")),
-                   Scale=t.vec(t.named("c_ramp_w"), 1.2, rise)).outputs[0]
-    # Side slopes: a right-angled wedge (vertical face against the walkway, sloping face outside), one each
-    # side, as tall as the walkway stands above the floor and 1.4x as wide (about 35 degrees).
-    wedge_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
-    wq = t.xyz(t.position())
-    corner = t.math('MULTIPLY', t.math('GREATER_THAN', wq["X"], 0.0), t.math('GREATER_THAN', wq["Z"], 0.0))
-    wedge = t.node('GeometryNodeSetPosition', Geometry=wedge_box,
-                   Position=t.vec(t.math('ADD', t.math('SUBTRACT', wq["X"], corner), 0.5), wq["Y"], t.math('SUBTRACT', wq["Z"], 0.5))).outputs[0]
-    # (top-outer edge folded onto top-inner: x 0..1 outward, z -1..0, the slope from (0, 0) to (1, -1))
-    flanks_at = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
-    flanks_at.domain = 'POINT'
-    flank_pts = t.node('GeometryNodeJoinGeometry')
-    t.L.new(walk_top, flank_pts.inputs[0])
-    t.L.new(t.store(flanks_at.outputs["Geometry"], "c_side", 1.0), flank_pts.inputs[0])
-    flank_side = t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0)
-    flank_dir = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)
-    flank_pos = t.node('GeometryNodeSetPosition', Geometry=flank_pts.outputs[0],
-                       Offset=t.vmath('SCALE', flank_dir, scale=t.math('MULTIPLY', flank_side, t.math('MULTIPLY', t.named("c_ramp_w"), 0.49)))).outputs[0]
-    # Left side turned half a turn, so its slope faces out too (mirroring would turn the mesh inside out).
-    flank_turn = t.math('ADD', t.named("c_heading"), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.named("c_side")), 3.14159))
-    flank_rise = t.math('ADD', t.named("c_above"), 1.0)
-    flanks = t.node('GeometryNodeInstanceOnPoints', Points=flank_pos, Selection=on_ramp, Instance=wedge,
-                    Rotation=t.vec(0.0, 0.0, flank_turn),
-                    Scale=t.vec(t.math('MULTIPLY', flank_rise, 1.4), 1.2, flank_rise)).outputs[0]
+    # The ramp's body, one continuous shape swept along the path (Mike: at Preview the half-metre slabs and
+    # wedges came out as saw-teeth and holes, smaller than a step of rock detail): a walkway on top, sides
+    # sloping out about 35 degrees down to just into the chamber floor, ends closed.
+    ramp_c = t.store(t.store(t.store(walk_c, "c_rtop", t.math('MAXIMUM', graded, bottom)),
+                             "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom)), "c_ramp_w", ramp_w)
+    on_curve = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.45),
+                                                  t.math('GREATER_THAN', t.named("c_above"), 0.3)))
+    trim_c = t.node('GeometryNodeDeleteGeometry', Geometry=ramp_c, Selection=t.math('LESS_THAN', on_curve, 0.5))
+    trim_c.domain = 'POINT'
+    square = t.node('GeometryNodeCurvePrimitiveQuadrilateral', Width=2.0, Height=2.0).outputs[0]
+    sq = t.xyz(t.position())
+    square = t.store(t.store(square, "p_side", sq["X"]), "p_top", t.math('GREATER_THAN', sq["Y"], 0.0))
+    swept = t.node('GeometryNodeCurveToMesh', Curve=trim_c.outputs[0], Profile_Curve=square, Fill_Caps=True).outputs[0]
+    # Each corner goes where it belongs, from the path point it was swept from (profile and path attributes
+    # both carry onto the mesh): top corners at the walkway's edges, bottom corners out at the slopes' feet.
+    top = t.named("p_top")
+    low = t.math('SUBTRACT', 1.0, top)
+    h_r = t.math('ADD', t.named("c_above"), 1.0)
+    reach = t.math('ADD', t.math('MULTIPLY', t.named("c_ramp_w"), 0.5), t.math('MULTIPLY', low, t.math('MULTIPLY', h_r, 1.4)))
+    across_r = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)
+    rp = t.xyz(t.named("c_mid", 'FLOAT_VECTOR'))
+    corner_at = t.vmath('ADD', t.vec(rp["X"], rp["Y"], t.math('SUBTRACT', t.named("c_rtop"), t.math('MULTIPLY', low, h_r))),
+                        t.vmath('SCALE', across_r, scale=t.math('MULTIPLY', t.math('SIGN', t.named("p_side")), reach)))
+    ramp_mesh = t.node('GeometryNodeSetPosition', Geometry=swept, Position=corner_at).outputs[0]
+
     edge = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
     edge.domain = 'POINT'
     edges = t.node('GeometryNodeJoinGeometry')
@@ -670,21 +667,18 @@ def cave_group():
                       Offset=t.vmath('ADD', t.vmath('ADD', t.vmath('SCALE', out_dir, scale=sideways),
                                                     t.vmath('SCALE', heading_v, scale=rand(-1.5, 1.5, 89))),
                                      t.vec(0.0, 0.0, t.math('MULTIPLY', t.math('MULTIPLY', out_k, out_k), t.math('MULTIPLY', t.named("c_above"), -0.93))))).outputs[0]
-    ramp_body = t.node('GeometryNodeJoinGeometry')
-    t.L.new(slabs, ramp_body.inputs[0])
-    t.L.new(flanks, ramp_body.inputs[0])
-    ramp_mesh = t.node('GeometryNodeRealizeInstances', Geometry=ramp_body.outputs[0]).outputs[0]
     onto = t.node('GeometryNodeRaycast', Target_Geometry=ramp_mesh,
                   Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.5))),
                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     edge_pts = t.node('GeometryNodeSetPosition', Geometry=edge_pts, Selection=onto.outputs["Is Hit"], Position=onto.outputs["Hit Position"]).outputs[0]
     edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
-    edge_size = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35)))
+    edge_size = t.math('MAXIMUM', t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35))),
+                       t.math('MULTIPLY', voxel, 1.6))  # no rock smaller than ~1.6 detail steps (spikes at Preview)
     edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,
                         Rotation=t.vec(rand(0.0, 6.28, 71), rand(0.0, 6.28, 73), rand(0.0, 6.28, 79)),
                         Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
     solids = t.node('GeometryNodeJoinGeometry')
-    for g in (rocks, slabs, flanks, edge_rocks):
+    for g in (rocks, ramp_mesh, edge_rocks):
         t.L.new(g, solids.inputs[0])
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it

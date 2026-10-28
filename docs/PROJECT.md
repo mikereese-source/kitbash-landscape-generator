@@ -92,8 +92,9 @@ Every plan includes an errors & edge cases milestone and a final check.
 | 5.4 | Stalactites and stalagmites inside the cave object: instanced cones with the unsharp pass (D11), ceilings and floors only (T15) | M |
 | 5.5 | Cave landscape type (shown in the gallery, D31): styles Wide Walk-in, Rock Shelter, Sea Cave, Lava Tube (RESEARCH-caves.md), each a landscape shaped for its cave with the cave object carved in | L |
 | 5.6 | Cliff features: Side Cliffs, Overhangs, Arches, with the same cut | M–L |
-| 5.7 | Bake and Restore with caves; the cave as its own mesh for Unreal (D89); tests, then the gate: checker, rollback zip, Mike sign-off | M |
-| 5.8 | Drag handles (gizmos, D94): drag the landscape's Width and Depth in the viewport (Python GizmoGroup; the grabbed edge moves, the opposite edge stays put, Mike 2026-10-23), and the cave's Entrance Width, Entrance Height and Depth. Before M6 (Mike) | M |
+| 5.7 | Bake and Restore with caves; the cave as its own mesh for Unreal (D89) | M |
+| 5.8 | Drag handles for everything (gizmos, D94, D95): every landscape type's Width and Depth (Python GizmoGroup; the grabbed edge moves, the opposite edge stays put, Mike 2026-10-23), Height and the per-type shape controls where a handle reads naturally (crater size, butte footprint), and the cave's Entrance Width, Entrance Height, Depth and Chamber Size. The last build step of M5, before M6 (Mike) | M–L |
+| 5.9 | Tests, then the gate: checker, rollback zip, Mike sign-off | M |
 **Build**
 | # | Milestone | Definition of done | Status |
 |---|-----------|--------------------|--------|

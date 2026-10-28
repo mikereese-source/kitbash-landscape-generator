@@ -427,13 +427,14 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 1
+CAVE_VERSION = 2
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
-    ("Depth", 'NodeSocketFloat', 30.0), ("Wiggle", 'NodeSocketFloat', 0.3), ("Drop", 'NodeSocketFloat', 0.0),
+    ("Depth", 'NodeSocketFloat', 30.0), ("Wiggle", 'NodeSocketFloat', 0.3), ("Turn", 'NodeSocketFloat', 0.0),
+    ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
-    ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Roughness", 'NodeSocketFloat', 0.5),
+    ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0), ("Roughness", 'NodeSocketFloat', 0.5),
     ("Seed", 'NodeSocketInt', 0), ("Fine", 'NodeSocketBool', False),
 )
 
@@ -444,8 +445,9 @@ def cave_group():
     the mouth sits in a face, then carve it into a landscape or use it as a Boolean cutter on any mesh.
 
     A row of spheres along a wandering path (Wiggle), narrowing toward the back (Narrowing) and opening into
-    a chamber at the end (Chamber Size, Ceiling Height), stretched to the entrance height, with rock noise on
-    the walls and roof, then cut flat at the floor, which falls by Drop over the depth."""
+    a chamber at the end (Chamber Size, Ceiling Height, Chamber Drop), stretched to the entrance height. The
+    lower half folds up into a floor with a rounded foot at the walls; the floor falls by Drop over the depth.
+    Rock noise on the walls and roof, rubble at the foot of the walls, a gently uneven floor."""
     ng = bpy.data.node_groups.get(CAVE_GROUP)
     if ng is not None and ng.get("kb_version") == CAVE_VERSION:
         return ng
@@ -472,27 +474,38 @@ def cave_group():
     line = t.node('GeometryNodeMeshLine', Count=count, Start_Location=t.vec(0.0, y0, 0.0),
                   Offset=t.vec(0.0, t.math('DIVIDE', t.math('SUBTRACT', D, y0), t.math('SUBTRACT', count, 1.0)), 0.0))
     s = t.math('DIVIDE', t.node('GeometryNodeInputIndex').outputs[0], t.math('MAXIMUM', t.math('SUBTRACT', count, 1.0), 1.0))  # 0 mouth .. 1 back
-    # Wander side to side, about one turn per three entrance widths; the first part stays straight.
-    wn = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', t.math('MULTIPLY', s, D), t.math('MULTIPLY', W, 3.0)), seed, 0.0), Scale=1.0, Detail=1.0)
+    # Wander left and right evenly: a swing about every 3.5 entrance widths, its size varied by noise (plain
+    # noise drifted to one side, Mike). Turn bends the whole passage left (-1) or right (+1). The first part
+    # stays straight so the mouth faces out.
+    swing = t.math('SINE', t.math('ADD', t.math('DIVIDE', t.math('MULTIPLY', s, t.math('MULTIPLY', D, 6.2832)), t.math('MULTIPLY', W, 3.5)),
+                                  t.math('MULTIPLY', gin["Seed"], 1.7)))
+    wn = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', t.math('MULTIPLY', s, D), t.math('MULTIPLY', W, 2.0)), seed, 0.0), Scale=1.0, Detail=1.0)
     wn.noise_dimensions = '2D'
-    wiggle = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', wn.outputs["Fac"], 0.5), 4.0), t.math('MULTIPLY', gin["Wiggle"], W)),
-                    t.smooth(s, 0.0, 0.25))
-    floor_at = t.math('MULTIPLY', t.math('MULTIPLY', gin["Drop"], -1.0), t.math('MAXIMUM', s, 0.0))
+    sway = t.math('MULTIPLY', t.math('MULTIPLY', swing, t.math('ADD', 0.4, t.math('MULTIPLY', wn.outputs["Fac"], 1.2))),
+                  t.math('MULTIPLY', t.math('MULTIPLY', gin["Wiggle"], W), 1.2))
+    sway = t.math('MULTIPLY', sway, t.smooth(s, 0.0, 0.2))
+    bend = t.math('MULTIPLY', t.math('MULTIPLY', gin["Turn"], t.math('MULTIPLY', D, 0.35)), t.math('MULTIPLY', s, s))
     chamber = t.math('MULTIPLY', t.smooth(s, 0.6, 0.9), has_chamber)
-    radius = t.math('ADD', t.math('MULTIPLY', t.math('MULTIPLY', r, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', t.math('POWER', s, 1.5), gin["Narrowing"]))),
-                                  t.math('SUBTRACT', 1.0, chamber)), t.math('MULTIPLY', rc, chamber))
+    # The floor falls by Drop toward the back; the chamber's floor sinks a further Chamber Drop (Mike: so it
+    # opens out into a massive space).
+    floor_at = t.math('SUBTRACT', t.math('MULTIPLY', t.math('MULTIPLY', gin["Drop"], -1.0), t.math('MAXIMUM', s, 0.0)),
+                      t.math('MULTIPLY', gin["Chamber Drop"], chamber))
+    # Narrowing never closes the passage: at least a third of the entrance and 0.8 m (it could pinch shut).
+    narrow = t.math('MAXIMUM', t.math('MULTIPLY', r, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', t.math('POWER', s, 1.5), gin["Narrowing"]))),
+                    t.math('MAXIMUM', t.math('MULTIPLY', r, 0.35), 0.8))
+    radius = t.math('ADD', t.math('MULTIPLY', narrow, t.math('SUBTRACT', 1.0, chamber)), t.math('MULTIPLY', rc, chamber))
     # How much to stretch each section upward: the entrance to Entrance Height, the chamber to Ceiling Height.
     stretch = t.math('ADD', t.math('MULTIPLY', t.math('DIVIDE', H, r), t.math('SUBTRACT', 1.0, chamber)),
                      t.math('MULTIPLY', t.math('DIVIDE', gin["Ceiling Height"], rc), chamber))
-    path = t.node('GeometryNodeSetPosition', Geometry=line.outputs[0], Offset=t.vec(wiggle, 0.0, floor_at)).outputs[0]
-    path = t.store(t.store(path, "c_stretch", stretch), "c_floor", floor_at)
+    path = t.node('GeometryNodeSetPosition', Geometry=line.outputs[0], Offset=t.vec(t.math('ADD', sway, bend), 0.0, floor_at)).outputs[0]
+    path = t.store(t.store(t.store(path, "c_stretch", stretch), "c_floor", floor_at), "c_radius", radius)
     spheres = t.node('GeometryNodeMeshToPoints', Mesh=path, Radius=radius).outputs[0]
     voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)),
                                      t.math('ADD', 6.0, t.math('MULTIPLY', gin["Fine"], 8.0))), 0.08)
     sdf = t.node('GeometryNodePointsToSDFGrid', Points=spheres, Radius=t.node('GeometryNodeInputRadius').outputs[0], Voxel_Size=voxel)
     tube = t.node('GeometryNodeGridToMesh', Grid=sdf.outputs[0]).outputs[0]
 
-    # Each surface point takes the stretch and floor height of the nearest path point.
+    # Each surface point takes the stretch, floor height and passage size of the nearest path point.
     near = t.node('GeometryNodeSampleNearest', Geometry=spheres)
     near.domain = 'POINT'
 
@@ -506,36 +519,36 @@ def cave_group():
 
     p = t.xyz(t.position())
     fz = from_path("c_floor")
-    above = t.math('SUBTRACT', p["Z"], fz)
-    z_new = t.math('ADD', fz, t.math('MULTIPLY', above, from_path("c_stretch")))
-    # Rock on the walls and roof, none near the floor so it stays flat after the cut.
-    rn = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(r, r, r)), t.vec(seed, 0.0, 0.0)),
-                Scale=1.4, Detail=4.0, Roughness=0.6)
-    rn.noise_dimensions = '3D'
-    wall = t.smooth(above, t.math('MULTIPLY', r, 0.1), t.math('MULTIPLY', r, 0.45))
-    bump = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', rn.outputs["Fac"], 0.5), t.math('MULTIPLY', t.math('MULTIPLY', r, 0.6), gin["Roughness"])), wall)
-    nrm = t.node('GeometryNodeInputNormal').outputs[0]
-    shaped = t.node('GeometryNodeSetPosition', Geometry=tube, Position=t.vec(p["X"], p["Y"], z_new)).outputs[0]
-    rough = t.node('GeometryNodeSetPosition', Geometry=shaped, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
+    lr = from_path("c_radius")
+    z_s = t.math('MULTIPLY', t.math('SUBTRACT', p["Z"], fz), from_path("c_stretch"))
+    # The floor: the lower half folds up onto the floor with a rounded knee where it meets the walls
+    # (softplus, k ~ a tenth of the height), not a hard crease (Mike: interest where floor and walls meet).
+    # Each column of the tube has one bottom point, so the fold never doubles back on itself.
+    k = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MINIMUM', H, lr), 0.12), 0.05)
+    xk = t.math('DIVIDE', z_s, k)
+    soft = t.math('MULTIPLY', k, t.math('ADD', t.math('MAXIMUM', xk, 0.0),
+                                         t.math('LOGARITHM', t.math('ADD', 1.0, t.math('EXPONENT', t.math('MULTIPLY', t.math('ABSOLUTE', xk), -1.0))), 2.7182818)))
+    shaped = t.node('GeometryNodeSetPosition', Geometry=tube, Position=t.vec(p["X"], p["Y"], t.math('ADD', fz, soft))).outputs[0]
 
-    # The floor: keep everything above a plane through the mouth that falls by Drop over the depth
-    # (a clean Manifold cut; squashing points flat left debris in 5.2's first try).
-    slope = t.math('DIVIDE', gin["Drop"], t.math('MAXIMUM', D, 1e-3))
-    tilt = t.math('ARCTANGENT', slope)
-    big = t.math('MULTIPLY', t.math('ADD', t.math('ADD', D, W), t.math('ADD', gin["Ceiling Height"], gin["Chamber Size"])), 4.0)
-    cube = t.node('GeometryNodeMeshCube', Size=t.vec(big, big, big))
-    # Lift the cube half its size along the plane's normal (0, sin, cos) and tilt it to match.
-    half = t.math('MULTIPLY', big, 0.5)
-    box = t.node('GeometryNodeTransform', Geometry=cube.outputs["Mesh"],
-                 Translation=t.vec(0.0, t.math('MULTIPLY', half, t.math('SINE', tilt)), t.math('MULTIPLY', half, t.math('COSINE', tilt))),
-                 Rotation=t.vec(t.math('MULTIPLY', tilt, -1.0), 0.0, 0.0))
-    # Rotating +Z by -tilt about X gives (0, sin tilt, cos tilt): the normal of z = -slope * y.
-    cut = t.N.new('GeometryNodeMeshBoolean')
-    cut.operation = 'INTERSECT'
-    cut.solver = 'MANIFOLD'
-    t.L.new(rough, cut.inputs["Mesh 2"])
-    t.L.new(box.outputs[0], cut.inputs["Mesh 2"])
-    marked = t.store(cut.outputs["Mesh"], "lg_cave", True, 'BOOLEAN', 'FACE')
+    # Rock: broken walls and roof sized to the passage (so a narrow end can't pinch through), a gently
+    # uneven floor, and lumpier rubble along the foot of the walls.
+    def noise(scale, detail):
+        n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(scale, scale, scale)), t.vec(seed, 0.0, 0.0)),
+                   Scale=1.4, Detail=detail, Roughness=0.6)
+        n.noise_dimensions = '3D'
+        return t.math('SUBTRACT', n.outputs["Fac"], 0.5)
+
+    up = t.math('SUBTRACT', t.xyz(t.position())["Z"], fz)
+    wall = t.smooth(up, t.math('MULTIPLY', H, 0.08), t.math('MULTIPLY', H, 0.35))
+    foot = t.math('MULTIPLY', t.smooth(up, t.math('MULTIPLY', k, 0.2), t.math('MULTIPLY', k, 1.2)),
+                  t.math('SUBTRACT', 1.0, t.smooth(up, t.math('MULTIPLY', H, 0.15), t.math('MULTIPLY', H, 0.4))))
+    bump = t.math('MULTIPLY', gin["Roughness"],
+                  t.math('ADD', t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', t.math('MULTIPLY', lr, 0.55), wall)),
+                         t.math('MULTIPLY', noise(t.math('MULTIPLY', r, 0.35), 3.0),
+                                t.math('ADD', t.math('MULTIPLY', H, 0.08), t.math('MULTIPLY', t.math('MULTIPLY', lr, 0.35), foot)))))
+    nrm = t.node('GeometryNodeInputNormal').outputs[0]
+    rough = t.node('GeometryNodeSetPosition', Geometry=shaped, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
+    marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     t.L.new(smooth, gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION

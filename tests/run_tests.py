@@ -629,7 +629,7 @@ def _t14():
     dt = time.time() - t0
     check(closed, "the cave mesh should be closed (usable as a Boolean cutter)")
     near = floor[floor[:, 1] < c.depth * 0.5]
-    check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.05 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
+    check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.12 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
     sec = pts[np.abs(pts[:, 1] - c.width * 0.5) < c.width * 0.08]
     w, h = np.ptp(sec[:, 0]), sec[:, 2].max()
     check(abs(w / c.width - 1) < 0.3 and abs(h / c.height - 1) < 0.3, f"mouth {w:.1f} x {h:.1f} m, set {c.width:.0f} x {c.height:.0f} m")
@@ -643,7 +643,16 @@ def _t14():
     pd, closed3, _f, _n = cave_mesh(ob)
     low = pd[pd[:, 1] > c.depth * 0.85, 2].min()
     check(closed3 and -6.0 < low < -4.0, f"Drop 5 m: the floor at the back should be about 5 m down, got {low:.1f} m")
-    c.drop, c.seed = 0.0, 7
+    c.drop = 0.0
+    c.chamber, c.chamber_drop = 30.0, 8.0
+    pk, closed4, _f, _n = cave_mesh(ob)
+    sunk = pk[pk[:, 1] > c.depth * 0.85, 2].min()
+    check(closed4 and sunk < -6.0, f"Chamber Drop 8 m: the chamber floor should sink about 8 m, got {sunk:.1f} m")
+    c.chamber, c.chamber_drop, c.wiggle = 0.0, 0.0, 1.0
+    pw, _c, _f, _n = cave_mesh(ob)
+    mid = pw[(pw[:, 1] > c.width) & (pw[:, 2] > c.height * 0.3)]
+    check(mid[:, 0].min() < -c.width * 0.3 and mid[:, 0].max() > c.width * 0.3, "Wiggle should swing both left and right")
+    c.wiggle, c.seed = 0.3, 7
     p7, _c, _f, _n = cave_mesh(ob)
     check(len(p7) != len(pts) or not np.allclose(p7, pts), "a new seed should change the cave")
     return f"closed, {n:,} faces in {dt:.2f} s; mouth {w:.1f} x {h:.1f} m (set 12 x 6), flat floor, {pts[:, 1].max():.0f} m deep; chamber, drop, seed work"

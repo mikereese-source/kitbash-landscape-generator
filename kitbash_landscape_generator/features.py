@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 14
+CAVE_VERSION = 15
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -522,9 +522,18 @@ def cave_group():
     for i, v in enumerate(CAVE_DETAIL):
         per.inputs[i + 1].default_value = v
     voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)), per.outputs[0]), 0.04)
-    space = t.node('GeometryNodeMeshToSDFGrid', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=domes).outputs[0],
-                   Voxel_Size=voxel, Band_Width=3)
-    space_mesh = t.node('GeometryNodeGridToMesh', Grid=space.outputs[0]).outputs[0]
+
+    def level_set(parts):
+        """Overlapping closed parts -> one signed-distance field. Through a fog volume first, which merges overlaps
+        cleanly: a level set made straight from overlapping meshes kept their inner faces, and taking rubble out of
+        it left holes, loose pieces and pinches (Mike). Returns (grid, merged mesh)."""
+        fog = t.node('GeometryNodeMeshToVolume', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=parts).outputs[0],
+                     Density=1.0, Voxel_Size=voxel, Interior_Band_Width=t.math('MULTIPLY', voxel, 2.0))
+        fog.inputs["Resolution Mode"].default_value = 'Size'
+        skin = t.node('GeometryNodeVolumeToMesh', Volume=fog.outputs[0], Threshold=0.1).outputs[0]
+        return t.node('GeometryNodeMeshToSDFGrid', Mesh=skin, Voxel_Size=voxel, Band_Width=3).outputs[0], skin
+
+    space, space_mesh = level_set(domes)
 
     # Rubble at the foot of the walls (Mike: rocks, a blend like Mesa's talus), taken out of the same space:
     # two rows of rock lumps along the passage, one each side, of varied size. Rubble sets how many and how
@@ -601,24 +610,38 @@ def cave_group():
     bottom = t.math('SUBTRACT', t.math('MULTIPLY', t.math('MULTIPLY', gin["Drop"], -1.0), t.named("c_s")), gin["Chamber Drop"])
     walk_top = t.node('GeometryNodeSetPosition', Geometry=walk_pts.outputs["Points"],
                       Position=t.vec(wp["X"], wp["Y"], t.math('MAXIMUM', graded, bottom))).outputs[0]
-    on_ramp = t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.named("c_s"), 0.45))
+    # Only while the ramp still stands above the chamber floor (past that its edge rocks ran on across the
+    # chamber in a line; Mike).
+    walk_top = t.store(walk_top, "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom))
+    on_ramp = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.45),
+                                                 t.math('GREATER_THAN', t.named("c_above"), 0.3)))
     slab_box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
     slab = t.node('GeometryNodeTransform', Geometry=slab_box, Translation=(0.0, 0.0, -0.5)).outputs[0]  # top at the point
     deep = t.math('ADD', t.math('ADD', gin["Chamber Drop"], gin["Drop"]), t.math('MULTIPLY', H, 2.0))
+    # The ramp's width wanders (0.6 to 1.1 of the passage), so its edges aren't ruler-straight.
+    rw = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), Scale=1.5, Detail=2.0)
+    rw.noise_dimensions = '3D'
+    ramp_w = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 1.2, t.math('MULTIPLY', rw.outputs["Fac"], 1.0)))
+    walk_top = t.store(walk_top, "c_ramp_w", ramp_w)
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=walk_top, Selection=on_ramp, Instance=slab,
                    Rotation=t.vec(0.0, 0.0, t.named("c_heading")),
-                   Scale=t.vec(t.math('MULTIPLY', t.named("c_narrow"), 1.6), 1.2, deep)).outputs[0]
+                   Scale=t.vec(t.named("c_ramp_w"), 1.2, deep)).outputs[0]
     edge = t.node('GeometryNodeDuplicateElements', Geometry=walk_top, Amount=1)
     edge.domain = 'POINT'
     edges = t.node('GeometryNodeJoinGeometry')
     t.L.new(walk_top, edges.inputs[0])
     t.L.new(t.store(edge.outputs["Geometry"], "c_side", 1.0), edges.inputs[0])
     out_dir = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)  # the slab's local X
+    # Edge rocks scattered, not a row (Mike: it looked man-made): sparse, pushed in or out from the edge and
+    # along it at random, mostly small with the odd boulder.
+    heading_v = t.vec(t.math('MULTIPLY', t.math('SINE', t.named("c_heading")), -1.0), t.math('COSINE', t.named("c_heading")), 0.0)
+    sideways = t.math('MULTIPLY', t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0),
+                      t.math('MULTIPLY', t.named("c_ramp_w"), rand(0.35, 0.62, 83)))
     edge_pts = t.node('GeometryNodeSetPosition', Geometry=edges.outputs[0],
-                      Offset=t.vmath('SCALE', out_dir, scale=t.math('MULTIPLY', t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0),
-                                                                     t.math('MULTIPLY', t.named("c_narrow"), 0.8)))).outputs[0]
-    edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.25, t.math('MULTIPLY', gin["Rubble"], 0.5))))
-    edge_size = t.math('MULTIPLY', t.named("c_narrow"), rand(0.12, 0.28, 67))
+                      Offset=t.vmath('ADD', t.vmath('SCALE', out_dir, scale=sideways),
+                                     t.vmath('SCALE', heading_v, scale=rand(-1.5, 1.5, 89)))).outputs[0]
+    edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.25))))
+    edge_size = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35)))
     edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=lumpy,
                         Rotation=t.vec(rand(0.0, 6.28, 71), rand(0.0, 6.28, 73), rand(0.0, 6.28, 79)),
                         Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
@@ -628,13 +651,23 @@ def cave_group():
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it
     # (merging the rocks into the space carved hollows into the walls instead of piling rock at their foot).
-    rubble = t.node('GeometryNodeMeshToSDFGrid', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=solids.outputs[0]).outputs[0],
-                    Voxel_Size=voxel, Band_Width=3)
+    rubble, _rock_skin = level_set(solids.outputs[0])
     carve = t.N.new('GeometryNodeSDFGridBoolean')
     carve.operation = 'DIFFERENCE'
-    t.L.new(space.outputs[0], carve.inputs["Grid 1"])
-    t.L.new(rubble.outputs[0], carve.inputs["Grid 2"])
-    merged = t.node('GeometryNodeGridToMesh', Grid=carve.outputs[0]).outputs[0]
+    t.L.new(space, carve.inputs["Grid 1"])
+    t.L.new(rubble, carve.inputs["Grid 2"])
+    rounded = t.node('GeometryNodeSDFGridFillet', Grid=carve.outputs[0], Iterations=1)  # closes thin slits (pinches)
+    whole = t.node('GeometryNodeGridToMesh', Grid=rounded.outputs[0]).outputs[0]
+    # One piece: drop any loose bits (a rock that just grazed the space left slivers floating).
+    island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
+    acc = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=island)
+    acc.domain = 'POINT'
+    biggest = t.node('GeometryNodeAttributeStatistic', Geometry=whole, Attribute=acc.outputs["Total"])
+    biggest.domain = 'POINT'
+    loose = t.node('GeometryNodeDeleteGeometry', Geometry=whole,
+                   Selection=t.math('LESS_THAN', acc.outputs["Total"], t.math('SUBTRACT', biggest.outputs["Max"], 0.5)))
+    loose.domain = 'POINT'
+    merged = loose.outputs[0]
 
     # Rock on walls and roof, sized to the passage; the floor (faces looking down, out of the cave's space)
     # stays a walkable, gently uneven floor.

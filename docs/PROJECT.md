@@ -4,7 +4,7 @@
 
 **Track:** full
 **Stage:** Build (pre-Alpha)
-**Current milestone:** M5 — Cliffs, caves, stalactites (step 5.1 done; 5.2 next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
+**Current milestone:** M5 — Cliffs, caves, stalactites (step 5.1 done; re-planned 2026-10-28, D93; 5.2 cave object next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
 **Last updated:** 2026-10-28
 
 ## Pre-build checklist
@@ -87,12 +87,12 @@ Every plan includes an errors & edge cases milestone and a final check.
 | Step | What | Size |
 |---|---|---|
 | 5.1 | Volume patch core (settles D9): only a box around each feature goes through the SDF stage; the grid cells under it are cut out and the patch is stitched back watertight. Coarse voxels at Preview, fine at High; a voxel budget falls back to coarser voxels with a warning (E5). Masks carried onto the patch | L — done 2026-10-28 (T30 PASS, 25/25; D92) |
-| 5.2 | Caves: Entrance, Entrance + Tunnel, Entrance + Cavern (D10). Entrance placed on a steep face from the slope mask, with a Facing control; Tunnel Length, Width, Wiggle, Descent; Cavern Size, Ceiling Height (T14) | L |
-| 5.3 | Cliff features: Side Cliffs (slopes steepened into rock walls), Overhangs (walls undercut), Arches (a hole through a fin or ridge) | M–L |
-| 5.4 | Stalactites and stalagmites: instanced cones with the unsharp pass for sharp tips (D11), only on cave ceilings and floors (T15) | M |
-| 5.5 | Cave type in the gallery (hidden since D31); Bake and Restore with patches; the patch as its own mesh for Unreal (D89) | M |
-| 5.6 | Tests (T14, T15, seam, timing, E5), then the gate: checker, rollback zip, Mike sign-off | M |
-
+| 5.2 | Cave object (D93): a standalone cave you place like the butte. A noisy rock hull outside, the cave inside; Entrance Width, Height, Depth, Wiggle; shows its hull until carved. Built from the 5.1 SDF pieces (T14 reworked for it) | L |
+| 5.3 | Carve and cut: pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut); the same hull works as a cutter on any mesh, Kits included, with a Boolean modifier | M |
+| 5.4 | Stalactites and stalagmites inside the cave object: instanced cones with the unsharp pass (D11), ceilings and floors only (T15) | M |
+| 5.5 | Cave landscape type (shown in the gallery, D31): styles Wide Walk-in, Rock Shelter, Sea Cave, Lava Tube (RESEARCH-caves.md), each a landscape shaped for its cave with the cave object carved in | L |
+| 5.6 | Cliff features: Side Cliffs, Overhangs, Arches, with the same cut | M–L |
+| 5.7 | Bake and Restore with caves; the cave as its own mesh for Unreal (D89); tests, then the gate: checker, rollback zip, Mike sign-off | M |
 **Build**
 | # | Milestone | Definition of done | Status |
 |---|-----------|--------------------|--------|

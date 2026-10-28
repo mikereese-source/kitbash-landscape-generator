@@ -82,6 +82,29 @@ for each in `sources.json`; CC BY / CC BY-SA / CC0, internal reference only). Co
 3. Fallen rock is **heaped** under where it fell, biggest blocks lowest.
 4. Small detail (scallops, flowstone texture, crystals) is for the M6 material, not the mesh.
 
+## How I'd build it (proposal for Mike, D105; nothing built yet)
+1. **Shell density first.** Keep working the shape out on the coarse grid (fast), then smoothly subdivide the
+   shell to about 150k / 1M / 4M faces at Preview / High / Ultra, so it's as dense as the face budget allows.
+   Wall detail is applied after that, at the fine surface, so it can't facet into a turtle shell.
+2. **Walls from planes, by Rock** (a new choice on the cave):
+   - **Limestone** (default): flat bedding planes across the whole cave, 0.5–2 m apart with varied thickness. Each
+     bed steps the wall in or out a little and some get an undercut notch at their base. The roof snaps flat
+     to the nearest bed above the passage. A long, gentle wobble keeps it from looking machined.
+   - **Jointed** (sea caves, cliffs): a few long, straight vertical fracture planes per passage, each pushing the
+     wall in or out as a flat face; the beds weaker. A smooth wave-worn band low down when it opens to water.
+   - **Lava tube**: a smooth round section, only two or three long horizontal flow ledges, little break-up.
+   - Roughness then adds broken rock on top, at sizes the face budget can show. The pass-1 cell pattern and
+     dishes go.
+3. **Rocks as separate instances**, never cut into the shell:
+   - **Breakdown heaps**: fallen blocks piled where they'd fall, under the roof and at the wall foot, big blocks
+     lowest, scattered smaller ones around. Rubble sets how many.
+   - **Slabby rubble** under limestone beds, round boulders in lava tubes, angular blocks for jointed rock.
+   - **Swappable**: each kind comes from a rock collection (KitBash rocks by default); swap in your own meshes
+     for a game look. Made real when baked; instances in Unreal.
+4. **Stalactites and stalagmites (pass 2)** the same way, as instances (with flowstone drapes from ledges).
+5. **Floor detail (pass 3)**: the smooth sediment floor from the Mammoth passages, puddle hollows, slabs.
+6. **Material detail (M6)**: scallops, flowstone and crystal texture as normal maps.
+
 ## Photos (downloaded 2026-10-28, Mike approved)
 Saved with the other downloaded references in `E:\Projects\3D\Terrain Generator_Build\Terrain References\cave-photos\`
 (11 files, about 30 MB; licence and source page for each in `sources.json`). Contact sheet:

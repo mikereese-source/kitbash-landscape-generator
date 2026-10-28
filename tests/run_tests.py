@@ -624,11 +624,12 @@ def _t14():
     ob = bpy.context.view_layer.objects.active
     c = ob.lg_cave
     check(c.is_cave and lg.caves.cave_modifier(ob), "Add Cave should make a cave object")
+    c.wiggle = 0.0  # straight, so the walkway is the middle strip (talus rises at the sides)
     t0 = time.time()
     pts, closed, floor, n = cave_mesh(ob)
     dt = time.time() - t0
     check(closed, "the cave mesh should be closed (usable as a Boolean cutter)")
-    near = floor[floor[:, 1] < c.depth * 0.5]
+    near = floor[(floor[:, 1] < c.depth * 0.5) & (np.abs(floor[:, 0]) < c.width * 0.2)]  # the walkway; talus rises at the sides
     check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.12 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
     sec = pts[np.abs(pts[:, 1] - c.width * 0.5) < c.width * 0.08]
     w, h = np.ptp(sec[:, 0]), sec[:, 2].max()
@@ -648,11 +649,11 @@ def _t14():
     pk, closed4, _f, _n = cave_mesh(ob)
     sunk = pk[pk[:, 1] > c.depth * 0.85, 2].min()
     check(closed4 and sunk < -6.0, f"Chamber Drop 8 m: the chamber floor should sink about 8 m, got {sunk:.1f} m")
-    c.chamber, c.chamber_drop, c.wiggle = 0.0, 0.0, 1.0
+    c.chamber, c.chamber_drop, c.wiggle, c.depth = 0.0, 0.0, 1.0, 60.0  # room for a swing each way
     pw, _c, _f, _n = cave_mesh(ob)
     mid = pw[(pw[:, 1] > c.width) & (pw[:, 2] > c.height * 0.3)]
     check(mid[:, 0].min() < -c.width * 0.3 and mid[:, 0].max() > c.width * 0.3, "Wiggle should swing both left and right")
-    c.wiggle = 0.3
+    c.wiggle, c.depth = 0.3, 30.0
     c.detail = 'HIGH'
     _p, closed5, _f, n_high = cave_mesh(ob)
     check(closed5 and n_high > n * 2, f"High detail should build a finer cave: {n:,} -> {n_high:,} faces")

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 3
+CAVE_VERSION = 7
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -475,15 +475,20 @@ def cave_group():
     line = t.node('GeometryNodeMeshLine', Count=count, Start_Location=t.vec(0.0, y0, 0.0),
                   Offset=t.vec(0.0, t.math('DIVIDE', t.math('SUBTRACT', D, y0), t.math('SUBTRACT', count, 1.0)), 0.0))
     s = t.math('DIVIDE', t.node('GeometryNodeInputIndex').outputs[0], t.math('MAXIMUM', t.math('SUBTRACT', count, 1.0), 1.0))  # 0 mouth .. 1 back
-    # Wander left and right evenly: a swing about every 3.5 entrance widths, its size varied by noise (plain
-    # noise drifted to one side, Mike). Turn bends the whole passage left (-1) or right (+1). The first part
-    # stays straight so the mouth faces out.
-    swing = t.math('SINE', t.math('ADD', t.math('DIVIDE', t.math('MULTIPLY', s, t.math('MULTIPLY', D, 6.2832)), t.math('MULTIPLY', W, 3.5)),
-                                  t.math('MULTIPLY', gin["Seed"], 1.7)))
-    wn = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', t.math('MULTIPLY', s, D), t.math('MULTIPLY', W, 2.0)), seed, 0.0), Scale=1.0, Detail=1.0)
+    # Wander left and right: the passage leaves the mouth straight, then swings right first (Wiggle > 0) or
+    # left first (< 0), each swing's size varied by noise (plain noise drifted to one side, Mike). Turn bends
+    # the whole passage left (-1) or right (+1).
+    # A swing every 3.5 entrance widths (Mike likes the zigzag), each no wider than keeps the bend at least as
+    # round as the passage (at full Wiggle the inner corner pinched): radius = wave^2 / (4 pi^2 amp) >= 0.9 r,
+    # with 1.6 for the noise that varies each swing.
+    wave = t.math('MULTIPLY', W, 3.5)
+    amp = t.math('MINIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.math('ABSOLUTE', gin["Wiggle"]), W), 1.2),
+                 t.math('DIVIDE', t.math('MULTIPLY', wave, wave), t.math('MULTIPLY', r, 39.48 * 0.9 * 1.6)))
+    swing = t.math('SINE', t.math('DIVIDE', t.math('MULTIPLY', t.math('MULTIPLY', s, D), 6.2832), wave))
+    wn = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', t.math('MULTIPLY', s, D), wave), seed, 0.0), Scale=1.0, Detail=1.0)
     wn.noise_dimensions = '2D'
-    sway = t.math('MULTIPLY', t.math('MULTIPLY', swing, t.math('ADD', 0.4, t.math('MULTIPLY', wn.outputs["Fac"], 1.2))),
-                  t.math('MULTIPLY', t.math('MULTIPLY', gin["Wiggle"], W), 1.2))
+    side = t.math('SIGN', gin["Wiggle"])
+    sway = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', swing, t.math('ADD', 0.4, t.math('MULTIPLY', wn.outputs["Fac"], 1.2))), amp), side)
     sway = t.math('MULTIPLY', sway, t.smooth(s, 0.0, 0.2))
     bend = t.math('MULTIPLY', t.math('MULTIPLY', gin["Turn"], t.math('MULTIPLY', D, 0.35)), t.math('MULTIPLY', s, s))
     chamber = t.math('MULTIPLY', t.smooth(s, 0.6, 0.9), has_chamber)
@@ -512,17 +517,21 @@ def cave_group():
     sdf = t.node('GeometryNodePointsToSDFGrid', Points=spheres, Radius=t.node('GeometryNodeInputRadius').outputs[0], Voxel_Size=voxel)
     tube = t.node('GeometryNodeGridToMesh', Grid=sdf.outputs[0]).outputs[0]
 
-    # Each surface point takes the stretch, floor height and passage size of the nearest path point.
-    near = t.node('GeometryNodeSampleNearest', Geometry=spheres)
-    near.domain = 'POINT'
+    # Each surface point takes the stretch, floor height and passage size from the path, blended between
+    # path points: read off a thin ribbon along the path (taking the nearest point's values jumped from one to
+    # the next, which made regular steps with Drop and a crease at sharp bends; Mike).
+    as_curve = t.node('GeometryNodeMeshToCurve', Mesh=path).outputs[0]
+    as_curve = t.store(as_curve, "c_dir", t.node('GeometryNodeInputTangent').outputs[0], 'FLOAT_VECTOR')
+    blade = t.node('GeometryNodeCurvePrimitiveLine', Start=t.vec(-0.05, 0.0, 0.0), End=t.vec(0.05, 0.0, 0.0)).outputs[0]
+    ribbon = t.node('GeometryNodeCurveToMesh', Curve=as_curve, Profile_Curve=blade).outputs[0]
+    ribbon = t.store(ribbon, "c_centre", t.position(), 'FLOAT_VECTOR')
 
-    def from_path(name):
-        n = t.N.new('GeometryNodeSampleIndex')
-        n.data_type, n.domain = 'FLOAT', 'POINT'
-        t._set(n.inputs["Geometry"], spheres)
-        t._set(n.inputs["Value"], t.named(name))
-        t._set(n.inputs["Index"], near.outputs[0])
-        return n.outputs[0]
+    def from_path(name, data_type='FLOAT'):
+        n = t.N.new('GeometryNodeSampleNearestSurface')
+        n.data_type = data_type
+        t._set(n.inputs["Mesh"], ribbon)
+        t._set(n.inputs["Value"], t.named(name, data_type))
+        return n.outputs["Value"]
 
     p = t.xyz(t.position())
     fz = from_path("c_floor")
@@ -535,7 +544,28 @@ def cave_group():
     xk = t.math('DIVIDE', z_s, k)
     soft = t.math('MULTIPLY', k, t.math('ADD', t.math('MAXIMUM', xk, 0.0),
                                          t.math('LOGARITHM', t.math('ADD', 1.0, t.math('EXPONENT', t.math('MULTIPLY', t.math('ABSOLUTE', xk), -1.0))), 2.7182818)))
-    shaped = t.node('GeometryNodeSetPosition', Geometry=tube, Position=t.vec(p["X"], p["Y"], t.math('ADD', fz, soft))).outputs[0]
+    # A talus apron where floor meets walls (Mike: a blend like Mesa's): out from the middle the floor ramps up
+    # into the walls, the ramp's height and reach wandering along the passage, so the foot isn't one even curve.
+    c = t.xyz(from_path("c_centre", 'FLOAT_VECTOR'))
+    # Sideways distance only: past the ends of the path the gap along it isn't "toward the wall" (it lifted
+    # the floor at the mouth).
+    off = t.vec(t.math('SUBTRACT', p["X"], c["X"]), t.math('SUBTRACT', p["Y"], c["Y"]), 0.0)
+    along = from_path("c_dir", 'FLOAT_VECTOR')
+    side_off = t.vmath('SUBTRACT', off, t.vmath('SCALE', along, scale=t.vmath('DOT_PRODUCT', off, along)))
+    lat = t.math('DIVIDE', t.vmath('LENGTH', side_off), t.math('MAXIMUM', lr, 1e-3))
+    an = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), t.vec(0.0, seed, 3.1)),
+                Scale=1.2, Detail=2.0)
+    an.noise_dimensions = '3D'
+    reach = t.math('ADD', 0.35, t.math('MULTIPLY', an.outputs["Fac"], 0.3))  # where the apron starts, from the middle
+    ramp = t.math('POWER', t.smooth(lat, reach, 1.0), 1.6)
+    apron = t.math('MULTIPLY', t.math('MULTIPLY', ramp, t.math('MULTIPLY', t.math('MINIMUM', H, lr), 0.45)),
+                   t.math('ADD', 0.3, t.math('MULTIPLY', an.outputs["Fac"], 1.4)))
+    # Lift the bottom by A and taper the lift to nothing 2.5 A up, so heights in each column keep their order
+    # (lifting only the floor folded it over the foot of the wall: a lip, and a mesh no cutter can use).
+    a = t.math('MAXIMUM', t.math('MULTIPLY', apron, gin["Roughness"]), 1e-4)
+    lift = t.math('MULTIPLY', a, t.math('MAXIMUM', t.math('SUBTRACT', 1.0, t.math('DIVIDE', soft, t.math('MULTIPLY', a, 2.5))), 0.0))
+    z_fin = t.math('ADD', t.math('ADD', fz, soft), lift)
+    shaped = t.node('GeometryNodeSetPosition', Geometry=tube, Position=t.vec(p["X"], p["Y"], z_fin)).outputs[0]
 
     # Rock: broken walls and roof sized to the passage (so a narrow end can't pinch through), a gently
     # uneven floor, and lumpier rubble along the foot of the walls.

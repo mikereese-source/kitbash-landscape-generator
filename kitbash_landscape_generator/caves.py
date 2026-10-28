@@ -58,8 +58,8 @@ class LG_CaveProps(PropertyGroup):
                           default=6.0, min=0.5, soft_max=100.0, unit='LENGTH', update=_sync)
     depth: FloatProperty(name="Depth", description="How far the cave runs back from the mouth",
                          default=30.0, min=1.0, soft_max=500.0, unit='LENGTH', update=_sync)
-    wiggle: FloatProperty(name="Wiggle", description="A straight passage, or one that winds from side to side",
-                          default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    wiggle: FloatProperty(name="Wiggle", description="A straight passage (0), or one that winds from side to side: swinging right first (+) or left first (-)",
+                          default=0.3, min=-1.0, max=1.0, update=_sync)
     turn: FloatProperty(name="Turn", description="Bend the passage: left (-1), straight (0) or right (+1)",
                         default=0.0, min=-1.0, max=1.0, update=_sync)
     drop: FloatProperty(name="Drop", description="How far the floor falls from the mouth to the back. 0 keeps it level",

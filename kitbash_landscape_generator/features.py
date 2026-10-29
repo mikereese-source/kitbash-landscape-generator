@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 28
+CAVE_VERSION = 29
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -842,7 +842,16 @@ def cave_group():
 
     # Lava tube: a smooth, round tube with little break-up and two long flow ledges along the walls (lips where
     # the lava level stood), a third and two thirds of the way up.
-    lv = t.math('DIVIDE', pz["Z"], t.math('MULTIPLY', H, 0.33))
+    # The floor from the closest point along the path's line, so it runs smoothly between path points (the
+    # nearest point alone gave the ledges steps).
+    along = t.node('GeometryNodeProximity', Geometry=path)
+    along.target_element = 'EDGES'
+    floor_here = t.xyz(along.outputs["Position"])["Z"]
+    # The section's height the same smooth way: worked out from how far along the path that closest point is.
+    s_here = t.math('DIVIDE', t.math('SUBTRACT', t.xyz(along.outputs["Position"])["Y"], y0), t.math('MAXIMUM', t.math('SUBTRACT', D, y0), 1e-3))
+    ch_here = t.math('MULTIPLY', t.smooth(s_here, 0.6, 0.9), has_chamber)
+    tall_here = t.math('ADD', t.math('MULTIPLY', H, t.math('SUBTRACT', 1.0, ch_here)), t.math('MULTIPLY', gin["Ceiling Height"], ch_here))
+    lv = t.math('DIVIDE', t.math('SUBTRACT', pz["Z"], floor_here), t.math('MULTIPLY', tall_here, 0.33))
     kl, fl = t.math('FLOOR', lv), t.math('FRACT', lv)
     near_line = t.math('SUBTRACT', 1.0, t.smooth(t.math('MINIMUM', fl, t.math('SUBTRACT', 1.0, fl)), 0.0, 0.07))
     two_lines = t.math('MULTIPLY', t.math('GREATER_THAN', lv, 0.5), t.math('LESS_THAN', lv, 2.5))
@@ -867,7 +876,14 @@ def cave_group():
     # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.
     with_rocks = t.node('GeometryNodeJoinGeometry')
     t.L.new(smooth, with_rocks.inputs[0])
-    t.L.new(boulders.outputs[0], with_rocks.inputs[0])
+    # Every rock settles onto the finished shell below it: they were dropped onto the coarse shape (and the
+    # ramp's own mesh), which smoothing and wall detail move a little, so some floated (Mike's ramp slab).
+    settle = t.node('GeometryNodeRaycast', Target_Geometry=smooth,
+                    Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
+                    Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
+    settled = t.node('GeometryNodeSetPosition', Geometry=boulders.outputs[0], Selection=settle.outputs["Is Hit"],
+                     Position=settle.outputs["Hit Position"]).outputs[0]
+    t.L.new(settled, with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

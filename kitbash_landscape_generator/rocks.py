@@ -11,10 +11,15 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 2
+LIBRARY_VERSION = 3
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
-# floor. Size -> (how many, size range against a medium rock, detail of the mesh).
+# floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 SIZES = (("Big", 4, (2.0, 3.0), 5), ("Medium", 8, (1.0, 1.0), 4), ("Small", 8, (0.33, 0.5), 3))
+# Each rock at every Detail Level (Mike), the same shape finer or coarser: the High rocks are the kit itself;
+# Preview and Ultra copies sit in collections named "<size collection> Preview" / "Ultra" in a hidden
+# KB Cave Rocks Levels collection. Level -> mesh detail against High.
+LEVELS = (("Preview", -1), ("High", 0), ("Ultra", 1))
+LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Family -> seed. A medium rock fits -1..1 across, big and small ones are that times their size; every pivot
 # is 45% of the way up from the centre, so it sits partly buried in what it rests on (resting on top left thin
 # slits; Mike).
@@ -45,7 +50,7 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
     verts = bm.verts
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     if family == "Blocks":
-        stretch = Vector((1.0, rng.uniform(0.75, 1.0), rng.uniform(0.6, 0.85)))
+        stretch = Vector((1.0, rng.uniform(0.45, 1.0), rng.uniform(0.45, 0.85)))  # some long blocks
         for v in verts:
             v.co = v.co * stretch
         for axis in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((0, 0, 1)), Vector((0, 0, -1))):
@@ -55,7 +60,7 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
             _clip(verts, *_plane(rng))
         grain = 0.03
     elif family == "Scree":
-        stretch = Vector((1.0, rng.uniform(0.6, 0.9), rng.uniform(0.22, 0.35)))
+        stretch = Vector((1.0, rng.uniform(0.3, 0.8), rng.uniform(0.15, 0.3)))  # long, thin, slate-like
         for v in verts:
             v.co = v.co * stretch
         tilt = Vector((rng.uniform(-0.15, 0.15), rng.uniform(-0.15, 0.15), 1.0)).normalized()
@@ -66,21 +71,21 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
             _clip(verts, n, rng.uniform(0.45, 0.8))
         grain = 0.015
     elif family == "Boulders":
-        stretch = Vector((1.0, rng.uniform(0.75, 0.95), rng.uniform(0.5, 0.75)))
+        stretch = Vector((1.0, rng.uniform(0.5, 0.95), rng.uniform(0.45, 0.75)))
         for v in verts:
             d = noise.noise(v.co * 1.2 + off) * 0.12
             v.co = v.co * stretch * (1.0 + d)
         _clip(verts, Vector((0, 0, -1)), stretch.z * 0.75)  # a flattened underside, as it settled
         grain = 0.008
     else:  # Lava
-        stretch = Vector((1.0, rng.uniform(0.7, 1.0), rng.uniform(0.6, 0.9)))
+        stretch = Vector((1.0, rng.uniform(0.5, 1.0), rng.uniform(0.5, 0.85)))
         for v in verts:
-            lumps = noise.fractal(v.co * 1.6 + off, 0.7, 2.2, 4) * 0.22
-            pits = max(noise.noise(v.co * 5.0 + off) - 0.25, 0.0) * 0.35  # gas pockets
+            lumps = noise.fractal(v.co * 1.4 + off, 0.6, 2.0, 3) * 0.14
+            pits = max(noise.noise(v.co * 3.0 + off) - 0.3, 0.0) * 0.2  # gas pockets
             v.co = v.co * stretch * (1.0 + lumps - pits)
-        for _ in range(rng.randint(1, 3)):
+        for _ in range(rng.randint(2, 4)):  # broken faces, so it reads as rubble, not a sponge
             _clip(verts, *_plane(rng))
-        grain = 0.04
+        grain = 0.02
     bm.normal_update()
     for v in verts:  # a fine surface grain over every family
         v.co += v.normal * noise.noise(v.co * 9.0 + off) * grain
@@ -111,21 +116,36 @@ def ensure_library():
             bpy.data.meshes.remove(me)
     for child in list(top.children_recursive):
         bpy.data.collections.remove(child)
+    levels = bpy.data.collections.get(LEVEL_LIBRARY) or bpy.data.collections.new(LEVEL_LIBRARY)
+    for ob in list(levels.all_objects):
+        me = ob.data
+        bpy.data.objects.remove(ob)
+        if me is not None and me.users == 0:
+            bpy.data.meshes.remove(me)
+    for child in list(levels.children_recursive):
+        bpy.data.collections.remove(child)
     for family, seed in FAMILIES.items():
         rng = random.Random(seed)
         kit = bpy.data.collections.new(f"{LIBRARY} {family}")
         top.children.link(kit)
         for size, count, (lo, hi), subdivisions in SIZES:
-            coll = bpy.data.collections.new(f"{LIBRARY} {family} {size}")
-            kit.children.link(coll)
+            name = f"{LIBRARY} {family} {size}"
+            colls = {}
+            for level, _step in LEVELS:
+                colls[level] = bpy.data.collections.new(name if level == "High" else f"{name} {level}")
+                (kit if level == "High" else levels).children.link(colls[level])
             for i in range(count):
-                bm = _rock(family, rng, rng.uniform(lo, hi), subdivisions)
-                me = bpy.data.meshes.new(f"KB Rock {family} {size} {i + 1}")
-                bm.to_mesh(me)
-                bm.free()
-                me.shade_smooth()
-                me.set_sharp_from_angle(angle=0.7 if family != "Boulders" else 3.14)
-                coll.objects.link(bpy.data.objects.new(me.name, me))
+                state = rng.getstate()
+                for level, step in LEVELS:  # the same draws at every level: the same rock, finer or coarser
+                    rng.setstate(state)
+                    bm = _rock(family, rng, rng.uniform(lo, hi), subdivisions + step)
+                    me = bpy.data.meshes.new(f"KB Rock {family} {size} {i + 1}" + ("" if level == "High" else f" {level}"))
+                    bm.to_mesh(me)
+                    bm.free()
+                    me.shade_smooth()
+                    me.set_sharp_from_angle(angle=0.7 if family != "Boulders" else 3.14)
+                    colls[level].objects.link(bpy.data.objects.new(me.name, me))
+    levels.use_fake_user = True
     top.use_fake_user = True  # kept in the file though no scene shows it
     top["kb_version"] = LIBRARY_VERSION
     return top
@@ -146,6 +166,14 @@ def sizes(kit):
     if not any(found.values()):
         return None, kit, None
     return found["Big"], found["Medium"], found["Small"]
+
+
+def at_level(coll, level):
+    """A rock collection's copy at a Detail Level ("<name> Preview" / "Ultra"), or the collection itself when
+    it has none (an artist's own rocks)."""
+    if coll is None or level == "High":
+        return coll
+    return bpy.data.collections.get(f"{coll.name} {level}") or coll
 
 
 def layout_review(scene, name="Rock Review"):

@@ -24,7 +24,8 @@ def cave_modifier(ob):
 CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth": "Depth", "wiggle": "Wiggle",
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
                 "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "layers": "Layers",
-                "roughness": "Roughness", "seed": "Seed"}
+                "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
+                "spread": "Spread"}
 
 
 def sync_cave(ob):
@@ -37,7 +38,7 @@ def sync_cave(ob):
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
-            nodes.input_socket(mod, f"{use} {size}").value = coll
+            nodes.input_socket(mod, f"{use} {size}").value = rocks.at_level(coll, ob.lg_cave.detail.title())
     ob.update_tag()
 
 
@@ -86,6 +87,14 @@ class LG_CaveProps(PropertyGroup):
                       default=0, min=0, max=99999, update=_sync)
     detail: EnumProperty(name="Detail Level", description="How finely the cave's rock is built: light while placing it, heavy for the finished shot",
                          items=DETAIL_ITEMS, default='PREVIEW', update=_sync)
+    rock_size: FloatProperty(name="Rock Size", description="Make every rock smaller or bigger",
+                             default=1.0, min=0.1, soft_max=3.0, update=_sync)
+    stretch: FloatProperty(name="Stretch", description="Square rocks (0), or drawn out long, like slabs of slate (1)",
+                           default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    tilt: FloatProperty(name="Tilt", description="Rocks lying flat (0), or tipped every which way (1)",
+                        default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    spread: FloatProperty(name="Spread", description="Rocks kept tight to the walls (0), or strewn out across the floor (1)",
+                          default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # Which rock kits: rocks.py builds KB Cave Rocks (four kits, each Big / Medium / Small); any collection works.
     rubble_rocks: PointerProperty(name="Rubble Rocks", type=bpy.types.Collection, update=_sync,
                                   description="The rock kit fallen along the foot of the walls: a collection with Big, Medium and Small collections inside (or one plain collection of rocks)")
@@ -112,7 +121,7 @@ class LG_OT_randomize_cave(Operator):
 # What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
-               "ramp", "roughness", "rubble", "layers")
+               "ramp", "roughness", "rubble", "layers", "rock_size", "stretch", "tilt", "spread")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -212,9 +221,15 @@ def draw_section(layout, context):
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "layers", slider=True)
-    sub = col.column(align=True)
-    sub.prop(props, "rubble_rocks", text="Rubble Rocks")
-    sub.prop(props, "scree_rocks", text="Scree Rocks")
+    header, sub = box.panel("lg_cave_rocks", default_closed=False)
+    header.label(text="Rocks")
+    if sub:
+        sub.prop(props, "rubble_rocks", text="Rubble Rocks")
+        sub.prop(props, "scree_rocks", text="Scree Rocks")
+        sub.prop(props, "rock_size")
+        sub.prop(props, "stretch", slider=True)
+        sub.prop(props, "tilt", slider=True)
+        sub.prop(props, "spread", slider=True)
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 25
+CAVE_VERSION = 26
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -436,6 +436,9 @@ CAVE_INPUTS = (
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
     ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Layers", 'NodeSocketFloat', 0.4), ("Roughness", 'NodeSocketFloat', 0.5),
+    # How the rocks are spread (Mike): their size, how long they are, how far they tip, how far they strew.
+    ("Rock Size", 'NodeSocketFloat', 1.0), ("Stretch", 'NodeSocketFloat', 0.3), ("Tilt", 'NodeSocketFloat', 0.5),
+    ("Spread", 'NodeSocketFloat', 0.5),
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
     # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
@@ -568,7 +571,7 @@ def cave_group():
     t.L.new(path, rows.inputs[0])
     t.L.new(t.store(both.outputs["Geometry"], "c_side", 1.0), rows.inputs[0])
     sidev = t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_side"), 2.0), 1.0)  # -1 one side, +1 the other
-    reach_out = t.math('MULTIPLY', t.named("c_radius"), rand(0.72, 0.92, 11))
+    reach_out = t.math('MULTIPLY', t.named("c_radius"), t.math('SUBTRACT', 0.92, t.math('MULTIPLY', rand(0.0, 0.4, 11), gin["Spread"])))
     foot = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
                   Offset=t.vmath('SCALE', t.named("c_across", 'FLOAT_VECTOR'), scale=t.math('MULTIPLY', sidev, reach_out))).outputs[0]
     # Each rock drops onto the floor below it (where the passage meets a sunk chamber, the floor is lower
@@ -587,8 +590,8 @@ def cave_group():
     across_v = t.named("c_across", 'FLOAT_VECTOR')
     along_v = t.vec(t.math('MULTIPLY', t.xyz(across_v)["Y"], -1.0), t.xyz(across_v)["X"], 0.0)
     pebble_at = t.node('GeometryNodeSetPosition', Geometry=strewn.outputs["Geometry"],
-                       Offset=t.vmath('ADD', t.vmath('SCALE', across_v, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(0.2, 0.95, 131)))),
-                                      t.vmath('SCALE', along_v, scale=t.math('MULTIPLY', t.named("c_radius"), rand(-0.6, 0.6, 137))))).outputs[0]
+                       Offset=t.vmath('ADD', t.vmath('SCALE', across_v, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), t.math('SUBTRACT', 0.95, t.math('MULTIPLY', rand(0.0, 1.5, 131), gin["Spread"]))))),
+                                      t.vmath('SCALE', along_v, scale=t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(-1.2, 1.2, 137), gin["Spread"]))))).outputs[0]
     pebble_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
                         Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
@@ -606,9 +609,12 @@ def cave_group():
     def scatter(points, selection, kit, size, seed):
         """One size of a kit on its points: each rock picked at random, turned about the vertical with a small
         tilt (the buried side stays down) and stretched a little. Big and small rocks carry their own size."""
+        size = t.math('MULTIPLY', size, gin["Rock Size"])
+        tip = lambda k: t.math('MULTIPLY', rand(-0.7, 0.7, seed + k), gin["Tilt"])
+        long = t.math('ADD', 1.0, t.math('MULTIPLY', rand(0.0, 1.5, seed + 6), gin["Stretch"]))  # drawn out along its length
         return t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=selection, Instance=library(kit), Pick_Instance=True,
-                      Instance_Index=pick(seed), Rotation=t.vec(rand(-0.35, 0.35, seed + 1), rand(-0.35, 0.35, seed + 2), rand(0.0, 6.28, seed + 3)),
-                      Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, seed + 4)), t.math('MULTIPLY', size, rand(0.5, 0.9, seed + 5)))).outputs[0]
+                      Instance_Index=pick(seed), Rotation=t.vec(tip(1), tip(2), rand(0.0, 6.28, seed + 3)),
+                      Scale=t.vec(t.math('MULTIPLY', size, long), t.math('MULTIPLY', size, rand(0.7, 1.3, seed + 4)), t.math('MULTIPLY', size, rand(0.5, 0.9, seed + 5)))).outputs[0]
 
     # Sized to the passage (boulders in a chamber); instances, so no lower limit from the rock-detail grid.
     size = t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6)))

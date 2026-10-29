@@ -35,6 +35,7 @@ def sync_cave(ob):
     for prop, sock in CAVE_SOCKETS.items():
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
+    nodes.input_socket(mod, "Rock").value = ROCK_INDEX[ob.lg_cave.rock]
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
@@ -50,6 +51,20 @@ DETAIL_INDEX = {key: i for i, (key, _n, _d) in enumerate(DETAIL_ITEMS)}
 
 
 def _sync(props, _context):
+    sync_cave(props.id_data)
+
+
+ROCK_ITEMS = (('LIMESTONE', "Limestone", "Flat rock beds stepping in and out, flat roofs between them; blocks and slabby scree"),
+              ('JOINTED', "Jointed", "Long straight fractures standing the walls in flat faces, as in sea caves and cliffs; angular blocks"),
+              ('LAVA', "Lava Tube", "A smooth round tube with long flow ledges along the walls; lava rubble"))
+ROCK_INDEX = {key: i for i, (key, _n, _d) in enumerate(ROCK_ITEMS)}
+ROCK_KITS = {'LIMESTONE': ("Blocks", "Scree"), 'JOINTED': ("Blocks", "Scree"), 'LAVA': ("Lava", "Lava")}
+
+
+def _rock_changed(props, _context):
+    """A new Rock brings its own rock kits (pick others after, if you like)."""
+    rubble, scree = ROCK_KITS[props.rock]
+    props.rubble_rocks, props.scree_rocks = rocks.family(rubble), rocks.family(scree)
     sync_cave(props.id_data)
 
 
@@ -95,6 +110,8 @@ class LG_CaveProps(PropertyGroup):
                         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     spread: FloatProperty(name="Spread", description="Rocks kept tight to the walls (0), or strewn out across the floor (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    rock: EnumProperty(name="Rock", description="What the cave is cut in: it sets the walls and the rocks lying in it",
+                       items=ROCK_ITEMS, default='LIMESTONE', update=_rock_changed)
     # Which rock kits: rocks.py builds KB Cave Rocks (four kits, each Big / Medium / Small); any collection works.
     rubble_rocks: PointerProperty(name="Rubble Rocks", type=bpy.types.Collection, update=_sync,
                                   description="The rock kit fallen along the foot of the walls: a collection with Big, Medium and Small collections inside (or one plain collection of rocks)")
@@ -121,7 +138,7 @@ class LG_OT_randomize_cave(Operator):
 # What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
-               "ramp", "roughness", "rubble", "layers", "rock_size", "stretch", "tilt", "spread")
+               "ramp", "roughness", "rubble", "layers", "rock_size", "stretch", "tilt", "spread", "rock")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -218,6 +235,7 @@ def draw_section(layout, context):
     row.enabled = props.chamber > 0 and props.chamber_drop > 0
     row.prop(props, "ramp")
     col = box.column()
+    col.prop(props, "rock")
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "layers", slider=True)

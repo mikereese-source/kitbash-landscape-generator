@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 27
+CAVE_VERSION = 28
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -439,6 +439,7 @@ CAVE_INPUTS = (
     # How the rocks are spread (Mike): their size, how long they are, how far they tip, how far they strew.
     ("Rock Size", 'NodeSocketFloat', 1.0), ("Stretch", 'NodeSocketFloat', 0.3), ("Tilt", 'NodeSocketFloat', 0.5),
     ("Spread", 'NodeSocketFloat', 0.5),
+    ("Rock", 'NodeSocketInt', 0),  # the walls: 0 Limestone, 1 Jointed, 2 Lava tube
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
     # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
@@ -788,7 +789,7 @@ def cave_group():
     # Limestone bedding (D105, from the interior references): flat beds across the whole cave, 0.5 to 2 m
     # thick, gently dipping and wandering so they don't look machined, varied in thickness. Each bed steps the
     # wall in or out a little, some have an undercut notch at their base, and the roof lifts flat to the bed
-    # above it. Layers sets how strong; the Rock choice (jointed, lava tube) comes later.
+    # above it. Layers sets how strong. The Rock choice picks this, jointed rock or a lava tube (below).
     bed = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', H, 0.12), 0.5), 2.0)
     pz = t.xyz(t.position())
     tilted = t.math('ADD', t.math('ADD', pz["Z"], t.math('MULTIPLY', pz["X"], 0.04)),
@@ -798,10 +799,14 @@ def cave_group():
     k = t.math('FLOOR', u)  # which bed
     f = t.math('FRACT', u)  # how far up it
 
+    def cell_rand(index, offset):
+        """One random value per bed or block (by its index), 0..1."""
+        n = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(index, seed, offset))  # 3D: the 1D node hid its W input
+        return n.outputs["Value"]
+
     def per_bed(offset, below=0.0):
         """One random value per bed (or the bed below), 0..1."""
-        n = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(t.math('SUBTRACT', k, below), seed, offset))  # by bed index (1D hid its W input)
-        return n.outputs["Value"]
+        return cell_rand(t.math('SUBTRACT', k, below), offset)
 
     L = gin["Layers"]
     # Each step eases in over the bottom of its bed (a sheer jump came out jagged at the mesh's resolution).
@@ -815,8 +820,44 @@ def cave_group():
     roof = t.math('MULTIPLY', t.smooth(nz, 0.55, 0.85), L)  # faces looking up: the roof
     lift = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, f), bed), t.smooth(f, 0.0, 0.15)), roof)  # up to the bed above, flat
     floor_bump = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
-    breaks = t.math('MULTIPLY', breaks, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7)))  # keeps the flat roof flat
-    bump = t.math('ADD', t.math('ADD', breaks, layers), floor_bump)
+    limestone = t.math('ADD', t.math('ADD', t.math('MULTIPLY', breaks, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7))), layers),
+                       floor_bump)  # the broken rock mostly kept off the flat roof
+
+    # Jointed rock (sea caves, cliffs): two sets of long, straight, upright fractures cross the cave, a few per
+    # passage; each block between them stands the wall in or out as a flat face (eased in at the joint, as the
+    # beds are). The beds are weaker. Layers sets how strong.
+    J = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', W, 0.6), 2.0), 12.0)  # joint spacing
+
+    def joints(angle, offset):
+        a = t.math('ADD', t.math('MULTIPLY', seed, 0.37), angle)
+        v = t.math('DIVIDE', t.math('ADD', t.math('MULTIPLY', pz["X"], t.math('COSINE', a)), t.math('MULTIPLY', pz["Y"], t.math('SINE', a))), J)
+        kj, fj = t.math('FLOOR', v), t.math('FRACT', v)
+        e = t.smooth(fj, 0.0, 0.04)
+        mix = t.math('ADD', t.math('MULTIPLY', cell_rand(kj, offset), e), t.math('MULTIPLY', cell_rand(t.math('SUBTRACT', kj, 1.0), offset), t.math('SUBTRACT', 1.0, e)))
+        return t.math('MULTIPLY', t.math('SUBTRACT', mix, 0.5), t.math('MULTIPLY', J, 0.45))
+
+    # Broken rock at half strength, so the joint faces read flat.
+    joint_push = t.math('MULTIPLY', t.math('ADD', joints(0.4, 53.1), t.math('MULTIPLY', joints(1.9, 71.3), 0.6)), t.math('MULTIPLY', t.math('ADD', 0.4, L), upright))
+    jointed = t.math('ADD', t.math('ADD', t.math('MULTIPLY', breaks, 0.5), joint_push), t.math('ADD', t.math('MULTIPLY', layers, 0.3), floor_bump))
+
+    # Lava tube: a smooth, round tube with little break-up and two long flow ledges along the walls (lips where
+    # the lava level stood), a third and two thirds of the way up.
+    lv = t.math('DIVIDE', pz["Z"], t.math('MULTIPLY', H, 0.33))
+    kl, fl = t.math('FLOOR', lv), t.math('FRACT', lv)
+    near_line = t.math('SUBTRACT', 1.0, t.smooth(t.math('MINIMUM', fl, t.math('SUBTRACT', 1.0, fl)), 0.0, 0.07))
+    two_lines = t.math('MULTIPLY', t.math('GREATER_THAN', lv, 0.5), t.math('LESS_THAN', lv, 2.5))
+    lip = t.math('MULTIPLY', t.math('MULTIPLY', near_line, two_lines), t.math('MULTIPLY', t.math('MULTIPLY', H, -0.05), t.math('MULTIPLY', upright, t.math('ADD', 0.5, L))))
+    lava = t.math('ADD', t.math('ADD', t.math('MULTIPLY', breaks, 0.25), lip), t.math('MULTIPLY', floor_bump, 0.5))
+
+    style = t.N.new('GeometryNodeIndexSwitch')
+    style.data_type = 'FLOAT'
+    while len(style.index_switch_items) < 3:
+        style.index_switch_items.new()
+    t._set(style.inputs["Index"], gin["Rock"])
+    for i, g in enumerate((limestone, jointed, lava)):
+        t._set(style.inputs[i + 1], g)
+    bump = style.outputs[0]
+    lift = t.math('MULTIPLY', lift, t.math('LESS_THAN', gin["Rock"], 0.5))  # flat roofs: limestone only
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
     rough = t.node('GeometryNodeSetPosition', Geometry=dense,
                    Offset=t.vmath('ADD', t.vmath('SCALE', nrm, scale=bump), t.vec(0.0, 0.0, lift))).outputs[0]

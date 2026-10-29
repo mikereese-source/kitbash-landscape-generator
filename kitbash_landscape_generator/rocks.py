@@ -11,7 +11,7 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 3
+LIBRARY_VERSION = 4
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 SIZES = (("Big", 4, (2.0, 3.0), 5), ("Medium", 8, (1.0, 1.0), 4), ("Small", 8, (0.33, 0.5), 3))
@@ -45,8 +45,14 @@ def _plane(rng, up_bias=0.0):
 
 
 def _rock(family, rng, scale=1.0, subdivisions=4):
+    # All quads (Mike: easier to work on later): a cube cut into a grid on each side and pushed out to a
+    # sphere, about as many faces as an icosphere of this detail had triangles halved.
     bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=subdivisions, radius=1.0)
+    bmesh.ops.create_cube(bm, size=2.0)
+    cuts = max(round(1.25 * 2 ** subdivisions) - 1, 1)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True)
+    for v in bm.verts:
+        v.co.normalize()
     verts = bm.verts
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     if family == "Blocks":

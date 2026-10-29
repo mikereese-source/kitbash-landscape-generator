@@ -8,7 +8,7 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty
 from bpy.types import Operator, PropertyGroup
 
-from . import features, nodes
+from . import features, nodes, rocks
 
 CAVE_MODIFIER = "KB Cave"
 
@@ -34,6 +34,9 @@ def sync_cave(ob):
     for prop, sock in CAVE_SOCKETS.items():
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
+    # No rocks picked (an older cave, or the pick cleared): the library's own family.
+    nodes.input_socket(mod, "Rubble Rocks").value = ob.lg_cave.rubble_rocks or rocks.family("Blocks")
+    nodes.input_socket(mod, "Scree Rocks").value = ob.lg_cave.scree_rocks or rocks.family("Scree")
     ob.update_tag()
 
 
@@ -43,10 +46,6 @@ DETAIL_ITEMS = (('PREVIEW', "Preview", "Light and fast, for placing and shaping 
                 ('ULTRA', "Ultra", "Hero detail for close-up shots inside the cave. Heavy"))
 DETAIL_INDEX = {key: i for i, (key, _n, _d) in enumerate(DETAIL_ITEMS)}
 
-
-def rock_spacing(props):
-    """Meters between rock detail points, as the node group works it out (for the panel)."""
-    return max(min(props.width * 0.5, max(props.height, 0.5)) / features.CAVE_DETAIL[DETAIL_INDEX[props.detail]], 0.04)
 
 def _sync(props, _context):
     sync_cave(props.id_data)
@@ -86,6 +85,11 @@ class LG_CaveProps(PropertyGroup):
                       default=0, min=0, max=99999, update=_sync)
     detail: EnumProperty(name="Detail Level", description="How finely the cave's rock is built: light while placing it, heavy for the finished shot",
                          items=DETAIL_ITEMS, default='PREVIEW', update=_sync)
+    # Which rocks: any collection of rock meshes, each fitting -1..1 (rocks.py builds KB Cave Rocks).
+    rubble_rocks: PointerProperty(name="Rubble Rocks", type=bpy.types.Collection, update=_sync,
+                                  description="The rocks fallen along the foot of the walls: a collection of rock meshes, one picked at random per rock")
+    scree_rocks: PointerProperty(name="Scree Rocks", type=bpy.types.Collection, update=_sync,
+                                 description="The rocks on the ramp's slopes: a collection of rock meshes, one picked at random per rock")
 
 
 class LG_OT_randomize_cave(Operator):
@@ -160,6 +164,7 @@ class LG_OT_add_cave(Operator):
         ob = bpy.data.objects.new("Cave", bpy.data.meshes.new("Cave"))
         ob.location = context.scene.cursor.location
         ob.lg_cave.is_cave = True
+        ob.lg_cave.rubble_rocks, ob.lg_cave.scree_rocks = rocks.family("Blocks"), rocks.family("Scree")
         ob.modifiers.new(CAVE_MODIFIER, 'NODES').node_group = features.cave_group()
         context.collection.objects.link(ob)
         for other in context.selected_objects:
@@ -206,6 +211,9 @@ def draw_section(layout, context):
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "layers", slider=True)
+    sub = col.column(align=True)
+    sub.prop(props, "rubble_rocks", text="Rubble Rocks")
+    sub.prop(props, "scree_rocks", text="Scree Rocks")
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')
@@ -213,7 +221,7 @@ def draw_section(layout, context):
     header.label(text="Detail Level")
     if sub:
         sub.row(align=True).prop(props, "detail", expand=True)
-        sub.label(text=f"Rock detail every {rock_spacing(props):.2f} m")
+        sub.label(text=f"Shell about {features.CAVE_FACES[DETAIL_INDEX[props.detail]] / 1e6:g}M faces")
 
 
 classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave, LG_OT_reset_cave)

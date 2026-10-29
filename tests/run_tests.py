@@ -645,7 +645,7 @@ def _t14():
     pts, closed, floor, n = cave_mesh(ob)
     dt = time.time() - t0
     check(closed, "the cave mesh should be closed (usable as a Boolean cutter)")
-    near = floor[(floor[:, 1] < c.depth * 0.5) & (np.abs(floor[:, 0]) < c.width * 0.2)]  # the walkway; talus rises at the sides
+    near = floor[(floor[:, 1] > 0.0) & (floor[:, 1] < c.depth * 0.5) & (np.abs(floor[:, 0]) < c.width * 0.2)]  # the walkway behind the mouth (the rounded front pokes out of the face and is cut away); talus rises at the sides
     check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.12 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
     sec = pts[np.abs(pts[:, 1] - c.width * 0.5) < c.width * 0.08]
     w, h = np.ptp(sec[:, 0]), sec[:, 2].max()

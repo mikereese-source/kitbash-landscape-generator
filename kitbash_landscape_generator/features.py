@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 26
+CAVE_VERSION = 27
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -785,17 +785,41 @@ def cave_group():
     fine = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', r, 0.3))
     finer = t.math('MULTIPLY', noise(t.math('MULTIPLY', r, 0.25), 3.0), t.math('MULTIPLY', r, 0.06))
     breaks = t.math('MULTIPLY', t.math('ADD', t.math('ADD', big, fine), finer), t.math('MULTIPLY', R, wall))
-    bed = t.math('MAXIMUM', t.math('MULTIPLY', H, 0.14), t.math('MULTIPLY', voxel, 2.5))
+    # Limestone bedding (D105, from the interior references): flat beds across the whole cave, 0.5 to 2 m
+    # thick, gently dipping and wandering so they don't look machined, varied in thickness. Each bed steps the
+    # wall in or out a little, some have an undercut notch at their base, and the roof lifts flat to the bed
+    # above it. Layers sets how strong; the Rock choice (jointed, lava tube) comes later.
+    bed = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', H, 0.12), 0.5), 2.0)
     pz = t.xyz(t.position())
-    tilted = t.math('ADD', t.math('ADD', pz["Z"], t.math('MULTIPLY', pz["X"], 0.06)),
-                    t.math('MULTIPLY', noise(t.math('MULTIPLY', W, 3.0), 1.0), t.math('MULTIPLY', bed, 1.4)))
-    ledge = t.math('SUBTRACT', t.smooth(t.math('FRACT', t.math('DIVIDE', tilted, bed)), 0.65, 0.95), 0.5)
-    layers = t.math('MULTIPLY', t.math('MULTIPLY', ledge, t.math('MULTIPLY', r, -0.2)),
-                    t.math('MULTIPLY', t.math('MULTIPLY', gin["Layers"], upright), t.math('ADD', 0.6, t.math('MULTIPLY', noise(W, 1.0), 1.6))))
+    tilted = t.math('ADD', t.math('ADD', pz["Z"], t.math('MULTIPLY', pz["X"], 0.04)),
+                    t.math('ADD', t.math('MULTIPLY', noise(t.math('MULTIPLY', W, 3.0), 1.0), t.math('MULTIPLY', bed, 1.4)),
+                           t.math('MULTIPLY', noise(t.math('MULTIPLY', bed, 3.0), 1.0), t.math('MULTIPLY', bed, 0.7))))  # thickness varies
+    u = t.math('DIVIDE', tilted, bed)
+    k = t.math('FLOOR', u)  # which bed
+    f = t.math('FRACT', u)  # how far up it
+
+    def per_bed(offset, below=0.0):
+        """One random value per bed (or the bed below), 0..1."""
+        n = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(t.math('SUBTRACT', k, below), seed, offset))  # by bed index (1D hid its W input)
+        return n.outputs["Value"]
+
+    L = gin["Layers"]
+    # Each step eases in over the bottom of its bed (a sheer jump came out jagged at the mesh's resolution).
+    ease = t.smooth(f, 0.0, 0.1)
+    step = t.math('MULTIPLY', t.math('SUBTRACT', t.math('ADD', t.math('MULTIPLY', per_bed(0.0), ease),
+                                                         t.math('MULTIPLY', per_bed(0.0, 1.0), t.math('SUBTRACT', 1.0, ease))), 0.5),
+                  t.math('MULTIPLY', bed, 0.5))
+    notch = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(f, 0.0, 0.14)), t.math('GREATER_THAN', per_bed(31.7), 0.55)),
+                   t.math('MULTIPLY', bed, 0.3))
+    layers = t.math('MULTIPLY', t.math('ADD', step, notch), t.math('MULTIPLY', L, upright))
+    roof = t.math('MULTIPLY', t.smooth(nz, 0.55, 0.85), L)  # faces looking up: the roof
+    lift = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, f), bed), t.smooth(f, 0.0, 0.15)), roof)  # up to the bed above, flat
     floor_bump = t.math('MULTIPLY', noise(r, 4.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
+    breaks = t.math('MULTIPLY', breaks, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7)))  # keeps the flat roof flat
     bump = t.math('ADD', t.math('ADD', breaks, layers), floor_bump)
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
-    rough = t.node('GeometryNodeSetPosition', Geometry=dense, Offset=t.vmath('SCALE', nrm, scale=bump)).outputs[0]
+    rough = t.node('GeometryNodeSetPosition', Geometry=dense,
+                   Offset=t.vmath('ADD', t.vmath('SCALE', nrm, scale=bump), t.vec(0.0, 0.0, lift))).outputs[0]
     marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not

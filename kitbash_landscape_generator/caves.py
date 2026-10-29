@@ -35,8 +35,9 @@ def sync_cave(ob):
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
-    nodes.input_socket(mod, "Rubble Rocks").value = ob.lg_cave.rubble_rocks or rocks.family("Blocks")
-    nodes.input_socket(mod, "Scree Rocks").value = ob.lg_cave.scree_rocks or rocks.family("Scree")
+    for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
+        for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
+            nodes.input_socket(mod, f"{use} {size}").value = coll
     ob.update_tag()
 
 
@@ -85,11 +86,11 @@ class LG_CaveProps(PropertyGroup):
                       default=0, min=0, max=99999, update=_sync)
     detail: EnumProperty(name="Detail Level", description="How finely the cave's rock is built: light while placing it, heavy for the finished shot",
                          items=DETAIL_ITEMS, default='PREVIEW', update=_sync)
-    # Which rocks: any collection of rock meshes, each fitting -1..1 (rocks.py builds KB Cave Rocks).
+    # Which rock kits: rocks.py builds KB Cave Rocks (four kits, each Big / Medium / Small); any collection works.
     rubble_rocks: PointerProperty(name="Rubble Rocks", type=bpy.types.Collection, update=_sync,
-                                  description="The rocks fallen along the foot of the walls: a collection of rock meshes, one picked at random per rock")
+                                  description="The rock kit fallen along the foot of the walls: a collection with Big, Medium and Small collections inside (or one plain collection of rocks)")
     scree_rocks: PointerProperty(name="Scree Rocks", type=bpy.types.Collection, update=_sync,
-                                 description="The rocks on the ramp's slopes: a collection of rock meshes, one picked at random per rock")
+                                 description="The rock kit on the ramp's slopes: a collection with Big, Medium and Small collections inside (or one plain collection of rocks)")
 
 
 class LG_OT_randomize_cave(Operator):

@@ -11,10 +11,13 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 1
-PER_FAMILY = 8
-# Family -> (seed, how it is shaped). Every rock fits -1..1 across, its pivot 45% of the way up from its
-# centre, so it sits partly buried in what it rests on (resting on top left thin slits; Mike).
+LIBRARY_VERSION = 2
+# Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
+# floor. Size -> (how many, size range against a medium rock, detail of the mesh).
+SIZES = (("Big", 4, (2.0, 3.0), 5), ("Medium", 8, (1.0, 1.0), 4), ("Small", 8, (0.33, 0.5), 3))
+# Family -> seed. A medium rock fits -1..1 across, big and small ones are that times their size; every pivot
+# is 45% of the way up from the centre, so it sits partly buried in what it rests on (resting on top left thin
+# slits; Mike).
 FAMILIES = {
     "Blocks": 11,    # breakdown blocks: roof fall, blocky with flat broken faces (limestone)
     "Scree": 23,     # slabby scree: thin plates split along the bedding
@@ -36,9 +39,9 @@ def _plane(rng, up_bias=0.0):
     return n, rng.uniform(0.55, 0.85)
 
 
-def _rock(family, rng):
+def _rock(family, rng, scale=1.0, subdivisions=4):
     bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=4, radius=1.0)
+    bmesh.ops.create_icosphere(bm, subdivisions=subdivisions, radius=1.0)
     verts = bm.verts
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     if family == "Blocks":
@@ -90,6 +93,7 @@ def _rock(family, rng):
     zhalf = (hi.z - lo.z) * 0.5 / half
     for v in verts:
         v.co.z -= 0.45 * zhalf
+        v.co *= scale
     return bm
 
 
@@ -100,31 +104,78 @@ def ensure_library():
         return top
     if top is None:
         top = bpy.data.collections.new(LIBRARY)
-    for child in list(top.children):
-        for ob in list(child.objects):
-            me = ob.data
-            bpy.data.objects.remove(ob)
-            if me is not None and me.users == 0:
-                bpy.data.meshes.remove(me)
+    for ob in list(top.all_objects):
+        me = ob.data
+        bpy.data.objects.remove(ob)
+        if me is not None and me.users == 0:
+            bpy.data.meshes.remove(me)
+    for child in list(top.children_recursive):
         bpy.data.collections.remove(child)
     for family, seed in FAMILIES.items():
         rng = random.Random(seed)
-        coll = bpy.data.collections.new(f"{LIBRARY} {family}")
-        top.children.link(coll)
-        for i in range(PER_FAMILY):
-            bm = _rock(family, rng)
-            me = bpy.data.meshes.new(f"KB Rock {family} {i + 1}")
-            bm.to_mesh(me)
-            bm.free()
-            me.shade_smooth()
-            me.set_sharp_from_angle(angle=0.7 if family != "Boulders" else 3.14)
-            coll.objects.link(bpy.data.objects.new(me.name, me))
+        kit = bpy.data.collections.new(f"{LIBRARY} {family}")
+        top.children.link(kit)
+        for size, count, (lo, hi), subdivisions in SIZES:
+            coll = bpy.data.collections.new(f"{LIBRARY} {family} {size}")
+            kit.children.link(coll)
+            for i in range(count):
+                bm = _rock(family, rng, rng.uniform(lo, hi), subdivisions)
+                me = bpy.data.meshes.new(f"KB Rock {family} {size} {i + 1}")
+                bm.to_mesh(me)
+                bm.free()
+                me.shade_smooth()
+                me.set_sharp_from_angle(angle=0.7 if family != "Boulders" else 3.14)
+                coll.objects.link(bpy.data.objects.new(me.name, me))
     top.use_fake_user = True  # kept in the file though no scene shows it
     top["kb_version"] = LIBRARY_VERSION
     return top
 
 
 def family(name):
-    """One family's collection, building the library if it isn't there."""
+    """One family's kit (its Big, Medium and Small collections), building the library if it isn't there."""
     ensure_library()
     return bpy.data.collections.get(f"{LIBRARY} {name}")
+
+
+def sizes(kit):
+    """A kit's (big, medium, small) collections: its child collections ending Big / Medium / Small. A plain
+    collection of rocks with no such children is used as the medium rocks (any collection can be swapped in)."""
+    if kit is None:
+        return None, None, None
+    found = {size: next((c for c in kit.children if c.name.lower().endswith(size.lower())), None) for size, *_ in SIZES}
+    if not any(found.values()):
+        return None, kit, None
+    return found["Big"], found["Medium"], found["Small"]
+
+
+def layout_review(scene, name="Rock Review"):
+    """Every library rock laid out for review in its own collection: a block of rows per kit (big, medium,
+    small), beside whatever is in the scene. Shares each rock's mesh, so it shows the library as it is."""
+    old = bpy.data.collections.get(name)
+    if old is not None:
+        for ob in list(old.objects):
+            bpy.data.objects.remove(ob)
+        bpy.data.collections.remove(old)
+    review = bpy.data.collections.new(name)
+    scene.collection.children.link(review)
+    xs = [(ob.matrix_world @ Vector(c)).x for ob in scene.objects if ob.type == 'MESH' for c in ob.bound_box]
+    x0, y = (max(xs) + 12.0) if xs else 0.0, 0.0
+    ensure_library()
+    for family_name in FAMILIES:
+        kit = family(family_name)
+        for coll in sizes(kit):
+            rocks = sorted(coll.objects, key=lambda ob: ob.name)
+            gap = max(max(ob.dimensions.x, ob.dimensions.y) for ob in rocks) + 1.0
+            label = bpy.data.objects.new(f"{coll.name} label", bpy.data.curves.new(f"{coll.name} label", 'FONT'))
+            label.data.body, label.data.size = coll.name.replace(f"{LIBRARY} ", ""), 1.0
+            label.location = (x0 - 14.0, y - 0.4, 0.0)
+            review.objects.link(label)
+            x = x0
+            for src in rocks:
+                ob = bpy.data.objects.new(f"{src.name} review", src.data)
+                ob.location = (x, y, -min(v.co.z for v in src.data.vertices))  # standing on the ground
+                review.objects.link(ob)
+                x += gap
+            y -= gap
+        y -= 4.0  # a gap between kits
+    return review

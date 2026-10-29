@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 24
+CAVE_VERSION = 25
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -437,7 +437,9 @@ CAVE_INPUTS = (
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
     ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Layers", 'NodeSocketFloat', 0.4), ("Roughness", 'NodeSocketFloat', 0.5),
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
-    ("Rubble Rocks", 'NodeSocketCollection', None), ("Scree Rocks", 'NodeSocketCollection', None),  # rocks.py families
+    # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
+    ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
+    ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
 )
 CAVE_DETAIL = (6.0, 10.0, 14.0)  # voxels across the smaller of the entrance's half width and height (shape only)
 CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces per Detail Level, reached by subdividing (D105)
@@ -575,7 +577,23 @@ def cave_group():
                       Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                       Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
-    keep = t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9))
+    # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
+    # out across the floor to break it up. A rock is big or medium, never both on one spot.
+    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], 0.12))
+    keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9)), t.math('SUBTRACT', 1.0, big_keep))
+    # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
+    strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=3)
+    strewn.domain = 'POINT'
+    across_v = t.named("c_across", 'FLOAT_VECTOR')
+    along_v = t.vec(t.math('MULTIPLY', t.xyz(across_v)["Y"], -1.0), t.xyz(across_v)["X"], 0.0)
+    pebble_at = t.node('GeometryNodeSetPosition', Geometry=strewn.outputs["Geometry"],
+                       Offset=t.vmath('ADD', t.vmath('SCALE', across_v, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(0.2, 0.95, 131)))),
+                                      t.vmath('SCALE', along_v, scale=t.math('MULTIPLY', t.named("c_radius"), rand(-0.6, 0.6, 137))))).outputs[0]
+    pebble_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+                        Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
+                        Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
+    pebbles_at = t.node('GeometryNodeSetPosition', Geometry=pebble_at, Selection=pebble_ray.outputs["Is Hit"], Position=pebble_ray.outputs["Hit Position"]).outputs[0]
+    pebble_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), t.math('MULTIPLY', gin["Rubble"], 0.8)), pebble_ray.outputs["Is Hit"])
     # The rocks come from a collection of separate rock meshes (D105, rocks.py; any collection can be swapped
     # in), one picked at random per rock. Each fits -1..1 with its pivot 45% up, so it sits partly buried.
     def library(name):
@@ -583,13 +601,19 @@ def cave_group():
         info.transform_space = 'ORIGINAL'
         return info.outputs[0]
 
-    lumpy, scree = library("Rubble Rocks"), library("Scree Rocks")
     pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, offset)).outputs[0]  # wraps per collection
-    size = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6))),
-                  t.math('MULTIPLY', voxel, 1.6))
-    rocks = t.node('GeometryNodeInstanceOnPoints', Points=foot, Selection=keep, Instance=lumpy, Pick_Instance=True, Instance_Index=pick(97),
-                   Rotation=t.vec(rand(-0.35, 0.35, 41), rand(-0.35, 0.35, 43), rand(0.0, 6.28, 47)),
-                   Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, 53)), t.math('MULTIPLY', size, rand(0.5, 0.9, 59)))).outputs[0]
+
+    def scatter(points, selection, kit, size, seed):
+        """One size of a kit on its points: each rock picked at random, turned about the vertical with a small
+        tilt (the buried side stays down) and stretched a little. Big and small rocks carry their own size."""
+        return t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=selection, Instance=library(kit), Pick_Instance=True,
+                      Instance_Index=pick(seed), Rotation=t.vec(rand(-0.35, 0.35, seed + 1), rand(-0.35, 0.35, seed + 2), rand(0.0, 6.28, seed + 3)),
+                      Scale=t.vec(size, t.math('MULTIPLY', size, rand(0.7, 1.3, seed + 4)), t.math('MULTIPLY', size, rand(0.5, 0.9, seed + 5)))).outputs[0]
+
+    # Sized to the passage (boulders in a chamber); instances, so no lower limit from the rock-detail grid.
+    size = t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6)))
+    rubble_sets = [scatter(foot, keep, "Rubble Medium", size, 97), scatter(foot, big_keep, "Rubble Big", size, 151),
+                   scatter(pebbles_at, pebble_keep, "Rubble Small", size, 161)]
 
     # Ramp into Chamber (Mike, for players): an embankment of rock along the path, from the passage floor down
     # into the sunk chamber, so it can be walked down instead of jumped, with scree on its slopes.
@@ -680,15 +704,16 @@ def cave_group():
                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     edge_pts = t.node('GeometryNodeSetPosition', Geometry=edge_pts, Selection=onto.outputs["Is Hit"], Position=onto.outputs["Hit Position"]).outputs[0]
     edge_keep = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 61), t.math('MULTIPLY', gin["Rubble"], 0.33)))  # Rubble 0: none
-    edge_size = t.math('MAXIMUM', t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35))),
-                       t.math('MULTIPLY', voxel, 1.6))  # no rock smaller than ~1.6 detail steps (spikes at Preview)
-    edge_rocks = t.node('GeometryNodeInstanceOnPoints', Points=edge_pts, Selection=edge_keep, Instance=scree, Pick_Instance=True, Instance_Index=pick(101),
-                        Rotation=t.vec(rand(-0.35, 0.35, 71), rand(-0.35, 0.35, 73), rand(0.0, 6.28, 79)),
-                        Scale=t.vec(edge_size, edge_size, t.math('MULTIPLY', edge_size, 0.7))).outputs[0]
+    edge_size = t.math('MULTIPLY', t.named("c_narrow"), t.math('ADD', 0.05, t.math('MULTIPLY', t.math('POWER', rand(0.0, 1.0, 67), 2.5), 0.35)))
+    # Scree in three sizes too: the odd big slab, the everyday scree, and plenty of small chips.
+    edge_big = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 171), t.math('MULTIPLY', gin["Rubble"], 0.04)))
+    edge_small = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 173), t.math('MULTIPLY', gin["Rubble"], 0.6)))
+    edge_sets = [scatter(edge_pts, t.math('MULTIPLY', edge_keep, t.math('SUBTRACT', 1.0, edge_big)), "Scree Medium", edge_size, 101),
+                 scatter(edge_pts, edge_big, "Scree Big", edge_size, 181), scatter(edge_pts, edge_small, "Scree Small", edge_size, 191)]
     solids = t.node('GeometryNodeJoinGeometry')
     t.L.new(ramp_mesh, solids.inputs[0])
     boulders = t.node('GeometryNodeJoinGeometry')
-    for g in (rocks, edge_rocks):
+    for g in rubble_sets + edge_sets:
         t.L.new(g, boulders.inputs[0])
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it

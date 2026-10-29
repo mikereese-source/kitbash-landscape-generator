@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 30
+CAVE_VERSION = 42
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -511,7 +511,7 @@ def cave_group():
     # Each section's height, floor to roof: the entrance's Height, growing to the chamber's Ceiling Height.
     tall = t.math('ADD', t.math('MULTIPLY', H, t.math('SUBTRACT', 1.0, chamber)), t.math('MULTIPLY', gin["Ceiling Height"], chamber))
     path = t.node('GeometryNodeSetPosition', Geometry=line.outputs[0], Offset=t.vec(t.math('ADD', sway, bend), 0.0, floor_at)).outputs[0]
-    path = t.store(t.store(path, "c_s", s), "c_narrow", narrow)
+    path = t.store(t.store(t.store(path, "c_s", s), "c_narrow", narrow), "c_tall", tall)
 
     # Each section is built at its true size before meshing: a dome as wide as the passage and as tall as the
     # section, standing on its own floor height; all of them merged as one volume. (Stretching one tube after
@@ -719,8 +719,49 @@ def cave_group():
                  scatter(edge_pts, edge_big, "Scree Big", edge_size, 181), scatter(edge_pts, edge_small, "Scree Small", edge_size, 191)]
     solids = t.node('GeometryNodeJoinGeometry')
     t.L.new(ramp_mesh, solids.inputs[0])
+    # Jointed rock, primary shapes (from the rockfall reference, docs/m5/ref_jointed_shapes.jpg): big slabs of
+    # rock set into the walls as the cave's shape is built, each cutting a face into the passage. Like the
+    # Resident Evil Village caves Mike shared, they stand nearly upright and lean in at the top, so the passage
+    # is a tall keyhole of big masses, overlapping into creased edges, never reaching the walkway (at most 40%
+    # of the way in at their foot). Displacing the finished tube could only make ramps, which
+    # wrapped the passage in rings.
+    jointed_on = t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 1.0), t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
+    # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
+    # passage stuck out into the bigger space).
+    opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.5), t.math('LESS_THAN', t.named("c_s"), 0.8)))
+    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.22)),
+                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('SUBTRACT', 1.0, opening)))
+    intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.1, 0.4, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
+    thick = t.math('MULTIPLY', W, 2.0)
+    out_by = t.math('ADD', t.math('SUBTRACT', t.named("c_radius"), intrude), t.math('MULTIPLY', thick, 0.5))
+    across_s = t.named("c_across", 'FLOAT_VECTOR')
+    slab_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
+                     Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, out_by)),
+                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.6)))).outputs[0]
+    yaw = t.math('ARCTAN2', t.xyz(across_s)["Y"], t.xyz(across_s)["X"])
+    # Rounded, bulging masses (the reference walls bulge; boxes showed flat, man-made faces).
+    cube = t.node('GeometryNodeMeshIcoSphere', Radius=0.5, Subdivisions=3).outputs["Mesh"]
+    slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=cube,
+                   Rotation=t.vec(rand(-0.08, 0.08, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.08, 0.35, 219)), t.math('ADD', yaw, rand(-0.2, 0.2, 221))),
+                   Scale=t.vec(thick, t.math('MULTIPLY', W, rand(0.6, 1.2, 223)), t.math('MULTIPLY', t.named("c_tall"), 2.0))).outputs[0]
+    t.L.new(slabs, solids.inputs[0])
+    # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
+    ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=7)
+    ring_pts.domain = 'POINT'
+    ang = t.math('ADD', t.math('MULTIPLY', ring_pts.outputs["Duplicate Index"], 0.785), rand(-0.3, 0.3, 231))
+    ring_dir = t.vec(t.math('COSINE', ang), t.math('SINE', ang), 0.0)
+    ring_out = t.math('ADD', t.math('SUBTRACT', rc, t.math('MULTIPLY', rc, t.math('MULTIPLY', rand(0.12, 0.3, 233), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))),
+                      t.math('MULTIPLY', thick, 0.5))
+    ring_at = t.node('GeometryNodeSetPosition', Geometry=ring_pts.outputs["Geometry"],
+                     Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.6)))).outputs[0]
+    ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),
+                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.35)))
+    ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=cube,
+                  Rotation=t.vec(rand(-0.08, 0.08, 237), t.math('MULTIPLY', rand(0.08, 0.35, 239), -1.0), t.math('ADD', ang, rand(-0.2, 0.2, 241))),
+                  Scale=t.vec(thick, t.math('MULTIPLY', rc, rand(0.5, 1.0, 243)), t.math('MULTIPLY', t.named("c_tall"), 1.8))).outputs[0]
+    t.L.new(ring, solids.inputs[0])
     boulders = t.node('GeometryNodeJoinGeometry')
-    for g in rubble_sets + edge_sets:
+    for g in rubble_sets:  # the ramp's scree is off while the walls are dialled in (Mike: rocks on the ground only)
         t.L.new(g, boulders.inputs[0])
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it
@@ -736,7 +777,7 @@ def cave_group():
     with_ramp = t.node('GeometryNodeGridToMesh', Grid=rounded.outputs[0]).outputs[0]
     pick_mesh = t.N.new('GeometryNodeSwitch')
     pick_mesh.input_type = 'GEOMETRY'
-    t._set(pick_mesh.inputs['Switch'], t.math('GREATER_THAN', ramp_on, 0.5))
+    t._set(pick_mesh.inputs['Switch'], t.math('GREATER_THAN', t.math('ADD', ramp_on, jointed_on), 0.5))
     t.L.new(plain, pick_mesh.inputs['False'])
     t.L.new(with_ramp, pick_mesh.inputs['True'])
     merged = pick_mesh.outputs[0]
@@ -801,26 +842,51 @@ def cave_group():
     lime_off = t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7))  # keeps the flat roof flat
     limestone = t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off)
 
-    # Jointed rock (sea caves, cliffs): two sets of long, straight, upright fractures cross the cave, a few per
-    # passage; each block between them stands the wall in or out as a flat face (eased in at the joint).
-    J = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', W, 0.6), 2.0), 12.0)  # joint spacing
+    # Jointed rock (sea caves, cliffs; Mike: straight joint planes across the whole cave looked man-made): the
+    # rock breaks into irregular blocks, taller than wide as the joints split it, each with its own flat face
+    # tilted its own way and standing in or out, blended only along the seams so no line runs on.
+    J = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', W, 0.6), 2.0), 12.0)  # big block size
 
-    def cell_rand(index, offset):
-        """One random value per block (by its index), 0..1."""
-        n = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(index, seed, offset))  # 3D: the 1D node hid its W input
-        return n.outputs["Value"]
+    # Primary (from the rockfall reference, docs/m5/ref_jointed_shapes.jpg): a few huge masses, long in the
+    # direction they lean and all leaning the same steep way (about 70 degrees, one strike per cave), meeting at
+    # long creased edges like the buttresses there.
+    strike = t.math('MULTIPLY', seed, 0.61)
+    lean = t.vec(t.math('MULTIPLY', t.math('COSINE', strike), 0.34), t.math('MULTIPLY', t.math('SINE', strike), 0.34), -0.94)
 
-    def joints(angle, offset):
-        a = t.math('ADD', t.math('MULTIPLY', seed, 0.37), angle)
-        v = t.math('DIVIDE', t.math('ADD', t.math('MULTIPLY', pz["X"], t.math('COSINE', a)), t.math('MULTIPLY', pz["Y"], t.math('SINE', a))), J)
-        kj, fj = t.math('FLOOR', v), t.math('FRACT', v)
-        e = t.smooth(fj, 0.0, 0.12)
-        mix = t.math('ADD', t.math('MULTIPLY', cell_rand(kj, offset), e), t.math('MULTIPLY', cell_rand(t.math('SUBTRACT', kj, 1.0), offset), t.math('SUBTRACT', 1.0, e)))
-        return t.math('MULTIPLY', t.math('SUBTRACT', mix, 0.5), t.math('MULTIPLY', J, 0.8))
+    def blocks(size, depth, offset):
+        along = t.vmath('DOT_PRODUCT', sp, lean)
+        across = t.vmath('SUBTRACT', sp, t.vmath('SCALE', lean, scale=along))
+        q = t.vmath('DIVIDE', t.vmath('ADD', across, t.vmath('SCALE', lean, scale=t.math('DIVIDE', along, 3.0))), t.vec(size, size, size))
+        # Warped, so the blocks come in all shapes and sizes (even cells read as a honeycomb).
+        warp = t.node('ShaderNodeTexNoise', Vector=q, Scale=0.6, Detail=1.0)
+        warp.noise_dimensions = '3D'
+        q = t.vmath('ADD', q, t.vmath('SCALE', t.vmath('SUBTRACT', warp.outputs["Color"], t.vec(0.5, 0.5, 0.5)), scale=0.5))
+        faces = []
+        for feature in ('F1', 'F2'):
+            v = t.node('ShaderNodeTexVoronoi', Vector=t.vmath('ADD', q, t.vec(offset, 0.0, 0.0)), Scale=1.0, Randomness=0.9)
+            v.voronoi_dimensions, v.feature = '3D', feature
+            c = v.outputs["Position"]
+            # Neighbouring blocks mostly line up, with a step at only some joints (every block stepping on
+            # its own read as paving or a turtle shell): depth and tilt follow a broad noise across the blocks,
+            # plus a little of each block's own.
+            broad = t.node('ShaderNodeTexNoise', Vector=c, Scale=0.35, Detail=1.0)
+            broad.noise_dimensions = '3D'
+            own = t.node('ShaderNodeTexWhiteNoise', Vector=c).outputs["Value"]
+            height = t.math('ADD', t.math('MULTIPLY', broad.outputs["Fac"], 0.75), t.math('MULTIPLY', own, 0.25))
+            tilt = t.vmath('SCALE', t.vmath('ADD', t.vmath('SUBTRACT', broad.outputs["Color"], t.vec(0.5, 0.5, 0.5)),
+                                             t.vmath('SCALE', t.vmath('SUBTRACT', v.outputs["Color"], t.vec(0.5, 0.5, 0.5)), scale=0.4)), scale=1.4)
+            off = t.vmath('SUBTRACT', t.vmath('ADD', q, t.vec(offset, 0.0, 0.0)), c)
+            face = t.math('ADD', t.math('MULTIPLY', t.math('SUBTRACT', height, 0.5), depth),
+                          t.math('MULTIPLY', t.vmath('DOT_PRODUCT', off, tilt), t.math('MULTIPLY', size, 1.0)))
+            faces.append((face, v.outputs["Distance"]))
+        (f1, d1), (f2, d2) = faces
+        w = t.smooth(t.math('SUBTRACT', d2, d1), 0.0, 0.3)  # 1 inside a block, 0 on its seam
+        return t.math('ADD', t.math('MULTIPLY', f1, w), t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', f1, f2), 0.5), t.math('SUBTRACT', 1.0, w)))
 
-    joint_primary = t.math('ADD', t.math('MULTIPLY', t.math('ADD', joints(0.4, 53.1), t.math('MULTIPLY', joints(1.9, 71.3), 0.6)), upright),
-                           noise(rr(3.0), rr(3.0), rr(3.0), 1.0, rr(0.3)))
-    joint_secondary = t.math('ADD', noise(rr(0.8), rr(0.8), rr(0.8), 2.0, rr(0.15)), grain)  # calm, so the faces read flat
+    joint_primary = t.math('MULTIPLY', grain, 0.0)  # the primary shapes are the masses cut into the cave's shape (above)
+    # Secondary: crumpled facets over the masses (the Village mine wall): flat faces about a third of the
+    # passage's half width across, meeting at crisp ridges, shallow, following the masses.
+    joint_secondary = t.math('ADD', blocks(rr(0.35), rr(0.06), 41.7), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
@@ -854,7 +920,12 @@ def cave_group():
                     Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
     settled = t.node('GeometryNodeSetPosition', Geometry=boulders.outputs[0], Selection=settle.outputs["Is Hit"],
                      Position=settle.outputs["Hit Position"]).outputs[0]
-    t.L.new(settled, with_rocks.inputs[0])
+    # Rocks only on the ground for now (Mike, while the wall shapes are dialled in): any rock not resting on
+    # floor (a face looking down, out of the cave's space) is dropped, so none sit on walls, slabs or in the air.
+    on_floor = t.math('MULTIPLY', settle.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(settle.outputs["Hit Normal"])["Z"], -0.9))  # near-flat ground
+    grounded = t.node('GeometryNodeDeleteGeometry', Geometry=settled, Selection=t.math('LESS_THAN', on_floor, 0.5))
+    grounded.domain = 'INSTANCE'
+    t.L.new(grounded.outputs[0], with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

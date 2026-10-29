@@ -704,7 +704,8 @@ def _t14():
     with_ramp = rocks_in(ob)
     c.ramp = False
     no_ramp = rocks_in(ob)
-    check(with_ramp > no_ramp, f"turning the ramp off should take its rocks with it: {with_ramp} vs {no_ramp}")
+    # The ramp carries no rocks while the walls are dialled in (Mike, D116), so it may only cover floor rocks.
+    check(with_ramp <= no_ramp, f"the ramp should add no rocks of its own: {with_ramp} vs {no_ramp}")
     c.chamber, c.chamber_drop = 0.0, 0.0
     c.rubble, c.seed = 0.5, 7
     p7, _c, _f, _n = cave_mesh(ob)

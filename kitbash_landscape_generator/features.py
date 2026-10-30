@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 53
+CAVE_VERSION = 57
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -899,7 +899,16 @@ def cave_group():
     # Secondary: crumpled facets over the masses (the Village mine wall): flat faces about a third of the
     # passage's half width across, meeting at crisp ridges, shallow, following the masses; drawn out a
     # little along the lean (3x ran as long thin arcs at High, even cells read as a honeycomb).
-    joint_secondary = t.math('ADD', blocks(rr(0.35), rr(0.06), 41.7, 1.8), t.math('MULTIPLY', grain, 0.5))
+    # Folds, not cells (closed facet outlines read as a network of cracks): where a smooth rock noise crosses
+    # zero the wall folds to a crisp ridge, broad faces between, the ridges branching and fading like crumpled
+    # rock. Two sizes, the big folds about two thirds of the passage's half width, small ones a quarter.
+    # Each fold rises fast from its ridge then flattens out (|n| to the power 0.7; 0.4 cut worm-like grooves), so the faces between read flat
+    # and angular rather than as soft, melted bulges.
+    fold = lambda size, amp: t.math('MULTIPLY', t.math('POWER', t.math('ABSOLUTE', noise(rr(size), rr(size), rr(size * 1.6), 1.0, 2.0)), 0.7), rr(amp))
+    # Facets and folds together (Mike: the facets keep the look of layered rock; the folds, lighter, break up
+    # their outlines so they don't read as a network of cracks).
+    facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8)
+    joint_secondary = t.math('ADD', t.math('ADD', facets, t.math('ADD', fold(0.65, 0.06), fold(0.25, 0.03))), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along

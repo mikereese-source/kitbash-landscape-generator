@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 79
+CAVE_VERSION = 80
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -731,7 +731,7 @@ def cave_group():
     # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
     # passage stuck out into the bigger space).
     opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.64), t.math('LESS_THAN', t.named("c_s"), 0.8)))
-    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.32)),
+    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.5)),
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
     # right up to the opening (Mike: melted without them) but not past its lip: over a sunk chamber they hung
     # out over the drop; the chamber's ring of masses is its wall
@@ -754,13 +754,14 @@ def cave_group():
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, out_by)),
                                     t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.5)))).outputs[0]  # low enough to reach the floor, not spread across it
     yaw = t.math('ARCTAN2', t.xyz(across_s)["Y"], t.xyz(across_s)["X"])
-    # Chunky masses with broad flat faces (Mike: the ellipsoids read as soft blobs; boxes as man-made): a
-    # rock from the cave's own rubble kit (Blocks for jointed rock), scaled up to wall size, turned its own way:
-    # broad flat broken faces with crisp edges (a low-poly stone read round, a tumbled box man-made).
-    cube = library("Rubble Medium")  # each rock fits -1..1, so scales below are halved
-    slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(251),
-                   Rotation=t.vec(rand(-0.6, 0.6, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.08, 0.35, 219)), t.math('ADD', yaw, rand(-0.2, 0.2, 221))),
-                   Scale=t.vec(t.math('MULTIPLY', thick, 0.57), t.math('MULTIPLY', W, rand(0.34, 0.68, 223)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]  # 14% bigger (Mike: repeats on the roof)
+    # Upright blocks with flat faces (Mike: the rock-kit masses came out round and bulbous, not like jointed
+    # rock; he wants boxy, square, vertical columns lined up with the joints on the walls): boxes standing
+    # nearly upright, narrow along the passage so several sit side by side, each set in or out its own amount.
+    cube = library("Rubble Medium")  # each rock fits -1..1, so scales below are halved (limestone's plates)
+    column = t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"]  # -1..1 like the rocks
+    slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=column,
+                   Rotation=t.vec(rand(-0.06, 0.06, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.04, 0.2, 219)), t.math('ADD', yaw, rand(-0.12, 0.12, 221))),
+                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]
     t.L.new(slabs, solids.inputs[0])
     # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
     ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=15)
@@ -784,8 +785,8 @@ def cave_group():
                      Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4)))).outputs[0]
     ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.5)))
-    ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(253),
-                  Rotation=t.vec(rand(-0.6, 0.6, 237), t.math('MULTIPLY', rand(0.08, 0.35, 239), -1.0), t.math('ADD', ang, rand(-0.2, 0.2, 241))),
+    ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=column,
+                  Rotation=t.vec(rand(-0.06, 0.06, 237), t.math('MULTIPLY', rand(0.04, 0.2, 239), -1.0), t.math('ADD', ang, rand(-0.12, 0.12, 241))),
                   Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), t.math('MULTIPLY', t.named("c_tall"), 0.35))).outputs[0]  # small, many (Mike: big ones read blobby)
     t.L.new(ring, solids.inputs[0])
     # Limestone, primary shapes (from the Mammoth passage reference, docs/m5/ref_limestone_shapes.jpg): the
@@ -883,13 +884,38 @@ def cave_group():
             n.inputs[i + 1].default_value = float(v)
         return n.outputs[0]
 
-    faces = t.node('GeometryNodeAttributeDomainSize', Geometry=loose.outputs[0]).outputs["Face Count"]
+    # Jointed columns keep flat faces and crisp edges (Mike: they came out round; the shape's voxels, metres
+    # across, bevel every corner): points of the shell within a voxel of a column's face are put back onto it.
+    cols = t.node('GeometryNodeJoinGeometry')
+    t.L.new(slabs, cols.inputs[0])
+    t.L.new(ring, cols.inputs[0])
+    near_col = t.node('GeometryNodeProximity', Geometry=t.node('GeometryNodeRealizeInstances', Geometry=cols.outputs[0]).outputs[0],
+                      Source_Position=t.position())
+    near_col.target_element = 'FACES'
+    # Only points that move mostly in or out to the face: one pulled sideways onto a column's edge spiked.
+    to_col = t.vmath('NORMALIZE', t.vmath('SUBTRACT', near_col.outputs["Position"], t.position()))
+    straight = t.math('GREATER_THAN', t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', to_col, t.node('GeometryNodeInputNormal').outputs[0])), 0.55)
+    # Standing wall only: points where the wall turns into floor or roof, snapped onto a column's foot or top,
+    # folded the shell there.
+    upright_pt = t.math('LESS_THAN', t.math('ABSOLUTE', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"]), 0.35)
+    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, straight), upright_pt),
+                    t.math('LESS_THAN', near_col.outputs["Distance"], t.math('MULTIPLY', voxel, 0.9)))
+    before = t.store(t.store(loose.outputs[0], "lg_p0", t.position(), 'FLOAT_VECTOR'), "lg_n0", t.node('GeometryNodeInputNormal').outputs[0], 'FLOAT_VECTOR')
+    snapped = t.node('GeometryNodeSetPosition', Geometry=before, Selection=on_col, Position=near_col.outputs["Position"]).outputs[0]
+    # Any face the snap turned over (where columns crowd together) has its points put back where they were.
+    flipped = t.N.new('GeometryNodeFieldOnDomain')
+    flipped.domain, flipped.data_type = 'FACE', 'FLOAT'
+    t._set(flipped.inputs[0], t.math('LESS_THAN', t.vmath('DOT_PRODUCT', t.node('GeometryNodeInputNormal').outputs[0], t.named("lg_n0", 'FLOAT_VECTOR')), 0.2))
+    squared = t.node('GeometryNodeSetPosition', Geometry=snapped, Selection=t.math('GREATER_THAN', flipped.outputs[0], 0.0),
+                     Position=t.named("lg_p0", 'FLOAT_VECTOR')).outputs[0]
+    squared = t.node('GeometryNodeRemoveAttribute', Geometry=t.node('GeometryNodeRemoveAttribute', Geometry=squared, Name="lg_p0").outputs[0], Name="lg_n0").outputs[0]
+    faces = t.node('GeometryNodeAttributeDomainSize', Geometry=squared).outputs["Face Count"]
     aim = t.math('ROUND', t.math('LOGARITHM', t.math('DIVIDE', per_level(CAVE_FACES), t.math('MAXIMUM', faces, 1.0)), 4.0))
     levels = t.math('MINIMUM', t.math('MAXIMUM', aim, per_level(CAVE_SUBDIV)), 5.0)
     # Sharp edges stay sharp (Mike: the jointed masses came out soft): edges where the faces meet at a real
     # angle are creased before smoothing, so broad flat faces keep crisp ridges between them.
     bend = t.node('GeometryNodeInputMeshEdgeAngle').outputs["Unsigned Angle"]
-    dense = t.node('GeometryNodeSubdivisionSurface', Mesh=loose.outputs[0], Edge_Crease=t.smooth(bend, 0.35, 0.8),
+    dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.smooth(bend, 0.35, 0.8),
                    Level=t.node('FunctionNodeFloatToInt', Float=levels).outputs[0]).outputs[0]
 
     # Wall volume by Rock (D115, Mike: primary and secondary volume in the mesh; ledges, bands and fine lines

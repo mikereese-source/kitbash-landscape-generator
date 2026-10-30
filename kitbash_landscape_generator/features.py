@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 46
+CAVE_VERSION = 50
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -445,7 +445,8 @@ CAVE_INPUTS = (
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
 )
-CAVE_DETAIL = (6.0, 10.0, 14.0)  # voxels across the smaller of the entrance's half width and height (shape only)
+CAVE_DETAIL = (6.0, 7.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
+# Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
 CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces per Detail Level, reached by subdividing (D105)
 
 
@@ -745,7 +746,7 @@ def cave_group():
     cube = library("Rubble Medium")  # each rock fits -1..1, so scales below are halved
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(251),
                    Rotation=t.vec(rand(-0.6, 0.6, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.08, 0.35, 219)), t.math('ADD', yaw, rand(-0.2, 0.2, 221))),
-                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.3, 0.6, 223)), t.named("c_tall"))).outputs[0]
+                   Scale=t.vec(t.math('MULTIPLY', thick, 0.57), t.math('MULTIPLY', W, rand(0.34, 0.68, 223)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]  # 14% bigger (Mike: repeats on the roof)
     t.L.new(slabs, solids.inputs[0])
     # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
     ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=7)
@@ -760,7 +761,7 @@ def cave_group():
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.35)))
     ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(253),
                   Rotation=t.vec(rand(-0.6, 0.6, 237), t.math('MULTIPLY', rand(0.08, 0.35, 239), -1.0), t.math('ADD', ang, rand(-0.2, 0.2, 241))),
-                  Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', rc, rand(0.25, 0.5, 243)), t.math('MULTIPLY', t.named("c_tall"), 0.9))).outputs[0]
+                  Scale=t.vec(t.math('MULTIPLY', thick, 0.57), t.math('MULTIPLY', rc, rand(0.29, 0.57, 243)), t.math('MULTIPLY', t.named("c_tall"), 1.03))).outputs[0]
     t.L.new(ring, solids.inputs[0])
     boulders = t.node('GeometryNodeJoinGeometry')
     for g in rubble_sets:  # the ramp's scree is off while the walls are dialled in (Mike: rocks on the ground only)
@@ -858,10 +859,10 @@ def cave_group():
     strike = t.math('MULTIPLY', seed, 0.61)
     lean = t.vec(t.math('MULTIPLY', t.math('COSINE', strike), 0.34), t.math('MULTIPLY', t.math('SINE', strike), 0.34), -0.94)
 
-    def blocks(size, depth, offset):
+    def blocks(size, depth, offset, drawn=3.0):
         along = t.vmath('DOT_PRODUCT', sp, lean)
         across = t.vmath('SUBTRACT', sp, t.vmath('SCALE', lean, scale=along))
-        q = t.vmath('DIVIDE', t.vmath('ADD', across, t.vmath('SCALE', lean, scale=t.math('DIVIDE', along, 3.0))), t.vec(size, size, size))
+        q = t.vmath('DIVIDE', t.vmath('ADD', across, t.vmath('SCALE', lean, scale=t.math('DIVIDE', along, drawn))), t.vec(size, size, size))
         # Warped, so the blocks come in all shapes and sizes (even cells read as a honeycomb).
         warp = t.node('ShaderNodeTexNoise', Vector=q, Scale=0.6, Detail=1.0)
         warp.noise_dimensions = '3D'
@@ -890,8 +891,9 @@ def cave_group():
 
     joint_primary = t.math('MULTIPLY', grain, 0.0)  # the primary shapes are the masses cut into the cave's shape (above)
     # Secondary: crumpled facets over the masses (the Village mine wall): flat faces about a third of the
-    # passage's half width across, meeting at crisp ridges, shallow, following the masses.
-    joint_secondary = t.math('ADD', blocks(rr(0.35), rr(0.06), 41.7), t.math('MULTIPLY', grain, 0.5))
+    # passage's half width across, meeting at crisp ridges, shallow, following the masses; drawn out a
+    # little along the lean (3x ran as long thin arcs at High, even cells read as a honeycomb).
+    joint_secondary = t.math('ADD', blocks(rr(0.35), rr(0.06), 41.7, 1.8), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along

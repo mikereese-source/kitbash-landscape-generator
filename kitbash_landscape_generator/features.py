@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 94
+CAVE_VERSION = 98
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -788,43 +788,59 @@ def cave_group():
     # like a drip). Below a floor it stays buried in rock; over the chamber it runs on down to its floor.
     reach = t.math('MULTIPLY', t.named("c_tall"), 1.14)  # half the column's height, before the extra
     half = t.math('ADD', reach, t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5),
-                                          t.math('SUBTRACT', 1.0, ramp_on)))  # not with a ramp: it fills to the chamber floor, and the feet came up through it (Mike's holes)
+                                          t.math('MAXIMUM', t.math('SUBTRACT', 1.0, ramp_on), sep)))  # cut in, not with a ramp (the feet came up through it); separate pieces always (they hung over its slope)
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=column,
                    Rotation=t.vec(rand(-0.03, 0.03, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.0, 0.04, 219)), t.math('ADD', yaw, rand(-0.12, 0.12, 221))),
                    Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), half)).outputs[0]
     # Moved down so its top stays where it was.
     slabs = t.node('GeometryNodeTranslateInstances', Instances=slabs, Translation=t.vec(0.0, 0.0, t.math('SUBTRACT', reach, half)), Local_Space=False).outputs[0]
     t.L.new(slabs, cols.inputs[0])
-    # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
-    ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=15)
-    ring_pts.domain = 'POINT'
-    ang = t.math('ADD', t.math('MULTIPLY', ring_pts.outputs["Duplicate Index"], 0.393), rand(-0.15, 0.15, 231))
+    # The chamber's own columns (Mike: columns in the chamber, without blocking its entrance): points spread
+    # over the chamber's standing walls, each a carved column from below its floor up into its roof, standing
+    # out a little. Rays from the end of the path missed the walls of a big chamber, and one aimed at the
+    # opening stood a column across the passage. Only walls facing out from the chamber's middle count (not
+    # the passage's), and none near where the passage opens into it.
+    def path_mean(sel):
+        st = t.node('GeometryNodeAttributeStatistic', Geometry=path, Selection=sel, Attribute=t.position())
+        st.data_type, st.domain = 'FLOAT_VECTOR', 'POINT'
+        return st.outputs["Mean"]
+    ch_mid = path_mean(t.math('GREATER_THAN', t.named("c_s"), 0.95))
+    flat = lambda v: t.vec(t.xyz(v)["X"], t.xyz(v)["Y"], 0.0)
+    # the opening: where the path crosses the chamber's edge, a chamber's radius from its middle
+    ch_door = path_mean(t.math('LESS_THAN', t.math('ABSOLUTE', t.math('SUBTRACT', t.vmath('LENGTH', flat(t.vmath('SUBTRACT', t.position(), ch_mid))), rc)), W))
+    # 24 rays out from the chamber's middle, a third of the way up; none within 35 degrees of the opening.
+    ring_n = t.node('GeometryNodePoints', Count=24, Position=t.vmath('ADD', ch_mid, t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.35)))).outputs[0]
+    ang = t.math('ADD', t.math('MULTIPLY', t.node('GeometryNodeInputIndex').outputs[0], 0.2618), rand(-0.1, 0.1, 231))
     ring_dir = t.vec(t.math('COSINE', ang), t.math('SINE', ang), 0.0)
-    # Each finds the chamber's real wall along its direction (placed at a set distance from a point near the
-    # chamber's far end, the near side's masses stood out in the open: Mike's blob).
-    ring_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
-                      Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4))),
-                      Ray_Direction=ring_dir, Ray_Length=t.math('ADD', t.math('MULTIPLY', rc, 3.0), W))
-    ring_d = t.N.new('GeometryNodeSwitch')
-    ring_d.input_type = 'FLOAT'
-    t._set(ring_d.inputs['Switch'], ring_ray.outputs["Is Hit"])
-    t._set(ring_d.inputs['False'], rc)
-    t._set(ring_d.inputs['True'], ring_ray.outputs["Hit Distance"])
-    ring_out = t.math('ADD', t.math('SUBTRACT', ring_d.outputs[0], t.math('MULTIPLY', t.math('MINIMUM', rc, ring_d.outputs[0]),
-                      t.math('MULTIPLY', rand(0.08, 0.2, 233), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))),
-                      t.math('MULTIPLY', thick, 0.3))  # half the mass's depth into the rock (it is scaled thick x 0.3)
-    ring_at = t.node('GeometryNodeSetPosition', Geometry=ring_pts.outputs["Geometry"],
-                     Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.5)))).outputs[0]
-    ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),
-                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.5)))
-    # Only where the ray finds the chamber's own wall: one aimed at the opening ran back down the passage and
-    # stood a column right across it near the mouth, sealing the cave (Mike's cave lost its front).
-    ring_keep = t.math('MULTIPLY', ring_keep, t.math('MULTIPLY', ring_ray.outputs["Is Hit"], t.math('LESS_THAN', ring_ray.outputs["Hit Distance"], t.math('MULTIPLY', rc, 1.3))))
-    ring_keep = t.math('MULTIPLY', ring_keep, t.math('GREATER_THAN', t.xyz(ring_ray.outputs["Hit Position"])["Y"], t.math('SUBTRACT', y06, W)))  # and past where the chamber begins (a big one reaches back over the passage)
-    ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=column,
-                  Rotation=t.vec(rand(-0.03, 0.03, 237), t.math('MULTIPLY', rand(0.0, 0.04, 239), -1.0), t.math('ADD', ang, rand(-0.12, 0.12, 241))),
-                  Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), half)).outputs[0]  # narrow, many (Mike: big ones read blobby); floor to roof
-    ring = t.node('GeometryNodeTranslateInstances', Instances=ring, Translation=t.vec(0.0, 0.0, t.math('SUBTRACT', reach, half)), Local_Space=False).outputs[0]  # down to the floor too
+    to_door = t.vmath('NORMALIZE', flat(t.vmath('SUBTRACT', ch_door, ch_mid)))
+    ring_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh, Source_Position=t.position(), Ray_Direction=ring_dir,
+                      Ray_Length=t.math('MULTIPLY', rc, 3.0))
+    ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.75))
+    ring_keep = t.math('MULTIPLY', ring_keep, t.math('MULTIPLY', ring_ray.outputs["Is Hit"],
+                       t.math('LESS_THAN', t.vmath('DOT_PRODUCT', ring_dir, to_door), 0.82)))  # the entrance stays clear
+    ring_depth = t.math('MULTIPLY', thick, 0.3)  # half the column's depth
+    wn = ring_dir
+    # Leaning in with the dome (straight up, a column left the chamber's space halfway up and was cut off there,
+    # a stub): a second ray, higher up, finds how far the wall has come in, and the column tips to follow it.
+    up_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+                    Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.4))),
+                    Ray_Direction=ring_dir, Ray_Length=t.math('MULTIPLY', rc, 3.0))
+    lean = t.math('ARCTAN2', t.math('SUBTRACT', ring_ray.outputs["Hit Distance"], up_ray.outputs["Hit Distance"]), t.math('MULTIPLY', gin["Ceiling Height"], 0.4))
+    lean = t.math('MULTIPLY', up_ray.outputs["Is Hit"], t.math('MINIMUM', t.math('MAXIMUM', lean, 0.0), 0.7))
+    ring_n = t.store(ring_n, "lg_lean", lean)
+    ring_n = t.store(ring_n, "lg_rk", ring_keep)  # kept before the points move (the ray is cast from where they start)
+    # Leaning from its foot (leaning about its middle lifted the foot off the floor): its axis passes through
+    # the wall where the ray met it and runs down to below the chamber's floor.
+    ring_half = t.math('MULTIPLY', gin["Ceiling Height"], 1.3)
+    axis = t.vec(t.math('MULTIPLY', t.xyz(ring_dir)["X"], t.math('MULTIPLY', t.math('SINE', lean), -1.0)),
+                 t.math('MULTIPLY', t.xyz(ring_dir)["Y"], t.math('MULTIPLY', t.math('SINE', lean), -1.0)), t.math('COSINE', lean))
+    to_foot = t.math('DIVIDE', t.math('ADD', t.math('ADD', t.xyz(ring_ray.outputs["Hit Position"])["Z"], t.math('ADD', gin["Drop"], gin["Chamber Drop"])), 4.0), t.math('COSINE', lean))
+    ring_at = t.node('GeometryNodeSetPosition', Geometry=ring_n, Position=t.vmath('ADD', t.vmath('ADD', ring_ray.outputs["Hit Position"],
+                     t.vmath('SCALE', ring_dir, scale=t.math('SUBTRACT', ring_depth, t.math('MULTIPLY', rc, rand(0.02, 0.07, 233))))),
+                     t.vmath('SCALE', axis, scale=t.math('SUBTRACT', ring_half, to_foot)))).outputs[0]
+    ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=t.named("lg_rk"), Instance=column,
+                  Rotation=t.vec(rand(-0.03, 0.03, 237), t.math('MULTIPLY', t.named("lg_lean"), -1.0), t.math('ADD', t.math('ARCTAN2', t.xyz(wn)["Y"], t.xyz(wn)["X"]), rand(-0.12, 0.12, 241))),  # top tips in
+                  Scale=t.vec(ring_depth, t.math('MULTIPLY', rc, rand(0.06, 0.12, 243)), ring_half)).outputs[0]  # floor to roof and past both
     t.L.new(ring, cols.inputs[0])
     # Second pass against the jointed references (sea-cave interior, rockfall cave): the roof hangs in big
     # angular blocks with inclined undersides along the joints, and the columns break into blocks that step
@@ -946,7 +962,7 @@ def cave_group():
     # out of the walkway. Joined to the shell below, they go through the same snapping, smoothing and rock
     # detail as the walls, but stay their own pieces.
     pieces_all, _pieces_skin = level_set(carved)
-    room = t.node('GeometryNodeSDFGridOffset', Grid=space, Distance=t.math('MULTIPLY', voxel, 1.5)).outputs[0]  # grown into the rock (positive grows)
+    room = t.node('GeometryNodeSDFGridOffset', Grid=space, Distance=t.math('MULTIPLY', voxel, 3.0)).outputs[0]  # grown into the rock (positive grows; at 1.5 the feet stopped at the floor)
     in_room = t.N.new('GeometryNodeSDFGridBoolean')
     in_room.operation = 'INTERSECT'
     t.L.new(room, in_room.inputs["Grid"])

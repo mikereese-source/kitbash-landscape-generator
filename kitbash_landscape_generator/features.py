@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 70
+CAVE_VERSION = 77
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -796,7 +796,7 @@ def cave_group():
     beds = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=2)
     beds.domain = 'POINT'
     level = beds.outputs["Duplicate Index"]  # 0, 1, 2 up the wall
-    bed_h = t.math('MULTIPLY', t.named("c_tall"), t.math('ADD', 0.12, t.math('MULTIPLY', level, 0.24)))
+    bed_h = t.math('MULTIPLY', t.named("c_tall"), t.math('ADD', 0.22, t.math('MULTIPLY', level, 0.22)))  # lowest above the floor (it hung onto it)
     bed_in = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.03, 0.28, 261), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
     bed_out = t.math('ADD', t.math('SUBTRACT', wall_d.outputs[0], bed_in), t.math('MULTIPLY', thick, 0.4))
     bed_at = t.node('GeometryNodeSetPosition', Geometry=beds.outputs["Geometry"],
@@ -824,7 +824,26 @@ def cave_group():
 
     # Space minus rock: the domes' space as one signed-distance field, the rubble and ramp taken out of it
     # (merging the rocks into the space carved hollows into the walls instead of piling rock at their foot).
-    rubble, _ramp_skin = level_set(solids.outputs[0])
+    rubble_all, _ramp_skin = level_set(solids.outputs[0])
+    # A walkway no mass may fill, whatever the rock and settings: a tube along the path from the floor to just
+    # over head height (2.2 m, or 60% of a small passage's half width) (a long limestone plate on a tight bend once cut right across the
+    # passage and the cave ended there).
+    # It stops where a ramp starts down (it would cut a step into the ramp's slope).
+    clear_pts = t.node('GeometryNodeDeleteGeometry', Geometry=path,
+                       Selection=t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.xyz(t.position())["Y"], y06)))
+    clear_pts.domain = 'POINT'
+    clear_c = t.node('GeometryNodeMeshToCurve', Mesh=clear_pts.outputs[0]).outputs[0]
+    walk_r = t.math('MINIMUM', t.math('MULTIPLY', t.named("c_narrow"), 0.3), 1.1)  # a person: about 2.2 m clear
+    clear_c = t.node('GeometryNodeSetPosition', Geometry=clear_c, Offset=t.vec(0.0, 0.0, walk_r)).outputs[0]
+    clear_c = t.node('GeometryNodeSetCurveRadius', Curve=clear_c, Radius=walk_r).outputs[0]
+    clear_tube = t.node('GeometryNodeCurveToMesh', Curve=clear_c, Profile_Curve=t.node('GeometryNodeCurvePrimitiveCircle', Resolution=12, Radius=1.0).outputs["Curve"],
+                        Fill_Caps=True).outputs[0]
+    clear_grid = t.node('GeometryNodeMeshToSDFGrid', Mesh=clear_tube, Voxel_Size=voxel, Band_Width=3).outputs[0]
+    keep_clear = t.N.new('GeometryNodeSDFGridBoolean')
+    keep_clear.operation = 'DIFFERENCE'
+    t.L.new(rubble_all, keep_clear.inputs["Grid 1"])
+    t.L.new(clear_grid, keep_clear.inputs["Grid 2"])
+    rubble = keep_clear.outputs[0]
     carve = t.N.new('GeometryNodeSDFGridBoolean')
     carve.operation = 'DIFFERENCE'
     t.L.new(space, carve.inputs["Grid 1"])

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 78
+CAVE_VERSION = 79
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -901,6 +901,14 @@ def cave_group():
     # between straight fractures, a lava tube smooth and drawn out along the tube.
     nrm = t.node('GeometryNodeInputNormal').outputs[0]
     nz = t.xyz(nrm)["Z"]
+    # The wall is pushed out along the normal blurred over a few faces, not the raw one (Mike's folded seam):
+    # at a sharp inside corner the raw normals on its two sides cross, so pushing along them folded the
+    # surface through itself. Blurred, they turn the corner together; the creases stay sharp.
+    push_blur = t.N.new('GeometryNodeBlurAttribute')
+    push_blur.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(push_blur.inputs["Value"], nrm)
+    t._set(push_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('POWER', 2.0, t.math('ADD', levels, 2.0))).outputs[0])
+    push = t.vmath('NORMALIZE', push_blur.outputs["Value"])
     wall = t.smooth(nz, -0.93, -0.7)  # not the floor; down to near-flat ground (Mike: the wall foot looked melted)
     upright = t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.55, 0.9))  # standing walls only
     R, F = gin["Roughness"], gin["Wall Shape"]
@@ -978,7 +986,11 @@ def cave_group():
     # rock. Two sizes, the big folds about two thirds of the passage's half width, small ones a quarter.
     # Each fold rises fast from its ridge then flattens out (|n| to the power 0.7; 0.4 cut worm-like grooves), so the faces between read flat
     # and angular rather than as soft, melted bulges.
-    fold = lambda size, amp: t.math('MULTIPLY', t.math('POWER', t.math('ABSOLUTE', noise(rr(size), rr(size), rr(size * 1.6), 1.0, 2.0)), 0.7), rr(amp))
+    # The ridge itself is rounded over a few centimetres of the fold (a true |n| peaks to a knife edge, which at
+    # high Roughness stood up as thin fins that looked like geometry folding through itself, Mike).
+    def fold(size, amp):
+        n = noise(rr(size), rr(size), rr(size * 1.6), 1.0, 2.0)
+        return t.math('MULTIPLY', t.math('POWER', t.math('SQRT', t.math('ADD', t.math('MULTIPLY', n, n), 0.01)), 0.7), rr(amp))
     # Facets and folds together (Mike: the facets keep the look of layered rock; the folds, lighter, break up
     # their outlines so they don't read as a network of cracks).
     facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8)
@@ -1001,8 +1013,21 @@ def cave_group():
     bump = t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump)
     lift = t.math('MULTIPLY', lift, t.math('LESS_THAN', gin["Rock"], 0.5))  # flat roofs: limestone only
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
-    rough = t.node('GeometryNodeSetPosition', Geometry=dense,
-                   Offset=t.vmath('ADD', t.vmath('SCALE', nrm, scale=bump), t.vec(0.0, 0.0, lift))).outputs[0]
+    pushes = t.store(t.store(dense, "lg_push", t.vmath('SCALE', push, scale=bump), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')
+    pushed = t.node('GeometryNodeSetPosition', Geometry=pushes,
+                    Offset=t.vmath('ADD', t.named("lg_push", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, lift))).outputs[0]
+    # Where the push still folds the wall through itself (a face turned to look away from where it looked
+    # before), it is taken back out over a few faces round the fold, so the wall eases to its smooth shape there.
+    turned = t.N.new('GeometryNodeFieldOnDomain')
+    turned.domain, turned.data_type = 'FACE', 'FLOAT'
+    t._set(turned.inputs[0], t.math('LESS_THAN', t.vmath('DOT_PRODUCT', t.node('GeometryNodeInputNormal').outputs[0], t.named("lg_n0", 'FLOAT_VECTOR')), 0.2))
+    spread_fold = t.N.new('GeometryNodeBlurAttribute')
+    spread_fold.data_type = 'FLOAT'
+    t._set(spread_fold.inputs["Value"], turned.outputs[0])
+    t._set(spread_fold.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('POWER', 2.0, t.math('SUBTRACT', levels, 1.0))).outputs[0])
+    eased = t.node('GeometryNodeSetPosition', Geometry=pushed,
+                   Offset=t.vmath('SCALE', t.named("lg_push", 'FLOAT_VECTOR'), scale=t.math('MULTIPLY', t.smooth(spread_fold.outputs[0], 0.0, 0.05), -1.0))).outputs[0]
+    rough = t.node('GeometryNodeRemoveAttribute', Geometry=t.node('GeometryNodeRemoveAttribute', Geometry=eased, Name="lg_push").outputs[0], Name="lg_n0").outputs[0]
     marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not

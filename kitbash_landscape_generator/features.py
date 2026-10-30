@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 68
+CAVE_VERSION = 70
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -797,26 +797,26 @@ def cave_group():
     beds.domain = 'POINT'
     level = beds.outputs["Duplicate Index"]  # 0, 1, 2 up the wall
     bed_h = t.math('MULTIPLY', t.named("c_tall"), t.math('ADD', 0.12, t.math('MULTIPLY', level, 0.24)))
-    bed_in = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.05, 0.3, 261), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
+    bed_in = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.03, 0.28, 261), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
     bed_out = t.math('ADD', t.math('SUBTRACT', wall_d.outputs[0], bed_in), t.math('MULTIPLY', thick, 0.4))
     bed_at = t.node('GeometryNodeSetPosition', Geometry=beds.outputs["Geometry"],
                     Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, bed_out)), t.vec(0.0, 0.0, bed_h))).outputs[0]
-    bed_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime_on, t.math('LESS_THAN', rand(0.0, 1.0, 263), 0.45)),
+    bed_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime_on, t.math('LESS_THAN', rand(0.0, 1.0, 263), 0.55)),
                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.2), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
     plates = t.node('GeometryNodeInstanceOnPoints', Points=bed_at, Selection=bed_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(265),
                     Rotation=t.vec(rand(-0.05, 0.05, 267), rand(-0.05, 0.05, 269), t.math('ADD', yaw, rand(-0.15, 0.15, 271))),
-                    Scale=t.vec(t.math('MULTIPLY', thick, 0.4), t.math('MULTIPLY', W, rand(0.6, 1.3, 273)), t.math('MULTIPLY', t.named("c_tall"), 0.13))).outputs[0]
+                    Scale=t.vec(t.math('MULTIPLY', thick, 0.48), t.math('MULTIPLY', W, rand(0.72, 1.56, 273)), t.math('MULTIPLY', t.named("c_tall"), 0.16))).outputs[0]  # +20% (Mike: more slab-like)
     t.L.new(plates, solids.inputs[0])
     # The roof: flat blocks whose undersides sit at 72 to 88% of the section's height, a few per passage, so the
     # roof is level planes stepping between beds.
     roof_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime_on, t.math('LESS_THAN', rand(0.0, 1.0, 281), 0.25)),
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.15), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
-    roof_h = t.math('MULTIPLY', t.named("c_tall"), rand(0.72, 0.88, 283))
+    roof_h = t.math('MULTIPLY', t.named("c_tall"), rand(0.74, 0.9, 283))
     roof_at = t.node('GeometryNodeSetPosition', Geometry=path, Offset=t.vec(0.0, 0.0, t.math('ADD', roof_h, t.named("c_tall")))).outputs[0]
     slab = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
     roofs = t.node('GeometryNodeInstanceOnPoints', Points=roof_at, Selection=roof_keep, Instance=slab,
                    Rotation=t.vec(0.0, 0.0, t.math('ADD', yaw, rand(-0.3, 0.3, 285))),
-                   Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), 2.6), t.math('MULTIPLY', W, rand(0.8, 1.6, 287)), t.math('MULTIPLY', t.named("c_tall"), 2.0))).outputs[0]
+                   Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), 2.6), t.math('MULTIPLY', W, rand(0.96, 1.92, 287)), t.math('MULTIPLY', t.named("c_tall"), 2.0))).outputs[0]
     t.L.new(roofs, solids.inputs[0])
     boulders = t.node('GeometryNodeJoinGeometry')
     for g in rubble_sets:  # the ramp's scree is off while the walls are dialled in (Mike: rocks on the ground only)

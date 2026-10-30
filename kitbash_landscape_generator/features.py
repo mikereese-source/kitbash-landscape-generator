@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 64
+CAVE_VERSION = 66
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -735,7 +735,7 @@ def cave_group():
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
     # right up to the opening (Mike: melted without them) but not past its lip: over a sunk chamber they hung
     # out over the drop; the chamber's ring of masses is its wall
-    intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.25, 0.5, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
+    intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.15, 0.3, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
     thick = t.math('MULTIPLY', W, 2.0)
     across_s = t.named("c_across", 'FLOAT_VECTOR')
     # Each mass finds the real wall beside it (a ray out sideways onto the cave's space), so through the opening
@@ -752,7 +752,7 @@ def cave_group():
     out_by = t.math('ADD', t.math('SUBTRACT', wall_d.outputs[0], intrude), t.math('MULTIPLY', thick, 0.5))
     slab_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, out_by)),
-                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4)))).outputs[0]  # low, so their faces reach the floor
+                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.5)))).outputs[0]  # low enough to reach the floor, not spread across it
     yaw = t.math('ARCTAN2', t.xyz(across_s)["Y"], t.xyz(across_s)["X"])
     # Chunky masses with broad flat faces (Mike: the ellipsoids read as soft blobs; boxes as man-made): a
     # rock from the cave's own rubble kit (Blocks for jointed rock), scaled up to wall size, turned its own way:
@@ -763,19 +763,19 @@ def cave_group():
                    Scale=t.vec(t.math('MULTIPLY', thick, 0.57), t.math('MULTIPLY', W, rand(0.34, 0.68, 223)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]  # 14% bigger (Mike: repeats on the roof)
     t.L.new(slabs, solids.inputs[0])
     # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
-    ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=7)
+    ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=15)
     ring_pts.domain = 'POINT'
-    ang = t.math('ADD', t.math('MULTIPLY', ring_pts.outputs["Duplicate Index"], 0.785), rand(-0.3, 0.3, 231))
+    ang = t.math('ADD', t.math('MULTIPLY', ring_pts.outputs["Duplicate Index"], 0.393), rand(-0.15, 0.15, 231))
     ring_dir = t.vec(t.math('COSINE', ang), t.math('SINE', ang), 0.0)
     ring_out = t.math('ADD', t.math('SUBTRACT', rc, t.math('MULTIPLY', rc, t.math('MULTIPLY', rand(0.12, 0.3, 233), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))),
                       t.math('MULTIPLY', thick, 0.5))
     ring_at = t.node('GeometryNodeSetPosition', Geometry=ring_pts.outputs["Geometry"],
-                     Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.6)))).outputs[0]
+                     Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4)))).outputs[0]
     ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),
-                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.35)))
+                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.5)))
     ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=cube, Pick_Instance=True, Instance_Index=pick(253),
                   Rotation=t.vec(rand(-0.6, 0.6, 237), t.math('MULTIPLY', rand(0.08, 0.35, 239), -1.0), t.math('ADD', ang, rand(-0.2, 0.2, 241))),
-                  Scale=t.vec(t.math('MULTIPLY', thick, 0.57), t.math('MULTIPLY', rc, rand(0.29, 0.57, 243)), t.math('MULTIPLY', t.named("c_tall"), 1.03))).outputs[0]
+                  Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), t.math('MULTIPLY', t.named("c_tall"), 0.35))).outputs[0]  # small, many (Mike: big ones read blobby)
     t.L.new(ring, solids.inputs[0])
     boulders = t.node('GeometryNodeJoinGeometry')
     for g in rubble_sets:  # the ramp's scree is off while the walls are dialled in (Mike: rocks on the ground only)

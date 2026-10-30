@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 77
+CAVE_VERSION = 78
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -447,7 +447,7 @@ CAVE_INPUTS = (
 )
 CAVE_DETAIL = (6.0, 7.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
 # Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
-CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
+CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
 CAVE_SUBDIV = (2, 3, 4)  # but never fewer smoothing steps than these (each x4 faces; D121)
 
 
@@ -830,7 +830,8 @@ def cave_group():
     # passage and the cave ended there).
     # It stops where a ramp starts down (it would cut a step into the ramp's slope).
     clear_pts = t.node('GeometryNodeDeleteGeometry', Geometry=path,
-                       Selection=t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.xyz(t.position())["Y"], y06)))
+                       Selection=t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.xyz(t.position())["Y"],
+                       t.math('MAXIMUM', y06, t.math('ADD', y0, W)))))  # never the whole tube: an empty one wipes the cave
     clear_pts.domain = 'POINT'
     clear_c = t.node('GeometryNodeMeshToCurve', Mesh=clear_pts.outputs[0]).outputs[0]
     walk_r = t.math('MINIMUM', t.math('MULTIPLY', t.named("c_narrow"), 0.3), 1.1)  # a person: about 2.2 m clear

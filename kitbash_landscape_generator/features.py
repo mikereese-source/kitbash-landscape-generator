@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 57
+CAVE_VERSION = 64
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -730,16 +730,29 @@ def cave_group():
     jointed_on = t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 1.0), t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
     # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
     # passage stuck out into the bigger space).
-    opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.5), t.math('LESS_THAN', t.named("c_s"), 0.8)))
-    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.22)),
-                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('SUBTRACT', 1.0, opening)))
-    intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.1, 0.4, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
+    opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.64), t.math('LESS_THAN', t.named("c_s"), 0.8)))
+    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.32)),
+                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
+    # right up to the opening (Mike: melted without them) but not past its lip: over a sunk chamber they hung
+    # out over the drop; the chamber's ring of masses is its wall
+    intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.25, 0.5, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
     thick = t.math('MULTIPLY', W, 2.0)
-    out_by = t.math('ADD', t.math('SUBTRACT', t.named("c_radius"), intrude), t.math('MULTIPLY', thick, 0.5))
     across_s = t.named("c_across", 'FLOAT_VECTOR')
+    # Each mass finds the real wall beside it (a ray out sideways onto the cave's space), so through the opening
+    # into a chamber, where the chamber reaches back over the passage, it sits in the chamber's wall instead of
+    # standing out in the open space as an overhang.
+    side_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+                      Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4))),
+                      Ray_Direction=t.vmath('SCALE', across_s, scale=sidev), Ray_Length=t.math('ADD', t.math('MULTIPLY', rc, 2.0), W))
+    wall_d = t.N.new('GeometryNodeSwitch')
+    wall_d.input_type = 'FLOAT'
+    t._set(wall_d.inputs['Switch'], side_ray.outputs["Is Hit"])
+    t._set(wall_d.inputs['False'], t.named("c_radius"))
+    t._set(wall_d.inputs['True'], side_ray.outputs["Hit Distance"])
+    out_by = t.math('ADD', t.math('SUBTRACT', wall_d.outputs[0], intrude), t.math('MULTIPLY', thick, 0.5))
     slab_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, out_by)),
-                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.6)))).outputs[0]
+                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4)))).outputs[0]  # low, so their faces reach the floor
     yaw = t.math('ARCTAN2', t.xyz(across_s)["Y"], t.xyz(across_s)["X"])
     # Chunky masses with broad flat faces (Mike: the ellipsoids read as soft blobs; boxes as man-made): a
     # rock from the cave's own rubble kit (Blocks for jointed rock), scaled up to wall size, turned its own way:
@@ -827,7 +840,7 @@ def cave_group():
     # between straight fractures, a lava tube smooth and drawn out along the tube.
     nrm = t.node('GeometryNodeInputNormal').outputs[0]
     nz = t.xyz(nrm)["Z"]
-    wall = t.smooth(nz, -0.8, -0.35)  # not the floor
+    wall = t.smooth(nz, -0.93, -0.7)  # not the floor; down to near-flat ground (Mike: the wall foot looked melted)
     upright = t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.55, 0.9))  # standing walls only
     R, F = gin["Roughness"], gin["Wall Shape"]
     sp = t.vmath('ADD', t.position(), t.vec(seed, t.math('MULTIPLY', seed, 0.7), 0.0))

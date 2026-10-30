@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 92
+CAVE_VERSION = 94
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -769,8 +769,19 @@ def cave_group():
     # walls, floor and roof, so their flat faces and edges stay exactly as made.
     sep = gin["Separate Pieces"]
     cols = t.node('GeometryNodeJoinGeometry')
-    cut_cols = t.node('GeometryNodeDeleteGeometry', Geometry=cols.outputs[0], Selection=sep)
-    cut_cols.domain = 'INSTANCE'
+    # Carved, not boxes (Mike: no straight lines, no straight verticals; they need to be jagged, carved more):
+    # each block steps in and out in horizontal bands, a flat plane per band, its own pattern per block, so its
+    # faces stay flat and layered but no edge runs straight up (smooth noise melted them; patches tore them).
+    col_id = t.node('GeometryNodeStoreNamedAttribute', Geometry=cols.outputs[0], Name="lg_cid", Value=rand(0.0, 1000.0, 361))
+    col_id.data_type, col_id.domain = 'FLOAT', 'INSTANCE'
+    carved = t.node('GeometryNodeSubdivideMesh', Mesh=t.node('GeometryNodeRealizeInstances', Geometry=col_id.outputs[0]).outputs[0], Level=4).outputs[0]
+    cid = t.named("lg_cid")
+    band = t.math('FLOOR', t.math('ADD', t.math('DIVIDE', t.xyz(t.position())["Z"], t.math('MULTIPLY', W, 0.6)), t.math('FRACT', cid)))
+    band_r = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(band, cid, 0.0)).outputs["Value"]
+    carve_d = t.math('MULTIPLY', band_r, t.math('MULTIPLY', W, -0.15))  # cut in only (pushing out closed the passage)
+    carved = t.node('GeometryNodeSetPosition', Geometry=carved, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0], scale=carve_d)).outputs[0]
+    cut_cols = t.node('GeometryNodeDeleteGeometry', Geometry=carved, Selection=sep)
+    cut_cols.domain = 'POINT'
     t.L.new(cut_cols.outputs[0], solids.inputs[0])
     # Every column reaches down past the floor by the chamber's drop as well (Mike: by the opening into a sunk
     # chamber, whose roof reaches back over the passage, a column's foot came out into the open and hung there
@@ -934,7 +945,7 @@ def cave_group():
     # trimmed to the cave's space grown by a voxel (so they sink just into the walls, floor and roof) and kept
     # out of the walkway. Joined to the shell below, they go through the same snapping, smoothing and rock
     # detail as the walls, but stay their own pieces.
-    pieces_all, _pieces_skin = level_set(cols.outputs[0])
+    pieces_all, _pieces_skin = level_set(carved)
     room = t.node('GeometryNodeSDFGridOffset', Grid=space, Distance=t.math('MULTIPLY', voxel, 1.5)).outputs[0]  # grown into the rock (positive grows)
     in_room = t.N.new('GeometryNodeSDFGridBoolean')
     in_room.operation = 'INTERSECT'
@@ -1000,7 +1011,7 @@ def cave_group():
 
     # Jointed columns keep flat faces and crisp edges (Mike: they came out round; the shape's voxels, metres
     # across, bevel every corner): points of the shell within a voxel of a column's face are put back onto it.
-    near_col = t.node('GeometryNodeProximity', Geometry=t.node('GeometryNodeRealizeInstances', Geometry=cols.outputs[0]).outputs[0],
+    near_col = t.node('GeometryNodeProximity', Geometry=carved,
                       Source_Position=t.position())
     near_col.target_element = 'FACES'
     # Only points that move mostly in or out to the face: one pulled sideways onto a column's edge spiked.

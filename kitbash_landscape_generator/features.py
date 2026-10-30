@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 66
+CAVE_VERSION = 67
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -767,8 +767,19 @@ def cave_group():
     ring_pts.domain = 'POINT'
     ang = t.math('ADD', t.math('MULTIPLY', ring_pts.outputs["Duplicate Index"], 0.393), rand(-0.15, 0.15, 231))
     ring_dir = t.vec(t.math('COSINE', ang), t.math('SINE', ang), 0.0)
-    ring_out = t.math('ADD', t.math('SUBTRACT', rc, t.math('MULTIPLY', rc, t.math('MULTIPLY', rand(0.12, 0.3, 233), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))),
-                      t.math('MULTIPLY', thick, 0.5))
+    # Each finds the chamber's real wall along its direction (placed at a set distance from a point near the
+    # chamber's far end, the near side's masses stood out in the open: Mike's blob).
+    ring_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+                      Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4))),
+                      Ray_Direction=ring_dir, Ray_Length=t.math('ADD', t.math('MULTIPLY', rc, 3.0), W))
+    ring_d = t.N.new('GeometryNodeSwitch')
+    ring_d.input_type = 'FLOAT'
+    t._set(ring_d.inputs['Switch'], ring_ray.outputs["Is Hit"])
+    t._set(ring_d.inputs['False'], rc)
+    t._set(ring_d.inputs['True'], ring_ray.outputs["Hit Distance"])
+    ring_out = t.math('ADD', t.math('SUBTRACT', ring_d.outputs[0], t.math('MULTIPLY', t.math('MINIMUM', rc, ring_d.outputs[0]),
+                      t.math('MULTIPLY', rand(0.12, 0.3, 233), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))),
+                      t.math('MULTIPLY', thick, 0.3))  # half the mass's depth into the rock (it is scaled thick x 0.3)
     ring_at = t.node('GeometryNodeSetPosition', Geometry=ring_pts.outputs["Geometry"],
                      Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.4)))).outputs[0]
     ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),

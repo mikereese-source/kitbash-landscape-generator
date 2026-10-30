@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 50
+CAVE_VERSION = 51
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -883,10 +883,10 @@ def cave_group():
                                              t.vmath('SCALE', t.vmath('SUBTRACT', v.outputs["Color"], t.vec(0.5, 0.5, 0.5)), scale=0.4)), scale=1.4)
             off = t.vmath('SUBTRACT', t.vmath('ADD', q, t.vec(offset, 0.0, 0.0)), c)
             face = t.math('ADD', t.math('MULTIPLY', t.math('SUBTRACT', height, 0.5), depth),
-                          t.math('MULTIPLY', t.vmath('DOT_PRODUCT', off, tilt), t.math('MULTIPLY', size, 1.0)))
+                          t.math('MULTIPLY', t.vmath('DOT_PRODUCT', off, tilt), t.math('MULTIPLY', size, 0.45)))
             faces.append((face, v.outputs["Distance"]))
         (f1, d1), (f2, d2) = faces
-        w = t.smooth(t.math('SUBTRACT', d2, d1), 0.0, 0.3)  # 1 inside a block, 0 on its seam
+        w = t.smooth(t.math('SUBTRACT', d2, d1), 0.0, 0.45)  # wide, so a step rolls over (steep ones ribbed the mesh)  # 1 inside a block, 0 on its seam
         return t.math('ADD', t.math('MULTIPLY', f1, w), t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', f1, f2), 0.5), t.math('SUBTRACT', 1.0, w)))
 
     joint_primary = t.math('MULTIPLY', grain, 0.0)  # the primary shapes are the masses cut into the cave's shape (above)

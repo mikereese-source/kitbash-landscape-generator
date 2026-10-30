@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 81
+CAVE_VERSION = 82
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -761,9 +761,16 @@ def cave_group():
     # ones floated, read as stalactites); they come in only a little, so the passage stays open.
     cube = library("Rubble Medium")  # each rock fits -1..1, so scales below are halved (limestone's plates)
     column = t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"]  # -1..1 like the rocks
+    # Every column reaches down past the floor by the chamber's drop as well (Mike: by the opening into a sunk
+    # chamber, whose roof reaches back over the passage, a column's foot came out into the open and hung there
+    # like a drip). Below a floor it stays buried in rock; over the chamber it runs on down to its floor.
+    reach = t.math('MULTIPLY', t.named("c_tall"), 1.14)  # half the column's height, before the extra
+    half = t.math('ADD', reach, t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5))
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=column,
                    Rotation=t.vec(rand(-0.03, 0.03, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.0, 0.04, 219)), t.math('ADD', yaw, rand(-0.12, 0.12, 221))),
-                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]
+                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), half)).outputs[0]
+    # Moved down so its top stays where it was.
+    slabs = t.node('GeometryNodeTranslateInstances', Instances=slabs, Translation=t.vec(0.0, 0.0, t.math('SUBTRACT', reach, half)), Local_Space=False).outputs[0]
     t.L.new(slabs, solids.inputs[0])
     # The chamber's own wall, all the way round: a ring of slabs at a few points in the chamber.
     ring_pts = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=15)
@@ -789,7 +796,8 @@ def cave_group():
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.5)))
     ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=column,
                   Rotation=t.vec(rand(-0.03, 0.03, 237), t.math('MULTIPLY', rand(0.0, 0.04, 239), -1.0), t.math('ADD', ang, rand(-0.12, 0.12, 241))),
-                  Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), t.math('MULTIPLY', t.named("c_tall"), 1.14))).outputs[0]  # narrow, many (Mike: big ones read blobby); floor to roof
+                  Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), half)).outputs[0]  # narrow, many (Mike: big ones read blobby); floor to roof
+    ring = t.node('GeometryNodeTranslateInstances', Instances=ring, Translation=t.vec(0.0, 0.0, t.math('SUBTRACT', reach, half)), Local_Space=False).outputs[0]  # down to the floor too
     t.L.new(ring, solids.inputs[0])
     # Limestone, primary shapes (from the Mammoth passage reference, docs/m5/ref_limestone_shapes.jpg): the
     # walls are stacks of thick beds, each standing out or set back from the one below like stacked plates, and

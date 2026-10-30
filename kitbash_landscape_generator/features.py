@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 91
+CAVE_VERSION = 92
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -929,6 +929,32 @@ def cave_group():
     t.L.new(clear_tube, tubes.inputs[0])
     t.L.new(ramp_tube, tubes.inputs[0])
     clear_grid, _tubes_skin = level_set(tubes.outputs[0])
+    # Pieces Separate (Mike: separate pieces for better AO and a better jointed look, but looking like the rest
+    # of the cave, not plain cubes, and reaching only a little past it): the masses as one shape of their own,
+    # trimmed to the cave's space grown by a voxel (so they sink just into the walls, floor and roof) and kept
+    # out of the walkway. Joined to the shell below, they go through the same snapping, smoothing and rock
+    # detail as the walls, but stay their own pieces.
+    pieces_all, _pieces_skin = level_set(cols.outputs[0])
+    room = t.node('GeometryNodeSDFGridOffset', Grid=space, Distance=t.math('MULTIPLY', voxel, 1.5)).outputs[0]  # grown into the rock (positive grows)
+    in_room = t.N.new('GeometryNodeSDFGridBoolean')
+    in_room.operation = 'INTERSECT'
+    t.L.new(room, in_room.inputs["Grid"])
+    t.L.new(pieces_all, in_room.inputs["Grid"])
+    clear_pieces = t.N.new('GeometryNodeSDFGridBoolean')
+    clear_pieces.operation = 'DIFFERENCE'
+    t.L.new(in_room.outputs[0], clear_pieces.inputs["Grid 1"])
+    t.L.new(clear_grid, clear_pieces.inputs["Grid 2"])
+    pieces_mesh = t.node('GeometryNodeGridToMesh', Grid=clear_pieces.outputs[0]).outputs[0]
+    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', t.math('MULTIPLY', sep, jointed_on), 0.5)).outputs[0]
+    # Slivers where a box's corner only just reaches into the margin are dropped (under 5% of the biggest piece).
+    p_island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
+    p_count = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=p_island)
+    p_count.domain = 'POINT'
+    p_big = t.node('GeometryNodeAttributeStatistic', Geometry=pieces_mesh, Attribute=p_count.outputs["Total"])
+    p_big.domain = 'POINT'
+    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh,
+                         Selection=t.math('LESS_THAN', p_count.outputs["Total"], t.math('MULTIPLY', p_big.outputs["Max"], 0.05))).outputs[0]
+    pieces_mesh = t.store(pieces_mesh, "lg_piece", True, 'BOOLEAN', 'POINT')
     keep_clear = t.N.new('GeometryNodeSDFGridBoolean')
     keep_clear.operation = 'DIFFERENCE'
     t.L.new(rubble_all, keep_clear.inputs["Grid 1"])
@@ -982,9 +1008,13 @@ def cave_group():
     straight = t.math('GREATER_THAN', t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', to_col, t.node('GeometryNodeInputNormal').outputs[0])), 0.55)
     # Not the floor: points where the wall turns into floor, snapped onto a column's foot, folded the shell there.
     upright_pt = t.math('GREATER_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.35)  # wall and roof (normals point into the rock)
-    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('SUBTRACT', 1.0, sep)), straight), upright_pt),
+    cut_in = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('SUBTRACT', 1.0, sep)), upright_pt)
+    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MAXIMUM', cut_in, t.named("lg_piece", 'BOOLEAN')), straight),
                     t.math('LESS_THAN', near_col.outputs["Distance"], t.math('MULTIPLY', voxel, 0.9)))
-    before = t.store(t.store(loose.outputs[0], "lg_p0", t.position(), 'FLOAT_VECTOR'), "lg_n0", t.node('GeometryNodeInputNormal').outputs[0], 'FLOAT_VECTOR')
+    shell_pieces = t.node('GeometryNodeJoinGeometry')
+    t.L.new(loose.outputs[0], shell_pieces.inputs[0])
+    t.L.new(pieces_mesh, shell_pieces.inputs[0])
+    before = t.store(t.store(shell_pieces.outputs[0], "lg_p0", t.position(), 'FLOAT_VECTOR'), "lg_n0", t.node('GeometryNodeInputNormal').outputs[0], 'FLOAT_VECTOR')
     snapped = t.node('GeometryNodeSetPosition', Geometry=before, Selection=on_col, Position=near_col.outputs["Position"]).outputs[0]
     # Any face the snap turned over (where columns crowd together) has its points put back where they were.
     flipped = t.N.new('GeometryNodeFieldOnDomain')
@@ -1144,12 +1174,6 @@ def cave_group():
     # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.
     with_rocks = t.node('GeometryNodeJoinGeometry')
     t.L.new(smooth, with_rocks.inputs[0])
-    # Separate pieces: each a closed box, its own island, marked so materials can tell it from the shell.
-    pieces = t.node('GeometryNodeDeleteGeometry', Geometry=cols.outputs[0], Selection=t.math('LESS_THAN', t.math('MULTIPLY', sep, jointed_on), 0.5))
-    pieces.domain = 'INSTANCE'
-    pieces = t.node('GeometryNodeRealizeInstances', Geometry=pieces.outputs[0]).outputs[0]
-    pieces = t.node('GeometryNodeSetShadeSmooth', Geometry=t.store(pieces, "lg_piece", True, 'BOOLEAN', 'FACE'), Shade_Smooth=False).outputs[0]
-    t.L.new(pieces, with_rocks.inputs[0])
     # Every rock settles onto the finished shell below it: they were dropped onto the coarse shape (and the
     # ramp's own mesh), which smoothing and wall detail move a little, so some floated (Mike's ramp slab).
     settle = t.node('GeometryNodeRaycast', Target_Geometry=smooth,

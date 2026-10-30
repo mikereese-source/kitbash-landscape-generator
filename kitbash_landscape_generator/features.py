@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 82
+CAVE_VERSION = 84
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -799,6 +799,52 @@ def cave_group():
                   Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), half)).outputs[0]  # narrow, many (Mike: big ones read blobby); floor to roof
     ring = t.node('GeometryNodeTranslateInstances', Instances=ring, Translation=t.vec(0.0, 0.0, t.math('SUBTRACT', reach, half)), Local_Space=False).outputs[0]  # down to the floor too
     t.L.new(ring, solids.inputs[0])
+    # Second pass against the jointed references (sea-cave interior, rockfall cave): the roof hangs in big
+    # angular blocks with inclined undersides along the joints, and the columns break into blocks that step
+    # in and out, where ours were a smooth vault and clean single boxes.
+    # Roof blocks: off to either side of the passage, their undersides at 72 to 90% of the height, tilted
+    # their own way, so the roof is broken planes meeting at angles.
+    block = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0)).outputs["Mesh"]
+    hang_h = t.math('MULTIPLY', t.named("c_tall"), rand(0.72, 0.9, 301))
+    hang_d = t.math('MULTIPLY', t.named("c_tall"), 0.6)  # the block's depth, mostly up in the rock
+    hang_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
+                     Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(0.1, 0.5, 303)))),
+                                    t.vec(0.0, 0.0, t.math('ADD', hang_h, t.math('MULTIPLY', hang_d, 0.5))))).outputs[0]
+    hang_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 305), 0.4)), t.math('GREATER_THAN', t.named("c_s"), 0.25))
+    hangs = t.node('GeometryNodeInstanceOnPoints', Points=hang_at, Selection=hang_keep, Instance=block,
+                   Rotation=t.vec(rand(-0.45, 0.45, 307), rand(-0.45, 0.45, 309), t.math('ADD', yaw, rand(-0.4, 0.4, 311))),
+                   Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), rand(0.5, 1.1, 313)), t.math('MULTIPLY', W, rand(0.4, 0.9, 315)), hang_d)).outputs[0]
+    t.L.new(hangs, solids.inputs[0])
+    # Steps on the columns: a shorter block over part of some columns, set out a little further and turned a
+    # little, so a column's face steps out and back like stacked blocks.
+    step_keep = t.math('MULTIPLY', slab_keep, t.math('LESS_THAN', rand(0.0, 1.0, 321), 0.6))
+    step_at = t.node('GeometryNodeSetPosition', Geometry=slab_at,
+                     Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(-0.1, -0.05, 323)))),
+                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), rand(-0.35, 0.35, 325))))).outputs[0]
+    steps = t.node('GeometryNodeInstanceOnPoints', Points=step_at, Selection=step_keep, Instance=column,
+                   Rotation=t.vec(rand(-0.04, 0.04, 327), rand(-0.04, 0.04, 329), t.math('ADD', yaw, rand(-0.2, 0.2, 331))),
+                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.15, 0.35, 333)), t.math('MULTIPLY', t.named("c_tall"), rand(0.12, 0.3, 335)))).outputs[0]
+    t.L.new(steps, solids.inputs[0])
+    # Teardrops (Mike, from the rockfall cave: big flat-faced slabs wide at the top that narrow down the wall
+    # to a rounded point partway down): now and then a four-sided wedge on the passage wall, wide near the
+    # roof, tapering to a small blunt foot a sixth to a third of the way up, standing out about as far as the
+    # columns.
+    # A box whose lower face is pinched to 15% of its width: a flat front face the same depth all the way
+    # down, narrowing to a blunt foot (a cone narrowed in depth too and sank back into the wall).
+    drop_box = t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"]
+    bp = t.xyz(t.position())
+    drop_cone = t.node('GeometryNodeSetPosition', Geometry=drop_box, Selection=t.math('LESS_THAN', bp["Z"], 0.0),
+                       Position=t.vec(bp["X"], t.math('MULTIPLY', bp["Y"], 0.15), bp["Z"])).outputs[0]
+    drop_h = t.math('MULTIPLY', t.named("c_tall"), rand(0.25, 0.4, 341))  # half its height
+    drop_at = t.node('GeometryNodeSetPosition', Geometry=slab_at,
+                     Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(-0.06, 0.0, 343)))),
+                                    t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.05)))).outputs[0]  # centred at 55% of the height
+    drop_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 345), 0.5)),
+                      t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))  # standing passage wall (behind a chamber's dome they were buried)
+    drops = t.node('GeometryNodeInstanceOnPoints', Points=drop_at, Selection=drop_keep, Instance=drop_cone,
+                   Rotation=t.vec(rand(-0.05, 0.05, 347), rand(-0.05, 0.05, 349), t.math('ADD', yaw, rand(-0.15, 0.15, 351))),
+                   Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.4, 0.8, 353)), drop_h)).outputs[0]
+    t.L.new(drops, solids.inputs[0])
     # Limestone, primary shapes (from the Mammoth passage reference, docs/m5/ref_limestone_shapes.jpg): the
     # walls are stacks of thick beds, each standing out or set back from the one below like stacked plates, and
     # the roof is broad flat planes stepping between beds. Flat rock plates set into both walls at three bed
@@ -899,15 +945,17 @@ def cave_group():
     cols = t.node('GeometryNodeJoinGeometry')
     t.L.new(slabs, cols.inputs[0])
     t.L.new(ring, cols.inputs[0])
+    t.L.new(steps, cols.inputs[0])
+    t.L.new(hangs, cols.inputs[0])
+    t.L.new(drops, cols.inputs[0])
     near_col = t.node('GeometryNodeProximity', Geometry=t.node('GeometryNodeRealizeInstances', Geometry=cols.outputs[0]).outputs[0],
                       Source_Position=t.position())
     near_col.target_element = 'FACES'
     # Only points that move mostly in or out to the face: one pulled sideways onto a column's edge spiked.
     to_col = t.vmath('NORMALIZE', t.vmath('SUBTRACT', near_col.outputs["Position"], t.position()))
     straight = t.math('GREATER_THAN', t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', to_col, t.node('GeometryNodeInputNormal').outputs[0])), 0.55)
-    # Standing wall only: points where the wall turns into floor or roof, snapped onto a column's foot or top,
-    # folded the shell there.
-    upright_pt = t.math('LESS_THAN', t.math('ABSOLUTE', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"]), 0.35)
+    # Not the floor: points where the wall turns into floor, snapped onto a column's foot, folded the shell there.
+    upright_pt = t.math('GREATER_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.35)  # wall and roof (normals point into the rock)
     on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, straight), upright_pt),
                     t.math('LESS_THAN', near_col.outputs["Distance"], t.math('MULTIPLY', voxel, 0.9)))
     before = t.store(t.store(loose.outputs[0], "lg_p0", t.position(), 'FLOAT_VECTOR'), "lg_n0", t.node('GeometryNodeInputNormal').outputs[0], 'FLOAT_VECTOR')

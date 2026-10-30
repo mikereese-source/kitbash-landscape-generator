@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 84
+CAVE_VERSION = 90
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -664,14 +664,15 @@ def cave_group():
     # The ramp's body, one continuous shape swept along the path (Mike: at Preview the half-metre slabs and
     # wedges came out as saw-teeth and holes, smaller than a step of rock detail): a walkway on top, sides
     # sloping out about 35 degrees down to just into the chamber floor, ends closed.
-    ramp_c = t.store(t.store(t.store(walk_c, "c_rtop", t.math('MAXIMUM', graded, bottom)),
+    ramp_c = t.store(walk_c, "c_raw", t.math('SUBTRACT', graded, bottom))  # below 0 past the ramp's foot
+    ramp_c = t.store(t.store(t.store(ramp_c, "c_rtop", t.math('MAXIMUM', graded, bottom)),
                              "c_above", t.math('SUBTRACT', t.math('MAXIMUM', graded, bottom), bottom)), "c_ramp_w", ramp_w)
     # From as far back as the chamber's space reaches over the passage (a wide chamber reaches back past where
     # the slope begins, and the floor dropped away before the ramp picked up: a gap; Mike), level with the
     # passage floor until the slope starts.
     reach_back = t.math('SUBTRACT', t.math('SUBTRACT', y06, rc), W)
     on_curve = t.math('MULTIPLY', ramp_on, t.math('MULTIPLY', t.math('GREATER_THAN', t.xyz(t.position())["Y"], reach_back),
-                                                  t.math('GREATER_THAN', t.named("c_above"), 0.3)))
+                                                  t.math('GREATER_THAN', t.named("c_raw"), t.math('MULTIPLY', voxel, -2.0))))
     trim_c = t.node('GeometryNodeDeleteGeometry', Geometry=ramp_c, Selection=t.math('LESS_THAN', on_curve, 0.5))
     trim_c.domain = 'POINT'
     square = t.node('GeometryNodeCurvePrimitiveQuadrilateral', Width=2.0, Height=2.0).outputs[0]
@@ -682,7 +683,9 @@ def cave_group():
     # both carry onto the mesh): top corners at the walkway's edges, bottom corners out at the slopes' feet.
     top = t.named("p_top")
     low = t.math('SUBTRACT', 1.0, top)
-    h_r = t.math('ADD', t.named("c_above"), 1.0)
+    # Buried at least a voxel and a half, and run on past its foot level with the floor (Mike: holes along the
+    # ramp's foot; thinner than the shape's voxels, its edge and end opened pits and saw-teeth into the floor).
+    h_r = t.math('ADD', t.named("c_above"), t.math('MAXIMUM', t.math('MULTIPLY', voxel, 1.5), 1.0))
     reach = t.math('ADD', t.math('MULTIPLY', t.named("c_ramp_w"), 0.5), t.math('MULTIPLY', low, t.math('MULTIPLY', h_r, 1.4)))
     across_r = t.vec(t.math('COSINE', t.named("c_heading")), t.math('SINE', t.named("c_heading")), 0.0)
     rp = t.xyz(t.named("c_mid", 'FLOAT_VECTOR'))
@@ -765,7 +768,8 @@ def cave_group():
     # chamber, whose roof reaches back over the passage, a column's foot came out into the open and hung there
     # like a drip). Below a floor it stays buried in rock; over the chamber it runs on down to its floor.
     reach = t.math('MULTIPLY', t.named("c_tall"), 1.14)  # half the column's height, before the extra
-    half = t.math('ADD', reach, t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5))
+    half = t.math('ADD', reach, t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5),
+                                          t.math('SUBTRACT', 1.0, ramp_on)))  # not with a ramp: it fills to the chamber floor, and the feet came up through it (Mike's holes)
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=column,
                    Rotation=t.vec(rand(-0.03, 0.03, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.0, 0.04, 219)), t.math('ADD', yaw, rand(-0.12, 0.12, 221))),
                    Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), half)).outputs[0]
@@ -794,6 +798,10 @@ def cave_group():
                      Offset=t.vmath('ADD', t.vmath('SCALE', ring_dir, scale=ring_out), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.5)))).outputs[0]
     ring_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, has_chamber),
                        t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.9), t.math('LESS_THAN', rand(0.0, 1.0, 235), 0.5)))
+    # Only where the ray finds the chamber's own wall: one aimed at the opening ran back down the passage and
+    # stood a column right across it near the mouth, sealing the cave (Mike's cave lost its front).
+    ring_keep = t.math('MULTIPLY', ring_keep, t.math('MULTIPLY', ring_ray.outputs["Is Hit"], t.math('LESS_THAN', ring_ray.outputs["Hit Distance"], t.math('MULTIPLY', rc, 1.3))))
+    ring_keep = t.math('MULTIPLY', ring_keep, t.math('GREATER_THAN', t.xyz(ring_ray.outputs["Hit Position"])["Y"], t.math('SUBTRACT', y06, W)))  # and past where the chamber begins (a big one reaches back over the passage)
     ring = t.node('GeometryNodeInstanceOnPoints', Points=ring_at, Selection=ring_keep, Instance=column,
                   Rotation=t.vec(rand(-0.03, 0.03, 237), t.math('MULTIPLY', rand(0.0, 0.04, 239), -1.0), t.math('ADD', ang, rand(-0.12, 0.12, 241))),
                   Scale=t.vec(t.math('MULTIPLY', thick, 0.3), t.math('MULTIPLY', rc, rand(0.08, 0.16, 243)), half)).outputs[0]  # narrow, many (Mike: big ones read blobby); floor to roof
@@ -810,7 +818,8 @@ def cave_group():
     hang_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(0.1, 0.5, 303)))),
                                     t.vec(0.0, 0.0, t.math('ADD', hang_h, t.math('MULTIPLY', hang_d, 0.5))))).outputs[0]
-    hang_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 305), 0.4)), t.math('GREATER_THAN', t.named("c_s"), 0.25))
+    hang_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 305), 0.4)),
+                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.25), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))  # the passage only: sized by a chamber's radius they filled its dome (Mike)
     hangs = t.node('GeometryNodeInstanceOnPoints', Points=hang_at, Selection=hang_keep, Instance=block,
                    Rotation=t.vec(rand(-0.45, 0.45, 307), rand(-0.45, 0.45, 309), t.math('ADD', yaw, rand(-0.4, 0.4, 311))),
                    Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), rand(0.5, 1.1, 313)), t.math('MULTIPLY', W, rand(0.4, 0.9, 315)), hang_d)).outputs[0]
@@ -891,12 +900,27 @@ def cave_group():
                        t.math('MAXIMUM', y06, t.math('ADD', y0, W)))))  # never the whole tube: an empty one wipes the cave
     clear_pts.domain = 'POINT'
     clear_c = t.node('GeometryNodeMeshToCurve', Mesh=clear_pts.outputs[0]).outputs[0]
-    walk_r = t.math('MINIMUM', t.math('MULTIPLY', t.named("c_narrow"), 0.3), 1.1)  # a person: about 2.2 m clear
+    # A person, about 2.2 m clear, but never under a voxel and a fifth: thinner, the tube vanished as the shape
+    # was built and roof blocks sealed the passage, so the cave's front was dropped as a loose piece.
+    walk_r = t.math('MAXIMUM', t.math('MINIMUM', t.math('MULTIPLY', t.named("c_narrow"), 0.3), 1.1), t.math('MULTIPLY', voxel, 1.2))
     clear_c = t.node('GeometryNodeSetPosition', Geometry=clear_c, Offset=t.vec(0.0, 0.0, walk_r)).outputs[0]
     clear_c = t.node('GeometryNodeSetCurveRadius', Curve=clear_c, Radius=walk_r).outputs[0]
     clear_tube = t.node('GeometryNodeCurveToMesh', Curve=clear_c, Profile_Curve=t.node('GeometryNodeCurvePrimitiveCircle', Resolution=12, Radius=1.0).outputs["Curve"],
                         Fill_Caps=True).outputs[0]
-    clear_grid = t.node('GeometryNodeMeshToSDFGrid', Mesh=clear_tube, Voxel_Size=voxel, Band_Width=3).outputs[0]
+    # And down the ramp, along its top (Mike: past where the first tube stops, roof blocks sealed the passage
+    # and the cave's front was dropped as a loose piece): the same tube, resting on the ramp's walkway.
+    ramp_walk = t.node('GeometryNodeDeleteGeometry', Geometry=ramp_c,
+                       Selection=t.math('LESS_THAN', t.math('MULTIPLY', ramp_on, t.math('GREATER_THAN', t.xyz(t.position())["Y"], t.math('SUBTRACT', y06, W))), 0.5))
+    ramp_walk.domain = 'POINT'
+    ramp_walk = t.node('GeometryNodeSetPosition', Geometry=ramp_walk.outputs[0],
+                       Position=t.vec(t.xyz(t.position())["X"], t.xyz(t.position())["Y"], t.math('ADD', t.named("c_rtop"), walk_r))).outputs[0]
+    ramp_walk = t.node('GeometryNodeSetCurveRadius', Curve=ramp_walk, Radius=walk_r).outputs[0]
+    ramp_tube = t.node('GeometryNodeCurveToMesh', Curve=ramp_walk, Profile_Curve=t.node('GeometryNodeCurvePrimitiveCircle', Resolution=12, Radius=1.0).outputs["Curve"],
+                       Fill_Caps=True).outputs[0]
+    tubes = t.node('GeometryNodeJoinGeometry')
+    t.L.new(clear_tube, tubes.inputs[0])
+    t.L.new(ramp_tube, tubes.inputs[0])
+    clear_grid, _tubes_skin = level_set(tubes.outputs[0])
     keep_clear = t.N.new('GeometryNodeSDFGridBoolean')
     keep_clear.operation = 'DIFFERENCE'
     t.L.new(rubble_all, keep_clear.inputs["Grid 1"])

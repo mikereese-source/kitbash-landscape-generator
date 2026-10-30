@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 51
+CAVE_VERSION = 53
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -447,7 +447,8 @@ CAVE_INPUTS = (
 )
 CAVE_DETAIL = (6.0, 7.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
 # Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
-CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces per Detail Level, reached by subdividing (D105)
+CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
+CAVE_SUBDIV = (2, 3, 4)  # but never fewer smoothing steps than these (each x4 faces; D121)
 
 
 def cave_group():
@@ -795,17 +796,22 @@ def cave_group():
                    Selection=t.math('LESS_THAN', acc.outputs["Total"], t.math('SUBTRACT', biggest.outputs["Max"], 0.5)))
     loose.domain = 'POINT'
     # Shell density (D105, Mike: the walls were too few faces to hold rock detail): the voxels only set the
-    # cave's shape; the shell is then subdivided to about 150k / 1M / 4M faces (Preview / High / Ultra), each
-    # level x4, so the wall detail has faces to land on.
-    target = t.N.new('GeometryNodeIndexSwitch')
-    target.data_type = 'FLOAT'
-    while len(target.index_switch_items) < len(CAVE_FACES):
-        target.index_switch_items.new()
-    t._set(target.inputs["Index"], gin["Detail"])
-    for i, v in enumerate(CAVE_FACES):
-        target.inputs[i + 1].default_value = float(v)
+    # cave's shape; the shell is then smoothly subdivided (each step x4 faces) toward about 150k / 1M / 4M faces
+    # (Preview / High / Ultra), but never fewer than 2 / 3 / 4 steps: a big cave rounded to High's steps at
+    # Ultra and lost its detail (Mike), a small one needs more steps to reach the target.
+    def per_level(values):
+        n = t.N.new('GeometryNodeIndexSwitch')
+        n.data_type = 'FLOAT'
+        while len(n.index_switch_items) < len(values):
+            n.index_switch_items.new()
+        t._set(n.inputs["Index"], gin["Detail"])
+        for i, v in enumerate(values):
+            n.inputs[i + 1].default_value = float(v)
+        return n.outputs[0]
+
     faces = t.node('GeometryNodeAttributeDomainSize', Geometry=loose.outputs[0]).outputs["Face Count"]
-    levels = t.math('MINIMUM', t.math('MAXIMUM', t.math('ROUND', t.math('LOGARITHM', t.math('DIVIDE', target.outputs[0], t.math('MAXIMUM', faces, 1.0)), 4.0)), 0.0), 4.0)
+    aim = t.math('ROUND', t.math('LOGARITHM', t.math('DIVIDE', per_level(CAVE_FACES), t.math('MAXIMUM', faces, 1.0)), 4.0))
+    levels = t.math('MINIMUM', t.math('MAXIMUM', aim, per_level(CAVE_SUBDIV)), 5.0)
     # Sharp edges stay sharp (Mike: the jointed masses came out soft): edges where the faces meet at a real
     # angle are creased before smoothing, so broad flat faces keep crisp ridges between them.
     bend = t.node('GeometryNodeInputMeshEdgeAngle').outputs["Unsigned Angle"]

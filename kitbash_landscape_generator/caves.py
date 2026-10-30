@@ -40,6 +40,10 @@ def sync_cave(ob):
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
             nodes.input_socket(mod, f"{use} {size}").value = rocks.at_level(coll, ob.lg_cave.detail.title())
+    # Rebuild the scene's links to the rocks just swapped in (each Detail Level uses its own rock meshes):
+    # setting the inputs alone left Blender unaware of the new ones, so they came out empty and a Jointed
+    # cave, which cuts its wall masses from them, wiped itself at Ultra after a visit to High (Mike).
+    mod.node_group = mod.node_group
     ob.update_tag()
 
 
@@ -255,7 +259,7 @@ def draw_section(layout, context):
     header.label(text="Detail Level")
     if sub:
         sub.row(align=True).prop(props, "detail", expand=True)
-        sub.label(text=f"Shell about {features.CAVE_FACES[DETAIL_INDEX[props.detail]] / 1e6:g}M faces")
+        sub.label(text=f"Shell about {features.CAVE_FACES[DETAIL_INDEX[props.detail]] / 1e6:g}M faces or more for a big cave")
 
 
 classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave, LG_OT_reset_cave)

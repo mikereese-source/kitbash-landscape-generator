@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 98
+CAVE_VERSION = 99
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -435,7 +435,7 @@ CAVE_INPUTS = (
     ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
-    ("Ramp", 'NodeSocketBool', False), ("Separate Pieces", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Wall Shape", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
+    ("Ramp", 'NodeSocketBool', False), ("Separate Pieces", 'NodeSocketBool', True), ("Rubble", 'NodeSocketFloat', 0.5), ("Wall Shape", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
     # How the rocks are spread (Mike): their size, how long they are, how far they tip, how far they strew.
     ("Rock Size", 'NodeSocketFloat', 1.0), ("Stretch", 'NodeSocketFloat', 0.3), ("Tilt", 'NodeSocketFloat', 0.5),
     ("Spread", 'NodeSocketFloat', 0.5),

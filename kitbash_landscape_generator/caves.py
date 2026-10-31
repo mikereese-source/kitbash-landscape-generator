@@ -98,8 +98,8 @@ class LG_CaveProps(PropertyGroup):
                        default=False, update=_sync)
     rubble: FloatProperty(name="Rubble", description="Fallen rock along the foot of the walls: none, up to big piles of boulders",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
-    separate: BoolProperty(name="Pieces Separate", description="Jointed rock: the columns, roof blocks and slabs as separate pieces set into the walls, not cut into the cave's shape (a test, Mike)",
-                           default=False, update=_sync)
+    separate: BoolProperty(name="Pieces Separate", description="Jointed rock: the columns, roof blocks and slabs as separate pieces set into the walls (better AO and a crisper look). Off: cut into the cave's shape",
+                           default=True, update=_sync)
     wall_shape: FloatProperty(name="Wall Shape", description="Smooth walls (0), or big bulges, recesses and alcoves shaped by the rock (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     roughness: FloatProperty(name="Roughness", description="Smooth, water-worn walls, or rough broken rock",

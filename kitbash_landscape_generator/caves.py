@@ -23,7 +23,7 @@ def cave_modifier(ob):
 # prop -> group input
 CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth": "Depth", "wiggle": "Wiggle",
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
-                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "separate": "Separate Pieces", "rubble": "Rubble", "wall_shape": "Wall Shape",
+                "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "wall_shape": "Wall Shape",
                 "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
                 "spread": "Spread"}
 
@@ -123,8 +123,6 @@ class LG_CaveProps(PropertyGroup):
                        default=False, update=_sync)
     rubble: FloatProperty(name="Rubble", description="Fallen rock along the foot of the walls: none, up to big piles of boulders",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
-    separate: BoolProperty(name="Pieces Separate", description="Jointed rock: the columns, roof blocks and slabs as separate pieces set into the walls (better AO and a crisper look). Off: cut into the cave's shape",
-                           default=True, update=_sync)
     wall_shape: FloatProperty(name="Wall Shape", description="Smooth walls (0), or big bulges, recesses and alcoves shaped by the rock (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     roughness: FloatProperty(name="Roughness", description="Smooth, water-worn walls, or rough broken rock",
@@ -169,7 +167,7 @@ class LG_OT_randomize_cave(Operator):
 # What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
-               "ramp", "separate", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock")
+               "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -270,8 +268,6 @@ def draw_section(layout, context):
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "wall_shape", slider=True)
-    if props.rock == 'JOINTED':
-        col.prop(props, "separate")
     header, sub = box.panel("lg_cave_rocks", default_closed=False)
     header.label(text="Rocks")
     if sub:

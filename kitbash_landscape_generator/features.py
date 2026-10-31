@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 100
+CAVE_VERSION = 101
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -435,7 +435,7 @@ CAVE_INPUTS = (
     ("Drop", 'NodeSocketFloat', 0.0),
     ("Narrowing", 'NodeSocketFloat', 0.4), ("Chamber Size", 'NodeSocketFloat', 0.0),
     ("Ceiling Height", 'NodeSocketFloat', 10.0), ("Chamber Drop", 'NodeSocketFloat', 0.0),
-    ("Ramp", 'NodeSocketBool', False), ("Separate Pieces", 'NodeSocketBool', True), ("Rubble", 'NodeSocketFloat', 0.5), ("Wall Shape", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
+    ("Ramp", 'NodeSocketBool', False), ("Rubble", 'NodeSocketFloat', 0.5), ("Wall Shape", 'NodeSocketFloat', 0.5), ("Roughness", 'NodeSocketFloat', 0.5),
     # How the rocks are spread (Mike): their size, how long they are, how far they tip, how far they strew.
     ("Rock Size", 'NodeSocketFloat', 1.0), ("Stretch", 'NodeSocketFloat', 0.3), ("Tilt", 'NodeSocketFloat', 0.5),
     ("Spread", 'NodeSocketFloat', 0.5),
@@ -765,10 +765,8 @@ def cave_group():
     # ones floated, read as stalactites); they come in only a little, so the passage stays open.
     cube = library("Rubble Medium")  # each rock fits -1..1, so scales below are halved (limestone's plates)
     column = t.node('GeometryNodeMeshCube', Size=(2.0, 2.0, 2.0)).outputs["Mesh"]  # -1..1 like the rocks
-    # The jointed masses (columns, steps, teardrops, roof blocks) together: cut into the cave's shape, or with
-    # Separate Pieces on (Mike's test) left out of it and joined to the shell as separate pieces set into the
-    # walls, floor and roof, so their flat faces and edges stay exactly as made.
-    sep = gin["Separate Pieces"]
+    # The jointed masses (columns, steps, teardrops, roof blocks) together, made as separate pieces set into the
+    # walls, floor and roof (below), not cut into the cave's shape (Mike, D141: cut in left too many nodules).
     cols = t.node('GeometryNodeJoinGeometry')
     # Carved, not boxes (Mike: no straight lines, no straight verticals; they need to be jagged, carved more):
     # each block steps in and out in horizontal bands, a flat plane per band, its own pattern per block, so its
@@ -781,15 +779,11 @@ def cave_group():
     band_r = t.node('ShaderNodeTexWhiteNoise', Vector=t.vec(band, cid, 0.0)).outputs["Value"]
     carve_d = t.math('MULTIPLY', band_r, t.math('MULTIPLY', W, -0.15))  # cut in only (pushing out closed the passage)
     carved = t.node('GeometryNodeSetPosition', Geometry=carved, Offset=t.vmath('SCALE', t.node('GeometryNodeInputNormal').outputs[0], scale=carve_d)).outputs[0]
-    cut_cols = t.node('GeometryNodeDeleteGeometry', Geometry=carved, Selection=sep)
-    cut_cols.domain = 'POINT'
-    t.L.new(cut_cols.outputs[0], solids.inputs[0])
     # Every column reaches down past the floor by the chamber's drop as well (Mike: by the opening into a sunk
     # chamber, whose roof reaches back over the passage, a column's foot came out into the open and hung there
     # like a drip). Below a floor it stays buried in rock; over the chamber it runs on down to its floor.
     reach = t.math('MULTIPLY', t.named("c_tall"), 1.14)  # half the column's height, before the extra
-    half = t.math('ADD', reach, t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5),
-                                          t.math('MAXIMUM', t.math('SUBTRACT', 1.0, ramp_on), sep)))  # cut in, not with a ramp (the feet came up through it); separate pieces always (they hung over its slope)
+    half = t.math('ADD', reach, t.math('MULTIPLY', t.math('ADD', gin["Chamber Drop"], 2.0), 0.5))  # past a ramp too (they hung over its slope)
     slabs = t.node('GeometryNodeInstanceOnPoints', Points=slab_at, Selection=slab_keep, Instance=column,
                    Rotation=t.vec(rand(-0.03, 0.03, 217), t.math('MULTIPLY', t.math('MULTIPLY', sidev, -1.0), rand(0.0, 0.04, 219)), t.math('ADD', yaw, rand(-0.12, 0.12, 221))),
                    Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.22, 0.45, 223)), half)).outputs[0]
@@ -957,7 +951,7 @@ def cave_group():
     t.L.new(clear_tube, tubes.inputs[0])
     t.L.new(ramp_tube, tubes.inputs[0])
     clear_grid, _tubes_skin = level_set(tubes.outputs[0])
-    # Pieces Separate (Mike: separate pieces for better AO and a better jointed look, but looking like the rest
+    # Jointed pieces (Mike: separate pieces for better AO and a better jointed look, but looking like the rest
     # of the cave, not plain cubes, and reaching only a little past it): the masses as one shape of their own,
     # trimmed to the cave's space grown by a voxel (so they sink just into the walls, floor and roof) and kept
     # out of the walkway. Joined to the shell below, they go through the same snapping, smoothing and rock
@@ -973,7 +967,7 @@ def cave_group():
     t.L.new(in_room.outputs[0], clear_pieces.inputs["Grid 1"])
     t.L.new(clear_grid, clear_pieces.inputs["Grid 2"])
     pieces_mesh = t.node('GeometryNodeGridToMesh', Grid=clear_pieces.outputs[0]).outputs[0]
-    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', t.math('MULTIPLY', sep, jointed_on), 0.5)).outputs[0]
+    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', jointed_on, 0.5)).outputs[0]
     # Slivers where a box's corner only just reaches into the margin are dropped (under 5% of the biggest piece).
     p_island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
     p_count = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=p_island)
@@ -998,7 +992,7 @@ def cave_group():
     with_ramp = t.node('GeometryNodeGridToMesh', Grid=rounded.outputs[0]).outputs[0]
     pick_mesh = t.N.new('GeometryNodeSwitch')
     pick_mesh.input_type = 'GEOMETRY'
-    t._set(pick_mesh.inputs['Switch'], t.math('GREATER_THAN', t.math('ADD', t.math('ADD', ramp_on, t.math('MULTIPLY', jointed_on, t.math('SUBTRACT', 1.0, sep))), lime_on), 0.5))  # nothing cut in: plain
+    t._set(pick_mesh.inputs['Switch'], t.math('GREATER_THAN', t.math('ADD', ramp_on, lime_on), 0.5))  # nothing cut in: plain
     t.L.new(plain, pick_mesh.inputs['False'])
     t.L.new(with_ramp, pick_mesh.inputs['True'])
     merged = pick_mesh.outputs[0]
@@ -1034,10 +1028,7 @@ def cave_group():
     # Only points that move mostly in or out to the face: one pulled sideways onto a column's edge spiked.
     to_col = t.vmath('NORMALIZE', t.vmath('SUBTRACT', near_col.outputs["Position"], t.position()))
     straight = t.math('GREATER_THAN', t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', to_col, t.node('GeometryNodeInputNormal').outputs[0])), 0.55)
-    # Not the floor: points where the wall turns into floor, snapped onto a column's foot, folded the shell there.
-    upright_pt = t.math('GREATER_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.35)  # wall and roof (normals point into the rock)
-    cut_in = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('SUBTRACT', 1.0, sep)), upright_pt)
-    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MAXIMUM', cut_in, t.named("lg_piece", 'BOOLEAN')), straight),
+    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), straight),
                     t.math('LESS_THAN', near_col.outputs["Distance"], t.math('MULTIPLY', voxel, 0.9)))
     shell_pieces = t.node('GeometryNodeJoinGeometry')
     t.L.new(loose.outputs[0], shell_pieces.inputs[0])

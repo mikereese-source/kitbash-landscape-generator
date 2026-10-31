@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 101
+CAVE_VERSION = 106
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -914,6 +914,33 @@ def cave_group():
                    Rotation=t.vec(0.0, 0.0, t.math('ADD', yaw, rand(-0.3, 0.3, 285))),
                    Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), 2.6), t.math('MULTIPLY', W, rand(0.96, 1.92, 287)), t.math('MULTIPLY', t.named("c_tall"), 2.0))).outputs[0]
     t.L.new(roofs, solids.inputs[0])
+    # Lava tube, primary shapes (from the Thurston and Lava River Cave references): a smooth round arch over a
+    # flat floor, and along both walls long rounded benches where the flowing lava cooled at its edges, a
+    # broad curb at the foot (a higher ledge where the flow once stood is left to materials). Each is a rounded rod
+    # swept along the wall, swelling and pinching out along its length, half buried in the wall.
+    lava_on = t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
+    in_passage = t.math('MULTIPLY', t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.12), t.math('LESS_THAN', t.named("c_s"), 0.9)),
+                        t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58))  # off the end wall (they stood out of it as fins)
+    wall_shape = t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)
+    benches = t.node('GeometryNodeJoinGeometry')
+    for side in (-1.0, 1.0):
+        for height, size, seed in ((0.1, 0.13, 401),):  # one curb (a higher ledge merged with it into wall-high slabs)
+            b_dir = t.vmath('SCALE', t.named("c_across", 'FLOAT_VECTOR'), scale=side)
+            b_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+                           Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), height))),
+                           Ray_Direction=b_dir, Ray_Length=t.math('MULTIPLY', t.named("c_radius"), 2.0))
+            b_keep = t.math('MULTIPLY', t.math('MULTIPLY', lava_on, in_passage), b_ray.outputs["Is Hit"])
+            b_pts = t.node('GeometryNodeSetPosition', Geometry=t.store(path, "lg_bk", b_keep), Position=t.vmath('ADD', b_ray.outputs["Hit Position"],
+                           t.vmath('SCALE', b_dir, scale=t.math('MULTIPLY', t.named("c_radius"), size * 0.4)))).outputs[0]  # kept before moving; sunk part way into the wall
+            b_pts = t.node('GeometryNodeDeleteGeometry', Geometry=b_pts, Selection=t.math('LESS_THAN', t.named("lg_bk"), 0.5)).outputs[0]
+            swell = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(W, W, W)), t.vec(float(seed), 0.0, 0.0)), Scale=0.8, Detail=1.0)
+            swell.noise_dimensions = '3D'
+            b_r = t.math('MULTIPLY', t.math('MULTIPLY', t.named("c_radius"), size), t.math('MULTIPLY', wall_shape, t.smooth(swell.outputs["Fac"], 0.3, 0.5)))
+            b_c = t.node('GeometryNodeSetCurveRadius', Curve=t.node('GeometryNodeMeshToCurve', Mesh=b_pts).outputs[0], Radius=b_r).outputs[0]
+            rod = t.node('GeometryNodeCurveToMesh', Curve=b_c, Profile_Curve=t.node('GeometryNodeCurvePrimitiveCircle', Resolution=12, Radius=1.0).outputs["Curve"],
+                         Fill_Caps=True).outputs[0]
+            t.L.new(rod, benches.inputs[0])
+    # Separate pieces like the jointed masses (below): cut in, the tube's smoothing melted them away.
     boulders = t.node('GeometryNodeJoinGeometry')
     for g in rubble_sets:  # the ramp's scree is off while the walls are dialled in (Mike: rocks on the ground only)
         t.L.new(g, boulders.inputs[0])
@@ -956,7 +983,10 @@ def cave_group():
     # trimmed to the cave's space grown by a voxel (so they sink just into the walls, floor and roof) and kept
     # out of the walkway. Joined to the shell below, they go through the same snapping, smoothing and rock
     # detail as the walls, but stay their own pieces.
-    pieces_all, _pieces_skin = level_set(carved)
+    all_pieces = t.node('GeometryNodeJoinGeometry')
+    t.L.new(carved, all_pieces.inputs[0])
+    t.L.new(benches.outputs[0], all_pieces.inputs[0])  # the lava tube's benches
+    pieces_all, _pieces_skin = level_set(all_pieces.outputs[0])
     room = t.node('GeometryNodeSDFGridOffset', Grid=space, Distance=t.math('MULTIPLY', voxel, 3.0)).outputs[0]  # grown into the rock (positive grows; at 1.5 the feet stopped at the floor)
     in_room = t.N.new('GeometryNodeSDFGridBoolean')
     in_room.operation = 'INTERSECT'
@@ -967,7 +997,7 @@ def cave_group():
     t.L.new(in_room.outputs[0], clear_pieces.inputs["Grid 1"])
     t.L.new(clear_grid, clear_pieces.inputs["Grid 2"])
     pieces_mesh = t.node('GeometryNodeGridToMesh', Grid=clear_pieces.outputs[0]).outputs[0]
-    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', jointed_on, 0.5)).outputs[0]
+    pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', t.math('ADD', jointed_on, lava_on), 0.5)).outputs[0]
     # Slivers where a box's corner only just reaches into the margin are dropped (under 5% of the biggest piece).
     p_island = t.node('GeometryNodeInputMeshIsland').outputs["Island Index"]
     p_count = t.node('GeometryNodeAccumulateField', Value=1.0, Group_ID=p_island)
@@ -1028,7 +1058,7 @@ def cave_group():
     # Only points that move mostly in or out to the face: one pulled sideways onto a column's edge spiked.
     to_col = t.vmath('NORMALIZE', t.vmath('SUBTRACT', near_col.outputs["Position"], t.position()))
     straight = t.math('GREATER_THAN', t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', to_col, t.node('GeometryNodeInputNormal').outputs[0])), 0.55)
-    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), straight),
+    on_col = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), jointed_on), straight),  # only jointed blocks to snap to (with none, all went to the origin)
                     t.math('LESS_THAN', near_col.outputs["Distance"], t.math('MULTIPLY', voxel, 0.9)))
     shell_pieces = t.node('GeometryNodeJoinGeometry')
     t.L.new(loose.outputs[0], shell_pieces.inputs[0])
@@ -1048,7 +1078,14 @@ def cave_group():
     # Sharp edges stay sharp (Mike: the jointed masses came out soft): edges where the faces meet at a real
     # angle are creased before smoothing, so broad flat faces keep crisp ridges between them.
     bend = t.node('GeometryNodeInputMeshEdgeAngle').outputs["Unsigned Angle"]
-    dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.smooth(bend, 0.35, 0.8),
+    # A lava tube is one smooth bore (Thurston, Lava River Cave): the shape's domes left rings at their joins,
+    # which the wall noise drew out into ribs, so for lava the coarse shell is smoothed a few passes first.
+    bore = t.N.new('GeometryNodeBlurAttribute')
+    bore.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(bore.inputs["Value"], t.position())
+    bore.inputs["Iterations"].default_value = 6
+    squared = t.node('GeometryNodeSetPosition', Geometry=squared, Selection=t.math('MULTIPLY', t.math('GREATER_THAN', gin["Rock"], 1.5), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)), Position=bore.outputs["Value"]).outputs[0]
+    dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.math('MULTIPLY', t.smooth(bend, 0.35, 0.8), t.math('LESS_THAN', gin["Rock"], 1.5)),  # a lava tube stays smooth (creases ringed it at the domes' joins)
                    Level=t.node('FunctionNodeFloatToInt', Float=levels).outputs[0]).outputs[0]
 
     # Wall volume by Rock (D115, Mike: primary and secondary volume in the mesh; ledges, bands and fine lines

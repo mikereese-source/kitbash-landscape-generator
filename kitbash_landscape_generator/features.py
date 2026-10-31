@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 99
+CAVE_VERSION = 100
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -441,6 +441,7 @@ CAVE_INPUTS = (
     ("Spread", 'NodeSocketFloat', 0.5),
     ("Rock", 'NodeSocketInt', 0),  # the walls: 0 Limestone, 1 Jointed, 2 Lava tube
     ("Seed", 'NodeSocketInt', 0), ("Detail", 'NodeSocketInt', 0),  # 0 Preview, 1 High, 2 Ultra
+    ("Show Mask", 'NodeSocketInt', 0), ("Mask Heatmap", 'NodeSocketBool', False),  # the map viewer, as on the landscapes
     # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
@@ -1199,6 +1200,59 @@ def cave_group():
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not
     # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.
+    # Data maps (Mike: every map the landscapes have, for export): the same 0..1 named attributes on the shell
+    # and pieces, read for a cave. lg_height and lg_slope as on the landscapes; lg_curvature from the true 3D
+    # surface, bright in crevices and hollows, dark on ridges; lg_flow the floor's hollows, where water runs and
+    # pools; lg_wear the ridges and edges; lg_deposit the flat floor and its hollows, where silt settles;
+    # lg_depth 0 until caves get water. Normals point into the rock, so the floor's look down.
+    nrm_f = t.node('GeometryNodeInputNormal').outputs[0]
+    nzf = t.xyz(nrm_f)["Z"]
+    m_st = t.node('GeometryNodeAttributeStatistic', Geometry=smooth, Selection=t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5),
+                  Attribute=t.xyz(t.position())["Z"])  # the shell's range (pieces reach past it)
+    m_st.data_type, m_st.domain = 'FLOAT', 'POINT'
+    m_height = t.math('DIVIDE', t.math('SUBTRACT', t.xyz(t.position())["Z"], m_st.outputs["Min"]),
+                      t.math('MAXIMUM', t.math('SUBTRACT', m_st.outputs["Max"], m_st.outputs["Min"]), 1e-6))
+    m_slope = t.math('DIVIDE', t.math('ARCCOSINE', t.math('MINIMUM', t.math('ABSOLUTE', nzf), 1.0)), 1.5707963)
+    m_blur = t.N.new('GeometryNodeBlurAttribute')
+    m_blur.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(m_blur.inputs["Value"], t.position())
+    m_blur.inputs["Iterations"].default_value = 3
+    m_spacing = t.math('MAXIMUM', t.math('DIVIDE', voxel, t.math('POWER', 2.0, levels)), 1e-4)  # about an edge
+    m_curv = t.math('ADD', 0.5, t.math('MULTIPLY', t.math('DIVIDE', t.vmath('DOT_PRODUCT', t.vmath('SUBTRACT', m_blur.outputs["Value"], t.position()),
+                                                                          t.vmath('SCALE', nrm_f, scale=-1.0)), m_spacing), 0.5))
+    m_curv = t.math('MINIMUM', t.math('MAXIMUM', m_curv, 0.0), 1.0)
+    m_floor = t.smooth(nzf, -0.7, -0.9)
+    m_flow = t.math('MULTIPLY', m_floor, t.smooth(m_curv, 0.5, 0.62))
+    m_wear = t.math('SUBTRACT', 1.0, t.smooth(m_curv, 0.2, 0.5))
+    m_dep = t.math('MULTIPLY', t.math('MULTIPLY', m_floor, t.math('SUBTRACT', 1.0, m_slope)), t.smooth(m_curv, 0.3, 0.6))
+    maps = (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv), ("lg_flow", m_flow),
+            ("lg_wear", m_wear), ("lg_deposit", m_dep), ("lg_depth", 0.0))
+    for m_name, m_val in maps:
+        smooth = t.store(smooth, m_name, m_val)
+    # The viewer: the picked map as a colour the viewport shows in Solid mode, grey or heatmap (as nodes.py).
+    m_pick = t.N.new('GeometryNodeIndexSwitch')
+    m_pick.data_type = 'FLOAT'
+    while len(m_pick.index_switch_items) < 8:
+        m_pick.index_switch_items.new()
+    t._set(m_pick.inputs["Index"], gin["Show Mask"])
+    for i, (m_name, _v) in enumerate(maps):
+        t._set(m_pick.inputs[i + 2], t.named(m_name))
+    m_ramp = t.N.new('ShaderNodeValToRGB')
+    els = m_ramp.color_ramp.elements
+    els[0].color, els[1].color = (0.05, 0.03, 0.25, 1.0), (0.99, 0.91, 0.14, 1.0)
+    els.new(0.5).color = (0.13, 0.57, 0.55, 1.0)
+    t._set(m_ramp.inputs["Fac"], m_pick.outputs[0])
+    gray_v = t.math('POWER', t.math('MAXIMUM', m_pick.outputs[0], 0.0), 2.2)  # shown as the map's own value
+    m_gray = t.node('FunctionNodeCombineColor', Red=gray_v, Green=gray_v, Blue=gray_v).outputs[0]
+    m_col = t.N.new('GeometryNodeSwitch')
+    m_col.input_type = 'RGBA'
+    t._set(m_col.inputs["Switch"], gin["Mask Heatmap"])
+    t._set(m_col.inputs["False"], m_gray)
+    t._set(m_col.inputs["True"], m_ramp.outputs["Color"])
+    m_view = t.node('GeometryNodeStoreNamedAttribute', Geometry=smooth, Selection=t.math('GREATER_THAN', gin["Show Mask"], 0.5), Name="lg_view")
+    m_view.data_type, m_view.domain = 'FLOAT_COLOR', 'POINT'
+    t._set(m_view.inputs["Value"], m_col.outputs[0])
+    smooth = m_view.outputs[0]
     with_rocks = t.node('GeometryNodeJoinGeometry')
     t.L.new(smooth, with_rocks.inputs[0])
     # Every rock settles onto the finished shell below it: they were dropped onto the coarse shape (and the

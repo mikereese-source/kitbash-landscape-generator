@@ -36,6 +36,8 @@ def sync_cave(ob):
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
     nodes.input_socket(mod, "Rock").value = ROCK_INDEX[ob.lg_cave.rock]
+    nodes.input_socket(mod, "Show Mask").value = MASK_INDEX[ob.lg_cave.show_mask]
+    nodes.input_socket(mod, "Mask Heatmap").value = ob.lg_cave.mask_colors == 'HEAT'
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
@@ -52,10 +54,27 @@ DETAIL_ITEMS = (('PREVIEW', "Preview", "Light and fast, for placing and shaping 
                 ('HIGH', "High", "Full rock detail for the finished cave"),
                 ('ULTRA', "Ultra", "Hero detail for close-up shots inside the cave. Heavy"))
 DETAIL_INDEX = {key: i for i, (key, _n, _d) in enumerate(DETAIL_ITEMS)}
+# The landscapes' maps, read for a cave (same names, same order, so materials and exports treat them alike).
+MASK_ITEMS = (
+    ('NONE', "None", "Normal shading"),
+    ('HEIGHT', "Height", "Low (dark) to high (bright)"),
+    ('SLOPE', "Slope", "Floor and roof (dark) to standing walls (bright)"),
+    ('CURVATURE', "Curvature", "Ridges and edges dark, crevices and hollows bright, even rock in between"),
+    ('FLOW', "Flow", "Where water runs and pools: the floor's hollows"),
+    ('WEAR', "Wear", "Ridges and edges, where rock gets knocked and worn"),
+    ('DEPOSIT', "Deposit", "The flat floor and its hollows, where silt and grit settle"),
+    ('DEPTH', "Water Depth", "Empty until caves get water"),
+)
+MASK_INDEX = {key: i for i, (key, _n, _d) in enumerate(MASK_ITEMS)}
 
 
 def _sync(props, _context):
     sync_cave(props.id_data)
+
+
+def _show_mask(props, context):
+    from . import _show_mask_changed  # the landscapes' viewer: sets every 3D view to show lg_view
+    _show_mask_changed(props, context)
 
 
 ROCK_ITEMS = (('LIMESTONE', "Limestone", "Flat rock beds stepping in and out, flat roofs between them; blocks and slabby scree"),
@@ -74,6 +93,12 @@ def _rock_changed(props, _context):
 
 class LG_CaveProps(PropertyGroup):
     is_cave: BoolProperty(default=False)
+    show_mask: EnumProperty(name="Show Mask", description="Colour the viewport by one of the cave's data maps, the maps materials and exports use",
+                            items=MASK_ITEMS, default='NONE', update=lambda p, c: _show_mask(p, c))
+    mask_colors: EnumProperty(name="Colours", description="How the map viewer shows a map",
+                              items=(('GRAY', "Grayscale", "Black (0) to white (1), as game engines and material editors show these maps"),
+                                     ('HEAT', "Heatmap", "Dark blue (0) through teal to yellow (1): easier to read small differences")),
+                              default='GRAY', update=_sync)
     width: FloatProperty(name="Entrance Width", description="How wide the cave mouth is, in real size",
                          default=12.0, min=0.5, soft_max=200.0, unit='LENGTH', update=_sync)
     height: FloatProperty(name="Entrance Height", description="How tall the cave mouth is, floor to roof, in real size",
@@ -259,6 +284,13 @@ def draw_section(layout, context):
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')
+    header, sub = box.panel("lg_cave_masks", default_closed=True)
+    header.label(text="Masks")
+    if sub:
+        sub.prop(props, "show_mask", text="Show")
+        if props.show_mask != 'NONE':
+            sub.row(align=True).prop(props, "mask_colors", expand=True)
+            sub.label(text=dict((k, d) for k, _n, d in MASK_ITEMS)[props.show_mask])
     header, sub = box.panel("lg_cave_detail", default_closed=False)
     header.label(text="Detail Level")
     if sub:

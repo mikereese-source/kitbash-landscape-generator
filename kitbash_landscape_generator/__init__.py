@@ -282,7 +282,7 @@ def _show_mask_changed(props, context):
     view's Solid mode in Attribute colour (enum 'VERTEX'). Back to None restores each view's own shading."""
     ob = props.id_data
     ob.data.color_attributes.active_color_name = "lg_view"
-    sync_object(ob)
+    (caves.sync_cave if ob.lg_cave.is_cave else sync_object)(ob)  # caves share the viewer
     showing = props.show_mask != 'NONE'
     for window in context.window_manager.windows:
         for area in window.screen.areas:

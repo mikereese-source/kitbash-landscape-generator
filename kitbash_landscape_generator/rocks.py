@@ -11,7 +11,7 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 8
+LIBRARY_VERSION = 9
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 # Faces at High: Big 2,400, Medium 600, Small 150 (Mike: the Big rocks had 9,600 and far too many polygons).
@@ -45,7 +45,7 @@ def _plane(rng, up_bias=0.0):
     return n, rng.uniform(0.55, 0.85)
 
 
-def _rock(family, rng, scale=1.0, subdivisions=4):
+def _rock(family, rng, scale=1.0, subdivisions=4, slab=False):
     # All quads (Mike: easier to work on later): a cube cut into a grid on each side and pushed out to a
     # sphere, about as many faces as an icosphere of this detail had triangles halved.
     bm = bmesh.new()
@@ -84,6 +84,18 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
             v.co = v.co * stretch * (1.0 + d)
         _clip(verts, Vector((0, 0, -1)), stretch.z * 0.75)  # a flattened underside, as it settled
         grain = 0.008
+    elif slab:  # lava roof slabs (Mike's references): broad, flat, broken plates of lining fallen from the roof
+        stretch = Vector((1.0, rng.uniform(0.55, 0.9), rng.uniform(0.16, 0.28)))
+        for v in verts:
+            lumps = noise.fractal(v.co * 1.4 + off, 0.6, 2.0, 3) * 0.08
+            v.co = v.co * stretch * (1.0 + lumps)
+        tilt = Vector((rng.uniform(-0.1, 0.1), rng.uniform(-0.1, 0.1), 1.0)).normalized()
+        _clip(verts, tilt, stretch.z * 0.75)  # the skin's two faces, top and bottom
+        _clip(verts, -tilt, stretch.z * 0.75)
+        for _ in range(rng.randint(4, 6)):  # broken edges round the plate
+            n = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-0.3, 0.3))).normalized()
+            _clip(verts, n, rng.uniform(0.5, 0.85))
+        grain = 0.012
     else:  # Lava
         stretch = Vector((1.0, rng.uniform(0.5, 1.0), rng.uniform(0.5, 0.85)))
         for v in verts:
@@ -96,7 +108,8 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
     bm.normal_update()
     for v in verts:  # a fine surface grain over every family
         v.co += v.normal * noise.noise(v.co * 9.0 + off) * grain
-    # Fit -1..1 across, keep the proportions, pivot 45% up from the centre.
+    # Fit -1..1 across, keep the proportions, pivot 45% up from the centre (a slab's at its middle: thin, it
+    # was nearly all underground).
     lo = Vector((min(v.co[i] for v in verts) for i in range(3)))
     hi = Vector((max(v.co[i] for v in verts) for i in range(3)))
     centre, half = (lo + hi) * 0.5, max(hi - lo) * 0.5
@@ -104,7 +117,7 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
         v.co = (v.co - centre) / half
     zhalf = (hi.z - lo.z) * 0.5 / half
     for v in verts:
-        v.co.z -= 0.45 * zhalf
+        v.co.z -= (0.0 if slab else 0.45) * zhalf
     for v in verts:
         v.co *= scale
     return bm
@@ -146,7 +159,7 @@ def ensure_library():
                 state = rng.getstate()
                 for level, step in LEVELS:  # the same draws at every level: the same rock, finer or coarser
                     rng.setstate(state)
-                    bm = _rock(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2))
+                    bm = _rock(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2), slab=(family == "Lava" and size == "Big"))
                     me = bpy.data.meshes.new(f"KB Rock {family} {size} {i + 1}" + ("" if level == "High" else f" {level}"))
                     bm.to_mesh(me)
                     bm.free()

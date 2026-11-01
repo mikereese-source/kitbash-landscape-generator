@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 114
+CAVE_VERSION = 115
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -606,7 +606,7 @@ def cave_group():
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
     # out across the floor to break it up. A rock is big or medium, never both on one spot.
-    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], 0.15))
+    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], t.math('ADD', 0.15, t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), 0.15))))  # lava: its big rocks are the fallen roof slabs, twice as many
     keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep))
     # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
     strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=t.node('FunctionNodeFloatToInt', Float=t.math('ADD', 2.0, t.math('MULTIPLY', gin["Rubble"], 6.0))).outputs[0])
@@ -1240,7 +1240,16 @@ def cave_group():
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
     # the flow, little broken rock.
     lava_primary = noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
-    lava_secondary = t.math('ADD', noise(rr(0.35), rr(1.4), rr(0.35), 2.0, rr(0.07)), t.math('MULTIPLY', grain, 0.3))
+    # Secondary (Mike's references, Thurston and Lava River Cave): the tube's walls and roof are lined in layered
+    # skins of cooled lava, each a little in or out from the next, drawn out along the tube, with a lip where
+    # one stops (where a lining peeled, a recess). A slow noise, long along the tube, cut into steps with a
+    # short rise between them. Rough grain and the fallen roof slabs (the Big rocks) come with it.
+    # (Nine steps on a small noise read as a contour map; a few broad layers, very long along the tube, read as
+    # linings.)
+    skin = t.math('MULTIPLY', t.math('ADD', noise(rr(0.9), rr(8.0), rr(0.9), 0.0, 1.0), 0.5), 5.0)
+    skin_steps = t.math('ADD', t.math('FLOOR', skin), t.smooth(t.math('FRACT', skin), 0.55, 1.0))
+    skins = t.math('MULTIPLY', t.math('SUBTRACT', t.math('DIVIDE', skin_steps, 5.0), 0.5), rr(0.2))
+    lava_secondary = t.math('ADD', t.math('ADD', skins, noise(rr(0.35), rr(1.4), rr(0.35), 2.0, rr(0.02))), t.math('MULTIPLY', grain, 0.3))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
     # Outward, the swell moves the floor with the walls (added below, outside the walls-only mask): with the floor

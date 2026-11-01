@@ -11,10 +11,11 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 4
+LIBRARY_VERSION = 5
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
-SIZES = (("Big", 4, (2.0, 3.0), 5), ("Medium", 8, (1.0, 1.0), 4), ("Small", 8, (0.33, 0.5), 3))
+# Faces at High: Big 2,400, Medium 600, Small 150 (Mike: the Big rocks had 9,600 and far too many polygons).
+SIZES = (("Big", 4, (2.0, 3.0), 4), ("Medium", 8, (1.0, 1.0), 3), ("Small", 8, (0.33, 0.5), 2))
 # Each rock at every Detail Level (Mike), the same shape finer or coarser: the High rocks are the kit itself;
 # Preview and Ultra copies sit in collections named "<size collection> Preview" / "Ultra" in a hidden
 # KB Cave Rocks Levels collection. Level -> mesh detail against High.
@@ -144,7 +145,7 @@ def ensure_library():
                 state = rng.getstate()
                 for level, step in LEVELS:  # the same draws at every level: the same rock, finer or coarser
                     rng.setstate(state)
-                    bm = _rock(family, rng, rng.uniform(lo, hi), subdivisions + step)
+                    bm = _rock(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2))
                     me = bpy.data.meshes.new(f"KB Rock {family} {size} {i + 1}" + ("" if level == "High" else f" {level}"))
                     bm.to_mesh(me)
                     bm.free()

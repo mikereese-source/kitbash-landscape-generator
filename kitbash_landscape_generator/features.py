@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 127
+CAVE_VERSION = 138
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1238,7 +1238,7 @@ def cave_group():
                    Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', H, 3.0))
     over_floor = t.math('ADD', t.math('MULTIPLY', f_ray.outputs["Hit Distance"], f_ray.outputs["Is Hit"]),
                         t.math('MULTIPLY', t.math('SUBTRACT', 1.0, f_ray.outputs["Is Hit"]), t.math('MULTIPLY', H, 3.0)))
-    bench_in = t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(p_s, 0.1, 0.16), t.math('SUBTRACT', 1.0, t.smooth(p_s, 0.84, 0.9))),
+    bench_in = t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(p_s, 0.1, 0.25), t.math('SUBTRACT', 1.0, t.smooth(p_s, 0.84, 0.9))),  # eased in over ~15% of the path (Mike: it stood up from the floor in a step by the mouth)
                       t.math('SUBTRACT', 1.0, t.math('MULTIPLY', has_chamber, t.smooth(p_s, 0.5, 0.56))))  # eased out before the chamber and the ends
     b_swell = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', sp, t.vec(W, W, W)), Scale=0.8, Detail=1.0)
     b_swell.noise_dimensions = '3D'
@@ -1368,48 +1368,26 @@ def cave_group():
         n.noise_dimensions = '3D'
         return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), amp)
 
-    def t_cracks(sa, sc, width, warp):
-        """0..1, 1 on a crack: the edges of cells sa long along the tube by sc round it, wavy by warp."""
-        w = t_noise(t.math('MULTIPLY', sa, 2.0), t.math('MULTIPLY', sc, 2.0), t.math('MULTIPLY', sc, 2.0), 2.0, warp, t_arc)
-        v = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('ADD', t.math('DIVIDE', tb["X"], sa), w), t.math('DIVIDE', t_arc, sc), t_seed),
-                   Scale=1.0, Randomness=0.85)
-        v.voronoi_dimensions, v.feature = '3D', 'DISTANCE_TO_EDGE'
-        return t.math('SUBTRACT', 1.0, t.smooth(v.outputs["Distance"], 0.0, width))
-
     lava_primary = t_noise(rr(6.0), rr(2.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
-    # Secondary (Mike's references, Thurston and Lava River Cave, and his lines on them): along the walls, level
-    # linings of cooled lava, one over another like the ledges at a tube's foot, each a little in or out from the
-    # next with a lip where it steps, starting and stopping along the tube; across the roof, cracks that arch over
-    # from wall to wall, and a few long ones running down the tube. Rough grain and the fallen roof slabs (the Big
-    # rocks) come with it.
-    band_h = rr(0.14)  # each lining about this tall
-    band = t.math('DIVIDE', t.math('ADD', tb["Z"], t_noise(rr(5.0), rr(3.0), rr(3.0), 1.0, rr(0.35))), band_h)
-    b_idx, b_f = t.math('FLOOR', band), t.math('FRACT', band)
-
-    def lining(k):
-        n = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(4.0)), t.math('MULTIPLY', t.math('ADD', b_idx, k), 3.17), t_seed),
-                   Scale=1.0, Detail=0.0)
-        n.noise_dimensions = '3D'
-        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), rr(0.1))
-    # Each step rises over the top 40% of its lining (steeper, the lips folded over into teeth).
-    linings = t.math('ADD', lining(0.0), t.math('MULTIPLY', t.math('SUBTRACT', lining(1.0), lining(0.0)), t.smooth(b_f, 0.6, 1.0)))
-    # On the lower walls only, like the ledges at the foot of the reference's walls (level lines up a dome's roof
-    # ringed it).
-    linings = t.math('MULTIPLY', linings, t.math('MULTIPLY', t.smooth(t_hn, 0.02, 0.1), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.3, 0.5))))
-    # Cracks narrow and sharp (Mike: stronger cracks; wide, they read as soft troughs).
-    arches = t.math('MULTIPLY', t_cracks(rr(0.8), rr(5.0), 0.02, 0.25), t.math('MULTIPLY', t.smooth(t_hn, 0.3, 0.75), rr(0.04)))
-    runs = t.math('MULTIPLY', t_cracks(rr(6.0), rr(2.5), 0.012, 0.35), rr(0.025))
+    # Secondary, each part from a reference (docs/m5/c105; cracks and colour bands are the M6 textures, not the
+    # mesh: carved arching cracks traced to no reference and Mike called them out, D151):
+    #   skins (Lava River Cave): the roof and walls lined in thin streaky layers that arch over from wall to wall,
+    #     shallow; noise drawn out round the arch;
+    #   (the ledges at the reference's wall foot are sharp shelves: as noise they read as gentle steps or folded
+    #   into spikes, so they are left for the shell, built like the benches; D153)
+    #   rough surface (Thurston): a faint lumpy grain all over.
+    # The fallen roof slabs are the Big rocks.
+    # Skins: noise drawn out round the arch (short along the tube, long round it), several octaves so the layers
+    # come in all widths and break off (a single-frequency Gabor stripe read as an even washboard).
+    skins = t.math('MULTIPLY', t_noise(rr(0.2), rr(1.5), rr(1.5), 4.0, rr(0.07), t_arc),  # Mike: 40% fewer and 40% deeper, more pronounced
+                   t.math('MULTIPLY', t.math('ADD', 0.5, t.math('MULTIPLY', t.smooth(t_hn, 0.2, 0.6), 0.5)),
+                          t.smooth(t_hn, 0.2, 0.4)))  # not down at the wall foot or on the bench's curb, where the streaks ended in points
     # Not on walls that face down the tube (a chamber's far end, the mouth's): there the tube's lines close up
     # into rings round the end.
     t_ac = t.xyz(on_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR'))
     facing = t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', push, t.vec(t.math('MULTIPLY', t_ac["Y"], -1.0), t_ac["X"], 0.0)))
     side_on = t.math('SUBTRACT', 1.0, t.smooth(facing, 0.45, 0.8))
-    # Linings and long cracks on standing walls only (Mike's shot: on a bench's near-flat top the height barely
-    # changes, so a lining's step wandered there and broke into rows of little teeth).
-    linings = t.math('MULTIPLY', linings, upright)
-    runs = t.math('MULTIPLY', runs, upright)
-    arches = t.math('MULTIPLY', arches, t.math('SUBTRACT', 1.0, t.smooth(t.math('MULTIPLY', nz, -1.0), 0.55, 0.9)))  # roof and walls, not floor-facing tops
-    lava_secondary = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('ADD', linings, arches), runs), side_on),
+    lava_secondary = t.math('ADD', t.math('MULTIPLY', skins, side_on),
                             t.math('ADD', t_noise(rr(1.4), rr(0.35), rr(0.35), 2.0, rr(0.02)), t.math('MULTIPLY', grain, 0.3)))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
@@ -1417,7 +1395,9 @@ def cave_group():
     # held still while the wall foot moved metres, the turn between them folded into grooves round the chamber's
     # rim (Mike).
     lava_out = t.math('MULTIPLY', t.math('MAXIMUM', lava_primary, 0.0), t.math('COMPARE', gin["Rock"], 2.0))
-    lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.smooth(nz, -0.1, 0.5))
+    # High on the walls by height over the floor too: by the face's slope alone it still pushed the low wall in
+    # over the bench's top, an overhanging lip with a dark slot and teeth under it (Mike's shot).
+    lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.math('MULTIPLY', t.smooth(nz, -0.1, 0.5), t.smooth(t_hn, 0.3, 0.6)))
     lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R))
 
     style = t.N.new('GeometryNodeIndexSwitch')

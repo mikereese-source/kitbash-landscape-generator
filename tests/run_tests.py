@@ -863,6 +863,73 @@ def _t8():
     return f"{len(props)} controls and {len(ops)} buttons all have tooltips (plain-language review: manual)"
 
 
+@test("T31", "Cave UVs: a few natural islands, square, even")
+def _t31():
+    # Mike (D149): the UV map splits only where the cave does (floor, walls, chamber), never into lots of small
+    # islands; squares stay square and the texel density even.
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    c.rock, c.chamber, c.ceiling = 'LAVA', 30.0, 16.0
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    check(me.uv_layers.get("UVMap") is not None, "the cave should have a UVMap")
+    me.calc_loop_triangles()
+    nt = len(me.loop_triangles)
+    li = np.zeros(nt * 3, np.int32); me.loop_triangles.foreach_get('loops', li); li = li.reshape(-1, 3)
+    vi = np.zeros(nt * 3, np.int32); me.loop_triangles.foreach_get('vertices', vi); vi = vi.reshape(-1, 3)
+    co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    uv = np.zeros(len(me.loops) * 2); me.uv_layers["UVMap"].data.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+    e1, e2 = co[vi[:, 1]] - co[vi[:, 0]], co[vi[:, 2]] - co[vi[:, 0]]
+    f1, f2 = uv[li[:, 1]] - uv[li[:, 0]], uv[li[:, 2]] - uv[li[:, 0]]
+    a3 = np.linalg.norm(np.cross(e1, e2), axis=1) / 2
+    a2 = np.abs(f1[:, 0] * f2[:, 1] - f1[:, 1] * f2[:, 0]) / 2
+    ok = a3 > 1e-9
+    r = (a2[ok] / a3[ok]) / (a2[ok].sum() / a3[ok].sum())
+    even = float(((r > 0.5) & (r < 2.0)) @ (a3[ok] / a3[ok].sum()))
+    # How square: the longest over the shortest stretch of each triangle's UVs.
+    nrm = np.cross(e1, e2); nrm /= np.linalg.norm(nrm, axis=1)[:, None] + 1e-12
+    ax = e1 / (np.linalg.norm(e1, axis=1)[:, None] + 1e-12); ay = np.cross(nrm, ax)
+    pm = np.stack([np.stack([(e1 * ax).sum(1), (e1 * ay).sum(1)], 1), np.stack([(e2 * ax).sum(1), (e2 * ay).sum(1)], 1)], 2)
+    good = ok & (np.abs(np.linalg.det(pm)) > 1e-12)
+    sv = np.linalg.svd(np.stack([f1, f2], 2)[good] @ np.linalg.inv(pm[good]), compute_uv=False)
+    square = float((sv[:, 0] / np.maximum(sv[:, 1], 1e-12) < 1.5) @ (a3[good] / a3[good].sum()))
+    # Islands: faces joined across edges whose corners share UVs.
+    lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
+    parent = list(range(len(me.polygons)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    seen = {}
+    for poly in me.polygons:
+        ls = list(poly.loop_indices)
+        for j in range(len(ls)):
+            la, lb = ls[j], ls[(j + 1) % len(ls)]
+            va, vb = lv[la], lv[lb]
+            ua, ub = tuple(np.round(uv[la], 5)), tuple(np.round(uv[lb], 5))
+            key, sig = (min(va, vb), max(va, vb)), ((ua, ub) if va < vb else (ub, ua))
+            if key in seen:
+                if seen[key][1] == sig:
+                    parent[find(seen[key][0])] = find(poly.index)
+            else:
+                seen[key] = (poly.index, sig)
+    sizes = {}
+    for i in range(len(me.polygons)):
+        sizes[find(i)] = sizes.get(find(i), 0) + 1
+    ev.to_mesh_clear()
+    small = sum(1 for v in sizes.values() if v < 50)
+    check(len(sizes) <= 12 and small == 0, f"{len(sizes)} UV islands, {small} under 50 faces (want at most 12, none small)")
+    check(square > 0.9, f"{square:.0%} of the area has square UVs (under 1.5 to 1); want over 90%")
+    check(even > 0.9, f"{even:.0%} of the area is within 0.5x to 2x of the average texel density; want over 90%")
+    return f"{len(sizes)} islands, {square:.0%} square, {even:.0%} even"
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

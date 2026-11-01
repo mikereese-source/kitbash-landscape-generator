@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 143
+CAVE_VERSION = 145
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1420,9 +1420,7 @@ def cave_group():
                             t.math('ADD', t_noise(rr(1.4), rr(0.35), rr(0.35), 2.0, rr(0.02)), t.math('MULTIPLY', grain, 0.3)))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
-    # Outward, the swell moves the floor with the walls (added below, outside the walls-only mask): with the floor
-    # held still while the wall foot moved metres, the turn between them folded into grooves round the chamber's
-    # rim (Mike).
+    # Outward, the swell grows up the wall from the floor's edge (added below, D155).
     lava_out = t.math('MULTIPLY', t.math('MAXIMUM', lava_primary, 0.0), t.math('COMPARE', gin["Rock"], 2.0))
     # High on the walls by height over the floor too: by the face's slope alone it still pushed the low wall in
     # over the bench's top, an overhanging lip with a dark slot and teeth under it (Mike's shot).
@@ -1436,7 +1434,11 @@ def cave_group():
     t._set(style.inputs["Index"], gin["Rock"])
     for i, g in enumerate((limestone, jointed, lava)):
         t._set(style.inputs[i + 1], g)
-    bump = t.math('ADD', t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump), t.math('MULTIPLY', lava_out, F))
+    # The swell grows up the wall from the floor's edge, which stays put, and the floor stays flat (Mike: moved
+    # with the swell the floor dropped metres and from outside the drops stood out under the chamber as fins; held
+    # still under a moving wall foot the turn folded into grooves round the rim; slid sideways it overlapped as a flap).
+    bump = t.math('ADD', t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump),
+                  t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', lava_out, F), wall), t.smooth(t_hn, 0.02, 0.3)))
     lift = t.math('MULTIPLY', lift, t.math('LESS_THAN', gin["Rock"], 0.5))  # flat roofs: limestone only
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
     pushes = t.store(t.store(dense, "lg_push", t.vmath('ADD', t.vmath('SCALE', push, scale=bump), bench), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')

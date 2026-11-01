@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 118
+CAVE_VERSION = 127
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1086,21 +1086,50 @@ def cave_group():
     # Tube coordinates (Mike: the noise and the texture maps read the cave like a UV unwrap, the floor as one
     # piece and the walls as strips along the tube; 3D noise sliced by the curved wall left rings): for each point
     # of the coarse shell, how far along the tube, out to the side of its centre line and up over its floor,
-    # measured from the nearest point of the path, with that section's radius and height. Blurred over the
-    # shell, so wherever the nearest point jumps (a bend, the chamber) they ease instead of stepping; the
-    # subdivision carries them smoothly onto the fine faces.
+    # measured from the nearest point on the path's line (between its points: from the nearest point itself, the
+    # measures stepped wherever the nearest point changed, which ribbed the walls every few metres, Mike), with
+    # that section's radius and height. Blurred over the shell, so wherever the nearest bit of the line jumps (a
+    # bend, the chamber) they ease instead of stepping; the subdivision carries them onto the fine faces.
     t_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
 
-    def t_path(value, data_type='FLOAT'):
+    def t_at(value, k, data_type='FLOAT'):
         n = t.N.new('GeometryNodeSampleIndex')
         n.data_type, n.domain = data_type, 'POINT'
         t._set(n.inputs["Geometry"], path)
         t._set(n.inputs["Value"], value)
-        t._set(n.inputs["Index"], t_near)
+        t._set(n.inputs["Index"], t.math('MINIMUM', t.math('MAXIMUM', t.math('ADD', t_near, k), 0.0), t.math('SUBTRACT', count, 1.0)))
+        return n.outputs[0]
+
+    def t_seg(k):
+        """The nearest point on the path's segment from point k to k + 1: (how far along it 0..1, distance)."""
+        a, b = t_at(t.position(), k, 'FLOAT_VECTOR'), t_at(t.position(), k + 1.0, 'FLOAT_VECTOR')
+        ab = t.vmath('SUBTRACT', b, a)
+        f = t.math('DIVIDE', t.vmath('DOT_PRODUCT', t.vmath('SUBTRACT', t.position(), a), ab), t.math('MAXIMUM', t.vmath('DOT_PRODUCT', ab, ab), 1e-6))
+        f = t.math('MINIMUM', t.math('MAXIMUM', f, 0.0), 1.0)
+        return f, t.vmath('DISTANCE', t.position(), t.vmath('ADD', a, t.vmath('SCALE', ab, scale=f)))
+
+    f_back, d_back = t_seg(-1.0)
+    f_on, d_on = t_seg(0.0)
+    behind_seg = t.math('LESS_THAN', d_back, d_on)
+
+    def t_path(value, data_type='FLOAT'):
+        """value along the path's line at the nearest point on it."""
+        a0, a1, a2 = (t_at(value, k, data_type) for k in (-1.0, 0.0, 1.0))
+        if data_type == 'FLOAT':
+            back = t.math('ADD', a0, t.math('MULTIPLY', t.math('SUBTRACT', a1, a0), f_back))
+            on = t.math('ADD', a1, t.math('MULTIPLY', t.math('SUBTRACT', a2, a1), f_on))
+        else:
+            back = t.vmath('ADD', a0, t.vmath('SCALE', t.vmath('SUBTRACT', a1, a0), scale=f_back))
+            on = t.vmath('ADD', a1, t.vmath('SCALE', t.vmath('SUBTRACT', a2, a1), scale=f_on))
+        n = t.N.new('GeometryNodeSwitch')
+        n.input_type = data_type if data_type == 'FLOAT' else 'VECTOR'
+        t._set(n.inputs["Switch"], behind_seg)
+        t._set(n.inputs["False"], on)
+        t._set(n.inputs["True"], back)
         return n.outputs[0]
 
     t_off = t.vmath('SUBTRACT', t.position(), t_path(t.position(), 'FLOAT_VECTOR'))
-    t_ac = t_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR')
+    t_ac = t.vmath('NORMALIZE', t_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR'))
     t_acx = t.xyz(t_ac)
     t_along = t.math('ADD', t_path(t.named("c_len")), t.vmath('DOT_PRODUCT', t_off, t.vec(t.math('MULTIPLY', t_acx["Y"], -1.0), t_acx["X"], 0.0)))
     tube = t.vec(t_along, t.vmath('DOT_PRODUCT', t_off, t_ac), t.xyz(t_off)["Z"])
@@ -1321,17 +1350,67 @@ def cave_group():
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
     # the flow, little broken rock.
-    lava_primary = noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
-    # Secondary (Mike's references, Thurston and Lava River Cave): the tube's walls and roof are lined in layered
-    # skins of cooled lava, each a little in or out from the next, drawn out along the tube, with a lip where
-    # one stops (where a lining peeled, a recess). A slow noise, long along the tube, cut into steps with a
-    # short rise between them. Rough grain and the fallen roof slabs (the Big rocks) come with it.
-    # (Nine steps on a small noise read as a contour map; a few broad layers, very long along the tube, read as
-    # linings.)
-    skin = t.math('MULTIPLY', t.math('ADD', noise(rr(0.9), rr(8.0), rr(0.9), 0.0, 1.0), 0.5), 5.0)
-    skin_steps = t.math('ADD', t.math('FLOOR', skin), t.smooth(t.math('FRACT', skin), 0.55, 1.0))
-    skins = t.math('MULTIPLY', t.math('SUBTRACT', t.math('DIVIDE', skin_steps, 5.0), 0.5), rr(0.2))
-    lava_secondary = t.math('ADD', t.math('ADD', skins, noise(rr(0.35), rr(1.4), rr(0.35), 2.0, rr(0.02))), t.math('MULTIPLY', grain, 0.3))
+    # Lava is read in tube space (D148, Mike: 3D noise sliced by the curved wall made round shapes that don't
+    # exist in lava tubes): along the tube, out to the side and up over the floor, so every form runs with the
+    # tube, round its bends too. Round the arc from the roof's centre line for the walls' lines.
+    tb, tr = t.xyz(t.named("lg_tube", 'FLOAT_VECTOR')), t.xyz(t.named("lg_tube_r", 'FLOAT_VECTOR'))
+    # The seed moves the noise by at most 100 of its cells: by the whole seed (up to hundreds of thousands) the
+    # noise was read so far out that its float steps ribbed the walls (Mike's shots).
+    t_seed = t.math('FLOORED_MODULO', seed, 100.0)
+    t_hn = t.math('DIVIDE', tb["Z"], t.math('MAXIMUM', tr["Y"], 1e-3))  # 0 floor .. 1 roof
+    t_arc = t.math('MULTIPLY', t.math('ARCTAN2', t.math('DIVIDE', tb["Y"], t.math('MAXIMUM', tr["X"], 1e-3)), t_hn),
+                   t.math('SQRT', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', tr["X"], tr["X"]), t.math('MULTIPLY', tr["Y"], tr["Y"])), 0.5)))
+
+    def t_noise(sa, ss, su, detail, amp, across=None):
+        """noise() in tube space: sa, ss, su its size along the tube, across it (side, or round the arc) and up."""
+        q = t.vec(t.math('DIVIDE', tb["X"], sa), t.math('DIVIDE', tb["Y"] if across is None else across, ss), t.math('DIVIDE', tb["Z"], su))
+        n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', q, t.vec(t_seed, t.math('MULTIPLY', t_seed, 0.7), 0.0)), Scale=1.0, Detail=detail, Roughness=0.6)
+        n.noise_dimensions = '3D'
+        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), amp)
+
+    def t_cracks(sa, sc, width, warp):
+        """0..1, 1 on a crack: the edges of cells sa long along the tube by sc round it, wavy by warp."""
+        w = t_noise(t.math('MULTIPLY', sa, 2.0), t.math('MULTIPLY', sc, 2.0), t.math('MULTIPLY', sc, 2.0), 2.0, warp, t_arc)
+        v = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('ADD', t.math('DIVIDE', tb["X"], sa), w), t.math('DIVIDE', t_arc, sc), t_seed),
+                   Scale=1.0, Randomness=0.85)
+        v.voronoi_dimensions, v.feature = '3D', 'DISTANCE_TO_EDGE'
+        return t.math('SUBTRACT', 1.0, t.smooth(v.outputs["Distance"], 0.0, width))
+
+    lava_primary = t_noise(rr(6.0), rr(2.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
+    # Secondary (Mike's references, Thurston and Lava River Cave, and his lines on them): along the walls, level
+    # linings of cooled lava, one over another like the ledges at a tube's foot, each a little in or out from the
+    # next with a lip where it steps, starting and stopping along the tube; across the roof, cracks that arch over
+    # from wall to wall, and a few long ones running down the tube. Rough grain and the fallen roof slabs (the Big
+    # rocks) come with it.
+    band_h = rr(0.14)  # each lining about this tall
+    band = t.math('DIVIDE', t.math('ADD', tb["Z"], t_noise(rr(5.0), rr(3.0), rr(3.0), 1.0, rr(0.35))), band_h)
+    b_idx, b_f = t.math('FLOOR', band), t.math('FRACT', band)
+
+    def lining(k):
+        n = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(4.0)), t.math('MULTIPLY', t.math('ADD', b_idx, k), 3.17), t_seed),
+                   Scale=1.0, Detail=0.0)
+        n.noise_dimensions = '3D'
+        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), rr(0.1))
+    # Each step rises over the top 40% of its lining (steeper, the lips folded over into teeth).
+    linings = t.math('ADD', lining(0.0), t.math('MULTIPLY', t.math('SUBTRACT', lining(1.0), lining(0.0)), t.smooth(b_f, 0.6, 1.0)))
+    # On the lower walls only, like the ledges at the foot of the reference's walls (level lines up a dome's roof
+    # ringed it).
+    linings = t.math('MULTIPLY', linings, t.math('MULTIPLY', t.smooth(t_hn, 0.02, 0.1), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.3, 0.5))))
+    # Cracks narrow and sharp (Mike: stronger cracks; wide, they read as soft troughs).
+    arches = t.math('MULTIPLY', t_cracks(rr(0.8), rr(5.0), 0.02, 0.25), t.math('MULTIPLY', t.smooth(t_hn, 0.3, 0.75), rr(0.04)))
+    runs = t.math('MULTIPLY', t_cracks(rr(6.0), rr(2.5), 0.012, 0.35), rr(0.025))
+    # Not on walls that face down the tube (a chamber's far end, the mouth's): there the tube's lines close up
+    # into rings round the end.
+    t_ac = t.xyz(on_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR'))
+    facing = t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', push, t.vec(t.math('MULTIPLY', t_ac["Y"], -1.0), t_ac["X"], 0.0)))
+    side_on = t.math('SUBTRACT', 1.0, t.smooth(facing, 0.45, 0.8))
+    # Linings and long cracks on standing walls only (Mike's shot: on a bench's near-flat top the height barely
+    # changes, so a lining's step wandered there and broke into rows of little teeth).
+    linings = t.math('MULTIPLY', linings, upright)
+    runs = t.math('MULTIPLY', runs, upright)
+    arches = t.math('MULTIPLY', arches, t.math('SUBTRACT', 1.0, t.smooth(t.math('MULTIPLY', nz, -1.0), 0.55, 0.9)))  # roof and walls, not floor-facing tops
+    lava_secondary = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('ADD', linings, arches), runs), side_on),
+                            t.math('ADD', t_noise(rr(1.4), rr(0.35), rr(0.35), 2.0, rr(0.02)), t.math('MULTIPLY', grain, 0.3)))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
     # Outward, the swell moves the floor with the walls (added below, outside the walls-only mask): with the floor

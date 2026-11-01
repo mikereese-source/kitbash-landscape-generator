@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 115
+CAVE_VERSION = 116
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -574,6 +574,11 @@ def cave_group():
     dirn = t.xyz(t.vmath('NORMALIZE', t.vmath('SUBTRACT', ahead.outputs[0], behind.outputs[0])))
     across = t.vec(dirn["Y"], t.math('MULTIPLY', dirn["X"], -1.0), 0.0)  # flat, at right angles to the path
     path = t.store(t.store(path, "c_across", across, 'FLOAT_VECTOR'), "c_radius", radius)
+    # Distance along the path from its start, for the tube coordinates (below).
+    run = t.N.new('GeometryNodeAccumulateField')
+    run.data_type, run.domain = 'FLOAT', 'POINT'
+    t._set(run.inputs["Value"], t.vmath('DISTANCE', t.position(), behind.outputs[0]))
+    path = t.store(path, "c_len", run.outputs["Leading"])
     both = t.node('GeometryNodeDuplicateElements', Geometry=path, Amount=1)
     both.domain = 'POINT'
     rows = t.node('GeometryNodeJoinGeometry')
@@ -1078,6 +1083,34 @@ def cave_group():
     t._set(bore.inputs["Value"], t.position())
     bore.inputs["Iterations"].default_value = 12  # Mike: at 6, the grid's steps showed as faint rings on the walls at Ultra
     squared = t.node('GeometryNodeSetPosition', Geometry=squared, Selection=t.math('MULTIPLY', t.math('GREATER_THAN', gin["Rock"], 1.5), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)), Position=bore.outputs["Value"]).outputs[0]
+    # Tube coordinates (Mike: the noise and the texture maps read the cave like a UV unwrap, the floor as one
+    # piece and the walls as strips along the tube; 3D noise sliced by the curved wall left rings): for each point
+    # of the coarse shell, how far along the tube, out to the side of its centre line and up over its floor,
+    # measured from the nearest point of the path, with that section's radius and height. Blurred over the
+    # shell, so wherever the nearest point jumps (a bend, the chamber) they ease instead of stepping; the
+    # subdivision carries them smoothly onto the fine faces.
+    t_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
+
+    def t_path(value, data_type='FLOAT'):
+        n = t.N.new('GeometryNodeSampleIndex')
+        n.data_type, n.domain = data_type, 'POINT'
+        t._set(n.inputs["Geometry"], path)
+        t._set(n.inputs["Value"], value)
+        t._set(n.inputs["Index"], t_near)
+        return n.outputs[0]
+
+    t_off = t.vmath('SUBTRACT', t.position(), t_path(t.position(), 'FLOAT_VECTOR'))
+    t_ac = t_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR')
+    t_acx = t.xyz(t_ac)
+    t_along = t.math('ADD', t_path(t.named("c_len")), t.vmath('DOT_PRODUCT', t_off, t.vec(t.math('MULTIPLY', t_acx["Y"], -1.0), t_acx["X"], 0.0)))
+    tube = t.vec(t_along, t.vmath('DOT_PRODUCT', t_off, t_ac), t.xyz(t_off)["Z"])
+    tube_r = t.vec(t_path(t.named("c_radius")), t_path(t.named("c_tall")), 0.0)
+    for t_name, t_val in (("lg_tube", tube), ("lg_tube_r", tube_r)):
+        t_blur = t.N.new('GeometryNodeBlurAttribute')
+        t_blur.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+        t._set(t_blur.inputs["Value"], t_val)
+        t_blur.inputs["Iterations"].default_value = 16
+        squared = t.store(squared, t_name, t_blur.outputs["Value"], 'FLOAT_VECTOR')
     dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.math('MULTIPLY', t.smooth(bend, 0.35, 0.8), t.math('LESS_THAN', gin["Rock"], 1.5)),  # a lava tube stays smooth (creases ringed it at the domes' joins)
                    Level=t.node('FunctionNodeFloatToInt', Float=levels).outputs[0]).outputs[0]
 
@@ -1300,6 +1333,33 @@ def cave_group():
     t._set(finish.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('MAXIMUM', t.math('SUBTRACT', levels, 3.0), 0.0), 2.0)).outputs[0])
     rough = t.node('GeometryNodeSetPosition', Geometry=rough, Selection=t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)),
                    Position=finish.outputs["Value"]).outputs[0]
+    # The UV map from the tube coordinates, in metres: the floor (faces looking down) unrolled flat, along the
+    # tube by across it; the walls and roof one strip, along the tube by the distance round from the roof's
+    # centre line (each side's half of the arc). Packed into 0..1 at one scale everywhere: the floor below,
+    # the walls above it.
+    tb, tr = t.xyz(t.named("lg_tube", 'FLOAT_VECTOR')), t.xyz(t.named("lg_tube_r", 'FLOAT_VECTOR'))
+    arc = t.math('MULTIPLY', t.math('ARCTAN2', t.math('DIVIDE', tb["Y"], t.math('MAXIMUM', tr["X"], 1e-3)), t.math('DIVIDE', tb["Z"], t.math('MAXIMUM', tr["Y"], 1e-3))),
+                 t.math('SQRT', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', tr["X"], tr["X"]), t.math('MULTIPLY', tr["Y"], tr["Y"])), 0.5)))
+
+    def t_range(value):
+        st = t.node('GeometryNodeAttributeStatistic', Geometry=rough, Attribute=value)
+        st.data_type, st.domain = 'FLOAT', 'POINT'
+        return st.outputs["Min"], st.outputs["Max"]
+
+    (u0, u1), (s0, s1), (a0, a1) = t_range(tb["X"]), t_range(tb["Y"]), t_range(arc)
+    gap = t.math('MULTIPLY', r, 0.1)
+    v_wall0 = t.math('ADD', t.math('SUBTRACT', s1, s0), gap)  # the walls start above the floor
+    span = t.math('MAXIMUM', t.math('MAXIMUM', t.math('SUBTRACT', u1, u0), t.math('ADD', v_wall0, t.math('SUBTRACT', a1, a0))), 1e-3)
+    on_floor_f = t.N.new('GeometryNodeFieldOnDomain')
+    on_floor_f.domain, on_floor_f.data_type = 'FACE', 'FLOAT'
+    t._set(on_floor_f.inputs[0], t.math('LESS_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.7))
+    uv_v = t.N.new('GeometryNodeSwitch')
+    uv_v.input_type = 'FLOAT'
+    t._set(uv_v.inputs["Switch"], t.math('GREATER_THAN', on_floor_f.outputs[0], 0.5))
+    t._set(uv_v.inputs["False"], t.math('ADD', v_wall0, t.math('SUBTRACT', arc, a0)))
+    t._set(uv_v.inputs["True"], t.math('SUBTRACT', tb["Y"], s0))
+    uv = t.vmath('DIVIDE', t.vec(t.math('SUBTRACT', tb["X"], u0), uv_v.outputs[0], 0.0), t.vec(span, span, 1.0))
+    rough = t.store(rough, "UVMap", uv, 'FLOAT2', 'CORNER')
     marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not

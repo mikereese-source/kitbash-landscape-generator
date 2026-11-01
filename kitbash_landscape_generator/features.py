@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 112
+CAVE_VERSION = 113
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -446,10 +446,10 @@ CAVE_INPUTS = (
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
 )
-CAVE_DETAIL = (6.0, 7.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
+CAVE_DETAIL = (6.0, 8.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
 # Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
-CAVE_FACES = (150_000, 1_000_000, 4_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
-CAVE_SUBDIV = (2, 3, 4)  # but never fewer smoothing steps than these (each x4 faces; D121)
+CAVE_FACES = (150_000, 4_000_000, 16_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
+CAVE_SUBDIV = (2, 4, 5)  # but never fewer smoothing steps than these (each x4 faces; D121)
 
 
 def cave_group():
@@ -534,7 +534,7 @@ def cave_group():
         per.inputs[i + 1].default_value = v
     voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)), per.outputs[0]), 0.04)
 
-    def level_set(parts):
+    def level_set(parts, voxel=voxel):
         """Overlapping closed parts -> one signed-distance field. Through a fog volume first, which merges overlaps
         cleanly: a level set made straight from overlapping meshes kept their inner faces, and taking rubble out of
         it left holes, loose pieces and pinches (Mike). Returns (grid, merged mesh)."""
@@ -545,6 +545,11 @@ def cave_group():
         return t.node('GeometryNodeMeshToSDFGrid', Mesh=skin, Voxel_Size=voxel, Band_Width=3).outputs[0], skin
 
     space, space_mesh = level_set(domes)
+    # The rocks are placed and kept against the cave's space built at Preview's grid, whatever the Detail Level
+    # (Mike: the number and placement of rocks must not change between Preview, High and Ultra; tested against
+    # each level's own shape, a few came and went). Only their height settles onto the finished shell.
+    rock_voxel = t.math('MAXIMUM', t.math('DIVIDE', t.math('MINIMUM', r, t.math('MAXIMUM', H, 0.5)), CAVE_DETAIL[0]), 0.04)
+    _rock_grid, rock_space = level_set(domes, rock_voxel)
 
     # Rubble at the foot of the walls (Mike: rocks, a blend like Mesa's talus), taken out of the same space:
     # two rows of rock lumps along the passage, one each side, of varied size. Rubble sets how many and how
@@ -595,7 +600,7 @@ def cave_group():
                   Offset=t.vmath('SCALE', t.named("c_across", 'FLOAT_VECTOR'), scale=t.math('MULTIPLY', sidev, reach_out))).outputs[0]
     # Each rock drops onto the floor below it (where the passage meets a sunk chamber, the floor is lower
     # than the path, and rocks floated).
-    drop_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+    drop_ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space,
                       Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                       Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
@@ -611,7 +616,7 @@ def cave_group():
     pebble_at = t.node('GeometryNodeSetPosition', Geometry=strewn.outputs["Geometry"],
                        Offset=t.vmath('ADD', t.vmath('SCALE', across_v, scale=t.math('MULTIPLY', sidev, t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_radius"), t.math('SUBTRACT', 0.95, t.math('MULTIPLY', rand(0.0, 1.5, 131), gin["Spread"]))), t.math('MULTIPLY', rock_r, 0.1)))),
                                       t.vmath('SCALE', along_v, scale=t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(-1.2, 1.2, 137), gin["Spread"]))))).outputs[0]
-    pebble_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
+    pebble_ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space,
                         Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     pebbles_at = t.node('GeometryNodeSetPosition', Geometry=pebble_at, Selection=pebble_ray.outputs["Is Hit"], Position=pebble_ray.outputs["Hit Position"]).outputs[0]
@@ -1025,8 +1030,8 @@ def cave_group():
                    Selection=t.math('LESS_THAN', acc.outputs["Total"], t.math('SUBTRACT', biggest.outputs["Max"], 0.5)))
     loose.domain = 'POINT'
     # Shell density (D105, Mike: the walls were too few faces to hold rock detail): the voxels only set the
-    # cave's shape; the shell is then smoothly subdivided (each step x4 faces) toward about 150k / 1M / 4M faces
-    # (Preview / High / Ultra), but never fewer than 2 / 3 / 4 steps: a big cave rounded to High's steps at
+    # cave's shape; the shell is then smoothly subdivided (each step x4 faces) toward about 150k / 4M / 16M faces
+    # (Preview / High / Ultra), but never fewer than 2 / 4 / 5 steps: a big cave rounded to High's steps at
     # Ultra and lost its detail (Mike), a small one needs more steps to reach the target.
     def per_level(values):
         n = t.N.new('GeometryNodeIndexSwitch')
@@ -1062,7 +1067,7 @@ def cave_group():
     squared = t.node('GeometryNodeRemoveAttribute', Geometry=t.node('GeometryNodeRemoveAttribute', Geometry=squared, Name="lg_p0").outputs[0], Name="lg_n0").outputs[0]
     faces = t.node('GeometryNodeAttributeDomainSize', Geometry=squared).outputs["Face Count"]
     aim = t.math('ROUND', t.math('LOGARITHM', t.math('DIVIDE', per_level(CAVE_FACES), t.math('MAXIMUM', faces, 1.0)), 4.0))
-    levels = t.math('MINIMUM', t.math('MAXIMUM', aim, per_level(CAVE_SUBDIV)), 5.0)
+    levels = t.math('MINIMUM', t.math('MAXIMUM', aim, per_level(CAVE_SUBDIV)), 6.0)
     # Sharp edges stay sharp (Mike: the jointed masses came out soft): edges where the faces meet at a real
     # angle are creased before smoothing, so broad flat faces keep crisp ridges between them.
     bend = t.node('GeometryNodeInputMeshEdgeAngle').outputs["Unsigned Angle"]
@@ -1326,12 +1331,35 @@ def cave_group():
     smooth = m_view.outputs[0]
     with_rocks = t.node('GeometryNodeJoinGeometry')
     t.L.new(smooth, with_rocks.inputs[0])
-    # Every rock settles onto the finished shell below it: they were dropped onto the coarse shape (and the
-    # ramp's own mesh), which smoothing and wall detail move a little, so some floated (Mike's ramp slab).
+    # Which rocks stay is decided on the Preview-grid space (rock_space, above), before any rock moves, so it is
+    # the same at every Detail Level.
+    # Rocks only on the ground for now (Mike, while the wall shapes are dialled in): any rock not resting on
+    # floor (a face looking down, out of the cave's space) is dropped, so none sit on walls, slabs or in the air.
+    under = t.node('GeometryNodeRaycast', Target_Geometry=rock_space,
+                   Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
+                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
+    on_floor = t.math('MULTIPLY', under.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(under.outputs["Hit Normal"])["Z"], -0.9))  # near-flat ground
+    grounded = t.node('GeometryNodeDeleteGeometry', Geometry=boulders.outputs[0], Selection=t.math('LESS_THAN', on_floor, 0.5))
+    grounded.domain = 'INSTANCE'
+    # No rock may poke out through the walls or roof (Mike: rocks showed on the outside of the cave): from each
+    # rock's middle (a little over its pivot, which sits at the ground), a ray up and four level rays must not
+    # meet the cave's side inside the rock's own reach. (From the pivot itself the level rays met the floor's rise.)
+    i_scale = t.xyz(t.node('GeometryNodeInputInstanceScale').outputs[0])
+    reach_xy = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MAXIMUM', i_scale["X"], i_scale["Y"]), t.named("lg_rock_r")), 0.85)
+    pokes = None
+    for d, reach in (((0.0, 0.0, 1.0), t.math('MULTIPLY', i_scale["Z"], 0.3)), ((1.0, 0.0, 0.0), reach_xy), ((-1.0, 0.0, 0.0), reach_xy),
+                     ((0.0, 1.0, 0.0), reach_xy), ((0.0, -1.0, 0.0), reach_xy)):
+        ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', i_scale["Z"], 0.35))),
+                     Ray_Direction=d, Ray_Length=reach)
+        pokes = ray.outputs["Is Hit"] if pokes is None else t.math('MAXIMUM', pokes, ray.outputs["Is Hit"])
+    clear = t.node('GeometryNodeDeleteGeometry', Geometry=grounded.outputs[0], Selection=pokes)
+    clear.domain = 'INSTANCE'
+    # Every kept rock then settles onto the finished shell below it: they were dropped onto the coarse shape
+    # (and the ramp's own mesh), which smoothing and wall detail move a little, so some floated (Mike's ramp slab).
     settle = t.node('GeometryNodeRaycast', Target_Geometry=smooth,
                     Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
                     Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
-    settled = t.node('GeometryNodeSetPosition', Geometry=boulders.outputs[0], Selection=settle.outputs["Is Hit"],
+    settled = t.node('GeometryNodeSetPosition', Geometry=clear.outputs[0], Selection=settle.outputs["Is Hit"],
                      Position=settle.outputs["Hit Position"]).outputs[0]
     # Each rock tipped to the ground under it (Mike: whole rocks, set into the ground; a little rock showing
     # under the floor outside the cave is fine, as in games and film, but no floating).
@@ -1344,26 +1372,7 @@ def cave_group():
     t._set(tipped.inputs["Rotation"], lay.outputs[0])
     t._set(tipped.inputs["Pivot Point"], t.position())
     tipped.inputs["Local Space"].default_value = False
-    settled = tipped.outputs[0]
-    # Rocks only on the ground for now (Mike, while the wall shapes are dialled in): any rock not resting on
-    # floor (a face looking down, out of the cave's space) is dropped, so none sit on walls, slabs or in the air.
-    on_floor = t.math('MULTIPLY', settle.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(settle.outputs["Hit Normal"])["Z"], -0.9))  # near-flat ground
-    grounded = t.node('GeometryNodeDeleteGeometry', Geometry=settled, Selection=t.math('LESS_THAN', on_floor, 0.5))
-    grounded.domain = 'INSTANCE'
-    # No rock may poke out through the shell (Mike: rocks showed on the outside of the cave): from each rock's
-    # middle (a little over its pivot, which sits at the ground), a ray up and four level rays must not meet the
-    # shell inside the rock's own reach. (From the pivot itself the level rays met the floor's own rise.)
-    i_scale = t.xyz(t.node('GeometryNodeInputInstanceScale').outputs[0])
-    reach_xy = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MAXIMUM', i_scale["X"], i_scale["Y"]), t.named("lg_rock_r")), 0.85)
-    pokes = None
-    for d, reach in (((0.0, 0.0, 1.0), t.math('MULTIPLY', i_scale["Z"], 0.3)), ((1.0, 0.0, 0.0), reach_xy), ((-1.0, 0.0, 0.0), reach_xy),
-                     ((0.0, 1.0, 0.0), reach_xy), ((0.0, -1.0, 0.0), reach_xy)):
-        ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', i_scale["Z"], 0.35))),
-                     Ray_Direction=d, Ray_Length=reach)
-        pokes = ray.outputs["Is Hit"] if pokes is None else t.math('MAXIMUM', pokes, ray.outputs["Is Hit"])
-    clear = t.node('GeometryNodeDeleteGeometry', Geometry=grounded.outputs[0], Selection=pokes)
-    clear.domain = 'INSTANCE'
-    t.L.new(clear.outputs[0], with_rocks.inputs[0])
+    t.L.new(tipped.outputs[0], with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 113
+CAVE_VERSION = 114
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1076,7 +1076,7 @@ def cave_group():
     bore = t.N.new('GeometryNodeBlurAttribute')
     bore.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
     t._set(bore.inputs["Value"], t.position())
-    bore.inputs["Iterations"].default_value = 6
+    bore.inputs["Iterations"].default_value = 12  # Mike: at 6, the grid's steps showed as faint rings on the walls at Ultra
     squared = t.node('GeometryNodeSetPosition', Geometry=squared, Selection=t.math('MULTIPLY', t.math('GREATER_THAN', gin["Rock"], 1.5), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)), Position=bore.outputs["Value"]).outputs[0]
     dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.math('MULTIPLY', t.smooth(bend, 0.35, 0.8), t.math('LESS_THAN', gin["Rock"], 1.5)),  # a lava tube stays smooth (creases ringed it at the domes' joins)
                    Level=t.node('FunctionNodeFloatToInt', Float=levels).outputs[0]).outputs[0]
@@ -1243,9 +1243,12 @@ def cave_group():
     lava_secondary = t.math('ADD', noise(rr(0.35), rr(1.4), rr(0.35), 2.0, rr(0.07)), t.math('MULTIPLY', grain, 0.3))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
-    lava_out = t.math('MULTIPLY', t.math('MAXIMUM', lava_primary, 0.0), t.smooth(nz, -0.75, -0.3))
+    # Outward, the swell moves the floor with the walls (added below, outside the walls-only mask): with the floor
+    # held still while the wall foot moved metres, the turn between them folded into grooves round the chamber's
+    # rim (Mike).
+    lava_out = t.math('MULTIPLY', t.math('MAXIMUM', lava_primary, 0.0), t.math('COMPARE', gin["Rock"], 2.0))
     lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.smooth(nz, -0.1, 0.5))
-    lava = t.math('ADD', t.math('MULTIPLY', t.math('ADD', lava_out, lava_in), F), t.math('MULTIPLY', lava_secondary, R))
+    lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R))
 
     style = t.N.new('GeometryNodeIndexSwitch')
     style.data_type = 'FLOAT'
@@ -1254,7 +1257,7 @@ def cave_group():
     t._set(style.inputs["Index"], gin["Rock"])
     for i, g in enumerate((limestone, jointed, lava)):
         t._set(style.inputs[i + 1], g)
-    bump = t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump)
+    bump = t.math('ADD', t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump), t.math('MULTIPLY', lava_out, F))
     lift = t.math('MULTIPLY', lift, t.math('LESS_THAN', gin["Rock"], 0.5))  # flat roofs: limestone only
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
     pushes = t.store(t.store(dense, "lg_push", t.vmath('ADD', t.vmath('SCALE', push, scale=bump), bench), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')
@@ -1272,6 +1275,22 @@ def cave_group():
     eased = t.node('GeometryNodeSetPosition', Geometry=pushed,
                    Offset=t.vmath('SCALE', t.named("lg_push", 'FLOAT_VECTOR'), scale=t.math('MULTIPLY', t.smooth(spread_fold.outputs[0], 0.0, 0.05), -1.0))).outputs[0]
     rough = t.node('GeometryNodeRemoveAttribute', Geometry=t.node('GeometryNodeRemoveAttribute', Geometry=eased, Name="lg_push").outputs[0], Name="lg_n0").outputs[0]
+    # Lava at the finest levels gets a last light smoothing (Mike: at Ultra the coarse shape's edge flow showed
+    # through the fine faces as a moire of faint lines).
+    finish = t.N.new('GeometryNodeBlurAttribute')
+    finish.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(finish.inputs["Value"], t.position())
+    t._set(finish.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('MAXIMUM', t.math('SUBTRACT', levels, 3.0), 0.0), 2.0)).outputs[0])
+    rough = t.node('GeometryNodeSetPosition', Geometry=rough, Selection=t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)),
+                   Position=finish.outputs["Value"]).outputs[0]
+    # Lava at the finest levels gets a last light smoothing (Mike: at Ultra the coarse shape's edge flow showed
+    # through the fine faces as a moire of faint lines).
+    finish = t.N.new('GeometryNodeBlurAttribute')
+    finish.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(finish.inputs["Value"], t.position())
+    t._set(finish.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('MAXIMUM', t.math('SUBTRACT', levels, 3.0), 0.0), 2.0)).outputs[0])
+    rough = t.node('GeometryNodeSetPosition', Geometry=rough, Selection=t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)),
+                   Position=finish.outputs["Value"]).outputs[0]
     marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not

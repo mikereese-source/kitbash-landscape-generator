@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 138
+CAVE_VERSION = 143
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1140,6 +1140,26 @@ def cave_group():
         t._set(t_blur.inputs["Value"], t_val)
         t_blur.inputs["Iterations"].default_value = 16
         squared = t.store(squared, t_name, t_blur.outputs["Value"], 'FLOAT_VECTOR')
+    # Where the passage runs into a chamber, the merged domes left a sharp inside corner from floor to roof (Mike:
+    # a pinched crease): the shell is smoothed hard there only, between the passage and the chamber (by how far into
+    # the chamber, from the tube coordinates), so the join rounds into a broad curve like a mouth carved wider.
+    j_ch = t.xyz(t.named("lg_tube_r", 'FLOAT_VECTOR'))["Z"]
+    join = t.math('MULTIPLY', t.smooth(j_ch, 0.05, 0.3), t.math('SUBTRACT', 1.0, t.smooth(j_ch, 0.97, 0.995)))  # the crease sits where the passage flares into the dome, 80-98% in
+    # Spread over the shell: by the chamber measure alone its far edge fell within a few metres (it saturates in the
+    # chamber), and the hand-over there stood up as a rib.
+    j_spread = t.N.new('GeometryNodeBlurAttribute')
+    j_spread.data_type = 'FLOAT'
+    t._set(j_spread.inputs["Value"], join)
+    t._set(j_spread.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', 60.0, t.math('POWER', t.math('DIVIDE', per.outputs[0], CAVE_DETAIL[0]), 2.0))).outputs[0])
+    squared = t.store(squared, "lg_join", t.math('MINIMUM', t.math('MULTIPLY', j_spread.outputs["Value"], 1.5), 1.0))
+    join = t.named("lg_join")
+    j_blur = t.N.new('GeometryNodeBlurAttribute')
+    j_blur.data_type = 'FLOAT_VECTOR'  # before linking: the type swaps the sockets
+    t._set(j_blur.inputs["Value"], t.position())
+    # The same reach at every Detail Level: finer grids take more passes (by the square of the cells across).
+    t._set(j_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', 40.0, t.math('POWER', t.math('DIVIDE', per.outputs[0], CAVE_DETAIL[0]), 2.0))).outputs[0])
+    squared = t.node('GeometryNodeSetPosition', Geometry=squared, Selection=t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5),
+                     Offset=t.vmath('SCALE', t.vmath('SUBTRACT', j_blur.outputs["Value"], t.position()), scale=join)).outputs[0]
 
     # The UV map (Mike: square, no stretching; split only where the cave splits naturally, never into lots of small
     # islands): unwrapped on the coarse shell, the subdivision carries it onto the fine faces. Islands: the mouth's
@@ -1369,6 +1389,12 @@ def cave_group():
         return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), amp)
 
     lava_primary = t_noise(rr(6.0), rr(2.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
+    # Where the passage flares into a chamber the tube's lines bend round the flare, and read along them the big
+    # forms wrapped it in curved lips (Mike's shot of the join): there they blend back to the world-space forms
+    # (D146), which made none.
+    t_join = t.named("lg_join")
+    lava_primary = t.math('ADD', t.math('MULTIPLY', lava_primary, t.math('SUBTRACT', 1.0, t_join)),
+                          t.math('MULTIPLY', noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.32)), t_join))
     # Secondary, each part from a reference (docs/m5/c105; cracks and colour bands are the M6 textures, not the
     # mesh: carved arching cracks traced to no reference and Mike called them out, D151):
     #   skins (Lava River Cave): the roof and walls lined in thin streaky layers that arch over from wall to wall,
@@ -1387,6 +1413,9 @@ def cave_group():
     t_ac = t.xyz(on_path(t.named("c_across", 'FLOAT_VECTOR'), 'FLOAT_VECTOR'))
     facing = t.math('ABSOLUTE', t.vmath('DOT_PRODUCT', push, t.vec(t.math('MULTIPLY', t_ac["Y"], -1.0), t_ac["X"], 0.0)))
     side_on = t.math('SUBTRACT', 1.0, t.smooth(facing, 0.45, 0.8))
+    # Nor where the passage flares into a chamber: the tube's lines bend round the flare there, and the streaks
+    # wrapped it in curved lips that tore at High (Mike's shot of the join).
+    skins = t.math('MULTIPLY', skins, t.math('SUBTRACT', 1.0, t_join))
     lava_secondary = t.math('ADD', t.math('MULTIPLY', skins, side_on),
                             t.math('ADD', t_noise(rr(1.4), rr(0.35), rr(0.35), 2.0, rr(0.02)), t.math('MULTIPLY', grain, 0.3)))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed

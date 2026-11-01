@@ -121,7 +121,7 @@ class LG_CaveProps(PropertyGroup):
                                 default=0.0, min=0.0, soft_max=100.0, unit='LENGTH', update=_sync)
     ramp: BoolProperty(name="Ramp into Chamber", description="A rocky ramp from the passage down into the sunk chamber, so it can be walked down. Off: a drop to climb or jump",
                        default=False, update=_sync)
-    rubble: FloatProperty(name="Rubble", description="Fallen rock along the foot of the walls: none, up to big piles of boulders",
+    rubble: FloatProperty(name="Rubble", description="How much fallen rock lies along the foot of the walls: none (0) to a lot (1). Rock Size sets how big",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     wall_shape: FloatProperty(name="Wall Shape", description="Smooth walls (0), or big bulges, recesses and alcoves shaped by the rock (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)

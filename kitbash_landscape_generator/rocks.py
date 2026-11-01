@@ -11,7 +11,7 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 5
+LIBRARY_VERSION = 8
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 # Faces at High: Big 2,400, Medium 600, Small 150 (Mike: the Big rocks had 9,600 and far too many polygons).
@@ -105,6 +105,7 @@ def _rock(family, rng, scale=1.0, subdivisions=4):
     zhalf = (hi.z - lo.z) * 0.5 / half
     for v in verts:
         v.co.z -= 0.45 * zhalf
+    for v in verts:
         v.co *= scale
     return bm
 

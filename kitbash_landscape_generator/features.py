@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 111
+CAVE_VERSION = 112
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -581,7 +581,17 @@ def cave_group():
     rock_r = t.math('MINIMUM', t.named("c_radius"), 25.0)
     reach_out = t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_radius"), t.math('SUBTRACT', 0.92, t.math('MULTIPLY', rand(0.0, 0.4, 11), gin["Spread"]))),
                        t.math('MULTIPLY', rock_r, t.math('MULTIPLY', gin["Rock Size"], 0.2)))
-    foot = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
+    # Rubble is how much rock, never how big (Mike: 0 none, 1 a lot; size is Rock Size): up to three more
+    # rocks per foot point, spread along the passage.
+    more = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', gin["Rubble"], 3.0)).outputs[0])
+    more.domain = 'POINT'
+    m_across = t.xyz(t.named("c_across", 'FLOAT_VECTOR'))
+    more_at = t.node('GeometryNodeSetPosition', Geometry=more.outputs["Geometry"],
+                     Offset=t.vmath('SCALE', t.vec(t.math('MULTIPLY', m_across["Y"], -1.0), m_across["X"], 0.0), scale=t.math('MULTIPLY', t.named("c_radius"), rand(-0.7, 0.7, 17)))).outputs[0]
+    all_rows = t.node('GeometryNodeJoinGeometry')
+    t.L.new(rows.outputs[0], all_rows.inputs[0])
+    t.L.new(more_at, all_rows.inputs[0])
+    foot = t.node('GeometryNodeSetPosition', Geometry=all_rows.outputs[0],
                   Offset=t.vmath('SCALE', t.named("c_across", 'FLOAT_VECTOR'), scale=t.math('MULTIPLY', sidev, reach_out))).outputs[0]
     # Each rock drops onto the floor below it (where the passage meets a sunk chamber, the floor is lower
     # than the path, and rocks floated).
@@ -591,10 +601,10 @@ def cave_group():
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
     # out across the floor to break it up. A rock is big or medium, never both on one spot.
-    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], 0.12))
-    keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), t.math('MULTIPLY', gin["Rubble"], 0.9)), t.math('SUBTRACT', 1.0, big_keep))
+    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], 0.15))
+    keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep))
     # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
-    strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=3)
+    strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=t.node('FunctionNodeFloatToInt', Float=t.math('ADD', 2.0, t.math('MULTIPLY', gin["Rubble"], 6.0))).outputs[0])
     strewn.domain = 'POINT'
     across_v = t.named("c_across", 'FLOAT_VECTOR')
     along_v = t.vec(t.math('MULTIPLY', t.xyz(across_v)["Y"], -1.0), t.xyz(across_v)["X"], 0.0)
@@ -605,7 +615,7 @@ def cave_group():
                         Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     pebbles_at = t.node('GeometryNodeSetPosition', Geometry=pebble_at, Selection=pebble_ray.outputs["Is Hit"], Position=pebble_ray.outputs["Hit Position"]).outputs[0]
-    pebble_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), t.math('MULTIPLY', gin["Rubble"], 0.8)), pebble_ray.outputs["Is Hit"])
+    pebble_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), gin["Rubble"]), pebble_ray.outputs["Is Hit"])
     # The rocks come from a collection of separate rock meshes (D105, rocks.py; any collection can be swapped
     # in), one picked at random per rock. Each fits -1..1 with its pivot 45% up, so it sits partly buried.
     def library(name):
@@ -615,20 +625,21 @@ def cave_group():
 
     pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, offset)).outputs[0]  # wraps per collection
 
-    def scatter(points, selection, kit, size, seed):
+    def scatter(points, selection, kit, size, seed, across):
         """One size of a kit on its points: each rock picked at random, turned about the vertical with a small
         tilt (the buried side stays down) and stretched a little. Big and small rocks carry their own size."""
         size = t.math('MULTIPLY', size, gin["Rock Size"])
-        tip = lambda k: t.math('MULTIPLY', rand(-0.7, 0.7, seed + k), gin["Tilt"])
+        tip = lambda k: t.math('MULTIPLY', rand(-0.35, 0.35, seed + k), gin["Tilt"])
         long = t.math('ADD', 1.0, t.math('MULTIPLY', rand(0.0, 1.5, seed + 6), gin["Stretch"]))  # drawn out along its length
-        return t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=selection, Instance=library(kit), Pick_Instance=True,
-                      Instance_Index=pick(seed), Rotation=t.vec(tip(1), tip(2), rand(0.0, 6.28, seed + 3)),
-                      Scale=t.vec(t.math('MULTIPLY', size, long), t.math('MULTIPLY', size, rand(0.7, 1.3, seed + 4)), t.math('MULTIPLY', size, rand(0.5, 0.9, seed + 5)))).outputs[0]
+        placed = t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=selection, Instance=library(kit), Pick_Instance=True,
+                        Instance_Index=pick(seed), Rotation=t.vec(tip(1), tip(2), rand(0.0, 6.28, seed + 3)),
+                        Scale=t.vec(t.math('MULTIPLY', size, long), t.math('MULTIPLY', size, rand(0.7, 1.3, seed + 4)), t.math('MULTIPLY', size, rand(0.5, 0.9, seed + 5)))).outputs[0]
+        return t.store(placed, "lg_rock_r", across, 'FLOAT', 'INSTANCE')  # the kit's half width at scale 1 (big rocks are wider)
 
     # Sized to the passage up to the cap above; instances, so no lower limit from the rock-detail grid.
-    size = t.math('MULTIPLY', t.math('MULTIPLY', rock_r, rand(0.12, 0.32, 37)), t.math('ADD', 0.5, t.math('MULTIPLY', gin["Rubble"], 0.6)))
-    rubble_sets = [scatter(foot, keep, "Rubble Medium", size, 97), scatter(foot, big_keep, "Rubble Big", size, 151),
-                   scatter(pebbles_at, pebble_keep, "Rubble Small", size, 161)]
+    size = t.math('MULTIPLY', t.math('MULTIPLY', rock_r, rand(0.12, 0.32, 37)), 0.8)
+    rubble_sets = [scatter(foot, keep, "Rubble Medium", size, 97, 1.0), scatter(foot, big_keep, "Rubble Big", size, 151, 3.0),
+                   scatter(pebbles_at, pebble_keep, "Rubble Small", size, 161, 0.5)]
 
     # Ramp into Chamber (Mike, for players): an embankment of rock along the path, from the passage floor down
     # into the sunk chamber, so it can be walked down instead of jumped, with scree on its slopes.
@@ -726,8 +737,8 @@ def cave_group():
     # Scree in three sizes too: the odd big slab, the everyday scree, and plenty of small chips.
     edge_big = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 171), t.math('MULTIPLY', gin["Rubble"], 0.04)))
     edge_small = t.math('MULTIPLY', on_ramp, t.math('LESS_THAN', rand(0.0, 1.0, 173), t.math('MULTIPLY', gin["Rubble"], 0.6)))
-    edge_sets = [scatter(edge_pts, t.math('MULTIPLY', edge_keep, t.math('SUBTRACT', 1.0, edge_big)), "Scree Medium", edge_size, 101),
-                 scatter(edge_pts, edge_big, "Scree Big", edge_size, 181), scatter(edge_pts, edge_small, "Scree Small", edge_size, 191)]
+    edge_sets = [scatter(edge_pts, t.math('MULTIPLY', edge_keep, t.math('SUBTRACT', 1.0, edge_big)), "Scree Medium", edge_size, 101, 1.0),
+                 scatter(edge_pts, edge_big, "Scree Big", edge_size, 181, 3.0), scatter(edge_pts, edge_small, "Scree Small", edge_size, 191, 0.5)]
     solids = t.node('GeometryNodeJoinGeometry')
     t.L.new(ramp_mesh, solids.inputs[0])
     # Jointed rock, primary shapes (from the rockfall reference, docs/m5/ref_jointed_shapes.jpg): big slabs of
@@ -1117,7 +1128,7 @@ def cave_group():
     b_swell.noise_dimensions = '3D'
     # Sized to the entrance (the passage's own radius jumps to the chamber's between two path points, and that
     # tore a seam down the wall).
-    b_wide = t.math('MULTIPLY', t.math('MULTIPLY', r, t.math('ADD', 0.12, t.math('MULTIPLY', F, 0.16))),  # Wall Shape: a slim curb (0) to a broad bench (1)
+    b_wide = t.math('MULTIPLY', t.math('MULTIPLY', r, t.math('ADD', 0.144, t.math('MULTIPLY', F, 0.192))),  # Wall Shape: a slim curb (0) to a broad bench (1)
                     t.math('ADD', 0.35, t.math('MULTIPLY', t.smooth(b_swell.outputs["Fac"], 0.3, 0.6), 0.65)))
     b_top = t.math('MULTIPLY', b_wide, 0.6)
     # How near the wall: the cave space's distance to its nearest side from a point a bench-width up (the floor
@@ -1223,7 +1234,7 @@ def cave_group():
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
     # the flow, little broken rock.
-    lava_primary = noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.1))  # Mike: Wall Shape did little at 0.45
+    lava_primary = noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
     lava_secondary = t.math('ADD', noise(rr(0.35), rr(1.4), rr(0.35), 2.0, rr(0.07)), t.math('MULTIPLY', grain, 0.3))
     # The swell fades out down the wall foot, and narrows the tube only high on the walls and roof (Mike: pushed
     # in low on the wall it stood out over the floor as a flat, striped lip).
@@ -1322,6 +1333,18 @@ def cave_group():
                     Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
     settled = t.node('GeometryNodeSetPosition', Geometry=boulders.outputs[0], Selection=settle.outputs["Is Hit"],
                      Position=settle.outputs["Hit Position"]).outputs[0]
+    # Each rock tipped to the ground under it (Mike: whole rocks, set into the ground; a little rock showing
+    # under the floor outside the cave is fine, as in games and film, but no floating).
+    lay = t.N.new('FunctionNodeAlignRotationToVector')
+    lay.axis = 'Z'
+    t._set(lay.inputs["Vector"], t.vmath('SCALE', settle.outputs["Hit Normal"], scale=-1.0))
+    tipped = t.N.new('GeometryNodeRotateInstances')
+    t._set(tipped.inputs["Instances"], settled)
+    t._set(tipped.inputs["Selection"], settle.outputs["Is Hit"])
+    t._set(tipped.inputs["Rotation"], lay.outputs[0])
+    t._set(tipped.inputs["Pivot Point"], t.position())
+    tipped.inputs["Local Space"].default_value = False
+    settled = tipped.outputs[0]
     # Rocks only on the ground for now (Mike, while the wall shapes are dialled in): any rock not resting on
     # floor (a face looking down, out of the cave's space) is dropped, so none sit on walls, slabs or in the air.
     on_floor = t.math('MULTIPLY', settle.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(settle.outputs["Hit Normal"])["Z"], -0.9))  # near-flat ground
@@ -1331,7 +1354,7 @@ def cave_group():
     # middle (a little over its pivot, which sits at the ground), a ray up and four level rays must not meet the
     # shell inside the rock's own reach. (From the pivot itself the level rays met the floor's own rise.)
     i_scale = t.xyz(t.node('GeometryNodeInputInstanceScale').outputs[0])
-    reach_xy = t.math('MULTIPLY', t.math('MAXIMUM', i_scale["X"], i_scale["Y"]), 0.85)
+    reach_xy = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MAXIMUM', i_scale["X"], i_scale["Y"]), t.named("lg_rock_r")), 0.85)
     pokes = None
     for d, reach in (((0.0, 0.0, 1.0), t.math('MULTIPLY', i_scale["Z"], 0.3)), ((1.0, 0.0, 0.0), reach_xy), ((-1.0, 0.0, 0.0), reach_xy),
                      ((0.0, 1.0, 0.0), reach_xy), ((0.0, -1.0, 0.0), reach_xy)):

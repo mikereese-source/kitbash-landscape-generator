@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 145
+CAVE_VERSION = 147
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1251,13 +1251,11 @@ def cave_group():
         return n.outputs[0]
 
     p_s = on_path(t.named("c_s"))
-    # Height over the floor straight below, from just inside the wall (the path's own floor jumped 31 m between
-    # the passage and a sunk chamber, and tore a seam down the wall).
-    f_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
-                   Source_Position=t.vmath('SUBTRACT', t.position(), t.vmath('SCALE', push, scale=t.math('MULTIPLY', voxel, 0.5))),
-                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', H, 3.0))
-    over_floor = t.math('ADD', t.math('MULTIPLY', f_ray.outputs["Hit Distance"], f_ray.outputs["Is Hit"]),
-                        t.math('MULTIPLY', t.math('SUBTRACT', 1.0, f_ray.outputs["Is Hit"]), t.math('MULTIPLY', H, 3.0)))
+    # Height over the floor, from the tube coordinates (a ray cast straight down jumped between surfaces by the
+    # bulging wall foot, and the lift folded the wall into slits there, Mike; before that, the path's own floor
+    # jumped 31 m at a sunk chamber).
+    up_floor = t.xyz(t.named("lg_tube", 'FLOAT_VECTOR'))["Z"]
+    over_floor = t.math('MAXIMUM', up_floor, 0.0)
     bench_in = t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(p_s, 0.1, 0.25), t.math('SUBTRACT', 1.0, t.smooth(p_s, 0.84, 0.9))),  # eased in over ~15% of the path (Mike: it stood up from the floor in a step by the mouth)
                       t.math('SUBTRACT', 1.0, t.math('MULTIPLY', has_chamber, t.smooth(p_s, 0.5, 0.56))))  # eased out before the chamber and the ends
     b_swell = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', sp, t.vec(W, W, W)), Scale=0.8, Detail=1.0)
@@ -1278,6 +1276,8 @@ def cave_group():
     # wall, slowly enough that no point is lifted past one above it (no folds).
     b_rise = t.math('SUBTRACT', 1.0, t.smooth(to_wall, t.math('MULTIPLY', b_wide, 0.4), t.math('MULTIPLY', b_wide, 1.2)))
     b_low = t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', b_top, 1.5), t.math('MULTIPLY', b_top, 4.5)))
+    # Not below the floor (a pocket under the wall foot, lifted whole, folded through itself into a slit, Mike).
+    b_low = t.math('MULTIPLY', b_low, t.smooth(up_floor, t.math('MULTIPLY', b_top, -2.0), 0.0))
     # Spread over the surface, so wherever a measure jumps the lift eases instead of stepping.
     b_blur = t.N.new('GeometryNodeBlurAttribute')
     b_blur.data_type = 'FLOAT'

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 154
+CAVE_VERSION = 157
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1337,9 +1337,12 @@ def cave_group():
     strike = t.math('MULTIPLY', seed, 0.61)
     lean = t.vec(t.math('MULTIPLY', t.math('COSINE', strike), 0.34), t.math('MULTIPLY', t.math('SINE', strike), 0.34), -0.94)
 
-    def blocks(size, depth, offset, drawn=3.0):
-        along = t.vmath('DOT_PRODUCT', sp, lean)
-        across = t.vmath('SUBTRACT', sp, t.vmath('SCALE', lean, scale=along))
+    def blocks(size, depth, offset, drawn=3.0, seam=0.45):
+        # Seeded by at most 100 m (by the whole seed, hundreds of thousands, the cells' positions lost precision and
+        # their seams sawtoothed into zippers, Mike's pinching).
+        bp = t.vmath('ADD', t.position(), t.vec(t_seed, t.math('MULTIPLY', t_seed, 0.7), 0.0))
+        along = t.vmath('DOT_PRODUCT', bp, lean)
+        across = t.vmath('SUBTRACT', bp, t.vmath('SCALE', lean, scale=along))
         q = t.vmath('DIVIDE', t.vmath('ADD', across, t.vmath('SCALE', lean, scale=t.math('DIVIDE', along, drawn))), t.vec(size, size, size))
         # Warped, so the blocks come in all shapes and sizes (even cells read as a honeycomb).
         warp = t.node('ShaderNodeTexNoise', Vector=q, Scale=0.6, Detail=1.0)
@@ -1364,7 +1367,7 @@ def cave_group():
                           t.math('MULTIPLY', t.vmath('DOT_PRODUCT', off, tilt), t.math('MULTIPLY', size, 0.45)))
             faces.append((face, v.outputs["Distance"]))
         (f1, d1), (f2, d2) = faces
-        w = t.smooth(t.math('SUBTRACT', d2, d1), 0.0, 0.45)  # wide, so a step rolls over (steep ones ribbed the mesh)  # 1 inside a block, 0 on its seam
+        w = t.smooth(t.math('SUBTRACT', d2, d1), 0.0, seam)  # wide, so a step rolls over (steep ones ribbed the mesh)  # 1 inside a block, 0 on its seam
         return t.math('ADD', t.math('MULTIPLY', f1, w), t.math('MULTIPLY', t.math('MULTIPLY', t.math('ADD', f1, f2), 0.5), t.math('SUBTRACT', 1.0, w)))
 
     joint_primary = t.math('MULTIPLY', grain, 0.0)  # the primary shapes are the masses cut into the cave's shape (above)
@@ -1405,14 +1408,15 @@ def cave_group():
     s_beds = t.math('ADD', s_bed(0.0), t.math('MULTIPLY', t.math('SUBTRACT', s_bed(1.0), s_bed(0.0)), t.smooth(s_f, 0.7, 1.0)))
     s_beds = t.math('MULTIPLY', s_beds, t.math('MULTIPLY', t.math('MULTIPLY', upright, t.smooth(t_noise(rr(4.0), rr(1.0), rr(1.0), 1.0, 1.0), -0.05, 0.08)),
                                                t.math('MULTIPLY', t.smooth(t_hn, 0.1, 0.18), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.6, 0.75)))))
-    s_scars = t.math('MULTIPLY', blocks(rr(0.6), rr(0.07), 17.3, 1.0), t.math('MULTIPLY', upright, t.smooth(t_hn, 0.4, 0.6)))
-    s_cells = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed), Scale=1.0, Randomness=0.9)
-    s_cells.voronoi_dimensions, s_cells.feature = '3D', 'F1'
-    # Each patch eases to nothing at its edge (stepped straight between cells, the edges tore into zippers).
-    s_edge = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed), Scale=1.0, Randomness=0.9)
-    s_edge.voronoi_dimensions, s_edge.feature = '3D', 'DISTANCE_TO_EDGE'
-    s_roof = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', t.xyz(s_cells.outputs["Color"])["X"], 0.5), rr(0.08)),
-                    t.math('MULTIPLY', t.smooth(s_edge.outputs["Distance"], 0.0, 0.2), t.smooth(nz, 0.55, 0.85)))
+    # Seams eased twice as wide as the jointed rock's (at 0.45 they zippered across a chamber).
+    s_scars = t.math('MULTIPLY', blocks(rr(0.6), rr(0.07), 17.3, 1.0, 0.9), t.math('MULTIPLY', upright, t.smooth(t_hn, 0.4, 0.6)))
+    # Smooth cells, each patch blending into the next (eased to nothing at their edges, neighbouring patches met in
+    # a sharp V that zippered across a chamber's roof; stepped straight, the edges tore).
+    s_cells = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed),
+                     Scale=1.0, Randomness=0.9)
+    s_cells.voronoi_dimensions, s_cells.feature = '3D', 'SMOOTH_F1'
+    s_cells.inputs[[i.name for i in s_cells.inputs].index("Smoothness")].default_value = 0.6
+    s_roof = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', t.xyz(s_cells.outputs["Color"])["X"], 0.5), rr(0.08)), t.smooth(nz, 0.55, 0.85))
     s_foot = t.math('MULTIPLY', t.math('ADD', 0.5, t_noise(rr(3.0), rr(1.0), rr(1.0), 1.0, 1.0)),
                     t.math('MULTIPLY', rr(0.06), t.math('MULTIPLY', t.smooth(t_hn, 0.0, 0.04), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.08, 0.16)))))
     lime_secondary = t.math('ADD', t.math('ADD', s_beds, s_scars), t.math('ADD', s_foot, t.math('MULTIPLY', grain, 0.5)))

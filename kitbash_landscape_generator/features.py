@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 160
+CAVE_VERSION = 163
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1404,15 +1404,23 @@ def cave_group():
     #   S2 block scars: high on the walls, angular broken blocks with flat faces (as the jointed rock's facets);
     #   S3 roof-fall scars: on the flat roof, shallow patches each at its own height where slabs fell away;
     #   S4 undercut foot: the foot of the walls worn back into a shallow notch.
-    s_band = t.math('DIVIDE', t.math('ADD', tb["Z"], t_noise(rr(4.0), rr(3.0), rr(3.0), 1.0, rr(0.15))), rr(0.1))
+    # Beds as in the reference (Mike: even, clean grooves read as artificial): many, of varied thickness (the
+    # height is warped so some beds are thin and some thick), their lips wandering and breaking off along the tube
+    # (where a lip breaks the bed slopes into the next instead of stepping), their faces rough.
+    s_band = t.math('ADD', t.math('DIVIDE', t.math('ADD', tb["Z"], t_noise(rr(4.0), rr(3.0), rr(3.0), 1.0, rr(0.15))), rr(0.07)),
+                    t.math('ADD', t_noise(rr(3.0), rr(3.0), rr(0.25), 1.0, 1.2), t_noise(rr(0.3), rr(0.3), rr(0.3), 2.0, 0.25)))
     s_idx, s_f = t.math('FLOOR', s_band), t.math('FRACT', s_band)
 
     def s_bed(k):
         n = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(2.0)), t.math('MULTIPLY', t.math('ADD', s_idx, k), 3.17), t_seed),
                    Scale=1.0, Detail=0.0)
         n.noise_dimensions = '3D'
-        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), rr(0.08))
-    s_beds = t.math('ADD', s_bed(0.0), t.math('MULTIPLY', t.math('SUBTRACT', s_bed(1.0), s_bed(0.0)), t.smooth(s_f, 0.7, 1.0)))
+        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), rr(0.08))  # each bed in or out up to 4% of the radius (at 8% the lips became deep dark slashes, D162)
+    s_brk = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.8)), t.math('MULTIPLY', s_idx, 5.1), t.math('ADD', t_seed, 7.0)), Scale=1.0, Detail=1.0)
+    s_brk.noise_dimensions = '3D'
+    s_lip = t.math('ADD', t.smooth(s_f, 0.7, 1.0), t.math('MULTIPLY', t.math('SUBTRACT', s_f, t.smooth(s_f, 0.7, 1.0)), t.smooth(s_brk.outputs["Fac"], 0.45, 0.6)))
+    s_beds = t.math('ADD', t.math('ADD', s_bed(0.0), t.math('MULTIPLY', t.math('SUBTRACT', s_bed(1.0), s_bed(0.0)), s_lip)),
+                    t_noise(rr(0.2), rr(0.2), rr(0.08), 3.0, rr(0.025)))
     s_beds = t.math('MULTIPLY', s_beds, t.math('MULTIPLY', t.math('MULTIPLY', upright, t.smooth(t_noise(rr(4.0), rr(1.0), rr(1.0), 1.0, 1.0), -0.05, 0.08)),
                                                t.math('MULTIPLY', t.smooth(t_hn, 0.1, 0.18), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.6, 0.75)))))
     # Seams eased twice as wide as the jointed rock's (at 0.45 they zippered across a chamber).

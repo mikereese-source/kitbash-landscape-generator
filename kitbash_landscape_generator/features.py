@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 163
+CAVE_VERSION = 166
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1239,7 +1239,9 @@ def cave_group():
     wall = t.smooth(nz, -0.93, -0.7)  # not the floor; down to near-flat ground (Mike: the wall foot looked melted)
     upright = t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.55, 0.9))  # standing walls only
     R, F = gin["Roughness"], gin["Wall Shape"]
-    sp = t.vmath('ADD', t.position(), t.vec(seed, t.math('MULTIPLY', seed, 0.7), 0.0))
+    # Seeded by at most 100 m: by the whole seed (hundreds of thousands) the noise lost precision, and every sharp
+    # ridge read off it (the jointed folds) jittered into zipper stitches (Mike's pinching, D164).
+    sp = t.vmath('ADD', t.position(), t.vec(t.math('FLOORED_MODULO', seed, 100.0), t.math('MULTIPLY', t.math('FLOORED_MODULO', seed, 100.0), 0.7), 0.0))
     pz = t.xyz(t.position())
 
     # Lava tube benches, cut into the shell (Mike: as separate pieces they broke into floating bits and flat
@@ -1390,10 +1392,13 @@ def cave_group():
     # high Roughness stood up as thin fins that looked like geometry folding through itself, Mike).
     def fold(size, amp):
         n = noise(rr(size), rr(size), rr(size * 1.6), 1.0, 2.0)
-        return t.math('MULTIPLY', t.math('POWER', t.math('SQRT', t.math('ADD', t.math('MULTIPLY', n, n), 0.01)), 0.7), rr(amp))
+        # Ridge rounded over a wider band (0.04; at 0.01 it was narrower than the mesh and zippered, D164).
+        return t.math('MULTIPLY', t.math('POWER', t.math('SQRT', t.math('ADD', t.math('MULTIPLY', n, n), 0.04)), 0.7), rr(amp))
     # Facets and folds together (Mike: the facets keep the look of layered rock; the folds, lighter, break up
     # their outlines so they don't read as a network of cracks).
-    facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8)
+    # Seams blended over a narrow band (D164): wider, the blend reached where the second-nearest cell flips from one
+    # neighbour to another, and those flips stood up as rows of beads (zippers) along every seam.
+    facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8, 0.12)
     joint_secondary = t.math('ADD', t.math('ADD', facets, t.math('ADD', fold(0.65, 0.06), fold(0.25, 0.03))), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
@@ -1423,8 +1428,8 @@ def cave_group():
                     t_noise(rr(0.2), rr(0.2), rr(0.08), 3.0, rr(0.025)))
     s_beds = t.math('MULTIPLY', s_beds, t.math('MULTIPLY', t.math('MULTIPLY', upright, t.smooth(t_noise(rr(4.0), rr(1.0), rr(1.0), 1.0, 1.0), -0.05, 0.08)),
                                                t.math('MULTIPLY', t.smooth(t_hn, 0.1, 0.18), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.6, 0.75)))))
-    # Seams eased twice as wide as the jointed rock's (at 0.45 they zippered across a chamber).
-    s_scars = t.math('MULTIPLY', blocks(rr(0.6), rr(0.07), 17.3, 1.0, 0.9), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.3, 0.6)), t.smooth(t_hn, 0.4, 0.6)))  # upright wall only: on the turn into the roof the steep cells cut through at a grazing angle and zippered
+    # Seams blended over a narrow band (D164: wider, the second-nearest cell's flips beaded the seams).
+    s_scars = t.math('MULTIPLY', blocks(rr(0.6), rr(0.07), 17.3, 1.0, 0.12), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.3, 0.6)), t.smooth(t_hn, 0.4, 0.6)))  # upright wall only: on the turn into the roof the steep cells cut through at a grazing angle and zippered
     # Smooth cells, each patch blending into the next (eased to nothing at their edges, neighbouring patches met in
     # a sharp V that zippered across a chamber's roof; stepped straight, the edges tore).
     s_cells = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed),

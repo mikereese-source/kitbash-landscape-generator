@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 149
+CAVE_VERSION = 154
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1321,12 +1321,10 @@ def cave_group():
     # 40% of before: the bed plates built into the shape carry the beds now, and pushed this far on top of them
     # their edges folded into flaps (D158).
     lime_primary = t.math('ADD', t_noise(rr(3.0), rr(3.0), rr(0.8), 2.0, rr(0.28)), t_noise(rr(1.2), rr(1.2), rr(0.4), 2.0, rr(0.12)))
-    lime_secondary = t.math('ADD', t_noise(rr(0.7), rr(0.7), rr(0.18), 3.0, rr(0.22)), grain)
     roof = t.math('MULTIPLY', t.smooth(nz, 0.55, 0.85), F)  # faces looking up: the roof
     # The flat roof is the flat blocks built into the cave's shape (above); cut into height bands here as well, the
     # bands ringed a chamber's dome like a contour map and folded at their steps (Mike: pinching, D158).
     lime_off = t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7))  # keeps the flat roof flat
-    limestone = t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off)
 
     # Jointed rock (sea caves, cliffs; Mike: straight joint planes across the whole cave looked man-made): the
     # rock breaks into irregular blocks, taller than wide as the joints split it, each with its own flat face
@@ -1388,6 +1386,38 @@ def cave_group():
     facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8)
     joint_secondary = t.math('ADD', t.math('ADD', facets, t.math('ADD', fold(0.65, 0.06), fold(0.25, 0.03))), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
+
+    # Limestone secondary, each part from the Mammoth reference (docs/m5/ref_limestone_shapes.jpg; its thin bed
+    # lines are the M6 material, D158/D159):
+    #   S1 thick beds step out: on the standing walls, beds about a tenth of the radius thick, each set a little in
+    #     or out from the next with a lip where it steps, in stretches along the tube;
+    #   S2 block scars: high on the walls, angular broken blocks with flat faces (as the jointed rock's facets);
+    #   S3 roof-fall scars: on the flat roof, shallow patches each at its own height where slabs fell away;
+    #   S4 undercut foot: the foot of the walls worn back into a shallow notch.
+    s_band = t.math('DIVIDE', t.math('ADD', tb["Z"], t_noise(rr(4.0), rr(3.0), rr(3.0), 1.0, rr(0.15))), rr(0.1))
+    s_idx, s_f = t.math('FLOOR', s_band), t.math('FRACT', s_band)
+
+    def s_bed(k):
+        n = t.node('ShaderNodeTexNoise', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(2.0)), t.math('MULTIPLY', t.math('ADD', s_idx, k), 3.17), t_seed),
+                   Scale=1.0, Detail=0.0)
+        n.noise_dimensions = '3D'
+        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), rr(0.08))
+    s_beds = t.math('ADD', s_bed(0.0), t.math('MULTIPLY', t.math('SUBTRACT', s_bed(1.0), s_bed(0.0)), t.smooth(s_f, 0.7, 1.0)))
+    s_beds = t.math('MULTIPLY', s_beds, t.math('MULTIPLY', t.math('MULTIPLY', upright, t.smooth(t_noise(rr(4.0), rr(1.0), rr(1.0), 1.0, 1.0), -0.05, 0.08)),
+                                               t.math('MULTIPLY', t.smooth(t_hn, 0.1, 0.18), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.6, 0.75)))))
+    s_scars = t.math('MULTIPLY', blocks(rr(0.6), rr(0.07), 17.3, 1.0), t.math('MULTIPLY', upright, t.smooth(t_hn, 0.4, 0.6)))
+    s_cells = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed), Scale=1.0, Randomness=0.9)
+    s_cells.voronoi_dimensions, s_cells.feature = '3D', 'F1'
+    # Each patch eases to nothing at its edge (stepped straight between cells, the edges tore into zippers).
+    s_edge = t.node('ShaderNodeTexVoronoi', Vector=t.vec(t.math('DIVIDE', tb["X"], rr(0.9)), t.math('DIVIDE', tb["Y"], rr(0.9)), t_seed), Scale=1.0, Randomness=0.9)
+    s_edge.voronoi_dimensions, s_edge.feature = '3D', 'DISTANCE_TO_EDGE'
+    s_roof = t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', t.xyz(s_cells.outputs["Color"])["X"], 0.5), rr(0.08)),
+                    t.math('MULTIPLY', t.smooth(s_edge.outputs["Distance"], 0.0, 0.2), t.smooth(nz, 0.55, 0.85)))
+    s_foot = t.math('MULTIPLY', t.math('ADD', 0.5, t_noise(rr(3.0), rr(1.0), rr(1.0), 1.0, 1.0)),
+                    t.math('MULTIPLY', rr(0.06), t.math('MULTIPLY', t.smooth(t_hn, 0.0, 0.04), t.math('SUBTRACT', 1.0, t.smooth(t_hn, 0.08, 0.16)))))
+    lime_secondary = t.math('ADD', t.math('ADD', s_beds, s_scars), t.math('ADD', s_foot, t.math('MULTIPLY', grain, 0.5)))
+    limestone = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off),
+                       t.math('MULTIPLY', s_roof, R))  # the roof's patches past the flat-roof damping
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
     # the flow, little broken rock.

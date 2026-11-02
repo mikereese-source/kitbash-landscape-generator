@@ -1403,7 +1403,7 @@ def cave_group():
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
     # Limestone secondary, each part from the Mammoth reference (docs/m5/ref_limestone_shapes.jpg; its thin bed
-    # lines are the M6 material, D158/D159):
+    # lines are the M7 material, D158/D159):
     #   S1 thick beds step out: on the standing walls, beds about a tenth of the radius thick, each set a little in
     #     or out from the next with a lip where it steps, in stretches along the tube;
     #   S2 block scars: high on the walls, angular broken blocks with flat faces (as the jointed rock's facets);
@@ -1456,7 +1456,7 @@ def cave_group():
     t_join = t.named("lg_join")
     lava_primary = t.math('ADD', t.math('MULTIPLY', lava_primary, t.math('SUBTRACT', 1.0, t_join)),
                           t.math('MULTIPLY', noise(rr(2.0), rr(6.0), rr(2.0), 1.0, rr(1.32)), t_join))
-    # Secondary, each part from a reference (docs/m5/c105; cracks and colour bands are the M6 textures, not the
+    # Secondary, each part from a reference (docs/m5/c105; cracks and colour bands are the M7 textures, not the
     # mesh: carved arching cracks traced to no reference and Mike called them out, D151):
     #   skins (Lava River Cave): the roof and walls lined in thin streaky layers that arch over from wall to wall,
     #     shallow; noise drawn out round the arch;

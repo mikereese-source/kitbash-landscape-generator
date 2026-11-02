@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 166
+CAVE_VERSION = 167
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1236,7 +1236,11 @@ def cave_group():
     t._set(push_blur.inputs["Value"], nrm)
     t._set(push_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('POWER', 2.0, t.math('ADD', levels, 2.0))).outputs[0])
     push = t.vmath('NORMALIZE', push_blur.outputs["Value"])
-    wall = t.smooth(nz, -0.93, -0.7)  # not the floor; down to near-flat ground (Mike: the wall foot looked melted)
+    # A rock piece's normals point out of it, into the cave (the shell's point into the rock), so for a piece the
+    # floor test is flipped: read as the shell's, every piece's underside counted as floor and got no rock detail,
+    # a smooth pillow (Mike).
+    nz_rock = t.math('MULTIPLY', nz, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), 2.0)))
+    wall = t.smooth(nz_rock, -0.93, -0.7)  # not the floor; down to near-flat ground (Mike: the wall foot looked melted)
     upright = t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', nz), 0.55, 0.9))  # standing walls only
     R, F = gin["Roughness"], gin["Wall Shape"]
     # Seeded by at most 100 m: by the whole seed (hundreds of thousands) the noise lost precision, and every sharp

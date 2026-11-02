@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 147
+CAVE_VERSION = 149
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1296,14 +1296,35 @@ def cave_group():
     grain = noise(rr(0.25), rr(0.25), rr(0.25), 3.0, rr(0.05))  # the smallest the shell shows, every rock
     floor_bump = t.math('MULTIPLY', noise(r, r, r, 4.0, 1.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
 
+    # Lava and limestone are read in tube space (D148, Mike: 3D noise sliced by the curved wall made round shapes
+    # that don't exist in lava tubes): along the tube, out to the side and up over the floor, so every form runs with the
+    # tube, round its bends too. Round the arc from the roof's centre line for the walls' lines.
+    tb, tr = t.xyz(t.named("lg_tube", 'FLOAT_VECTOR')), t.xyz(t.named("lg_tube_r", 'FLOAT_VECTOR'))
+    # The seed moves the noise by at most 100 of its cells: by the whole seed (up to hundreds of thousands) the
+    # noise was read so far out that its float steps ribbed the walls (Mike's shots).
+    t_seed = t.math('FLOORED_MODULO', seed, 100.0)
+    t_hn = t.math('DIVIDE', tb["Z"], t.math('MAXIMUM', tr["Y"], 1e-3))  # 0 floor .. 1 roof
+    t_arc = t.math('MULTIPLY', t.math('ARCTAN2', t.math('DIVIDE', tb["Y"], t.math('MAXIMUM', tr["X"], 1e-3)), t_hn),
+                   t.math('SQRT', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', tr["X"], tr["X"]), t.math('MULTIPLY', tr["Y"], tr["Y"])), 0.5)))
+
+    def t_noise(sa, ss, su, detail, amp, across=None):
+        """noise() in tube space: sa, ss, su its size along the tube, across it (side, or round the arc) and up."""
+        q = t.vec(t.math('DIVIDE', tb["X"], sa), t.math('DIVIDE', tb["Y"] if across is None else across, ss), t.math('DIVIDE', tb["Z"], su))
+        n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', q, t.vec(t_seed, t.math('MULTIPLY', t_seed, 0.7), 0.0)), Scale=1.0, Detail=detail, Roughness=0.6)
+        n.noise_dimensions = '3D'
+        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), amp)
+
     # Limestone: long horizontal forms (the beds show in the shape, not as lines): wide shallow recesses and
     # bulges, broken rock in flat-lying slabs, and a flat roof.
-    lime_primary = t.math('ADD', noise(rr(3.0), rr(3.0), rr(0.8), 2.0, rr(0.7)), noise(rr(1.2), rr(1.2), rr(0.4), 2.0, rr(0.3)))
-    lime_secondary = t.math('ADD', noise(rr(0.7), rr(0.7), rr(0.18), 3.0, rr(0.22)), grain)
+    # Read in tube space (Mike: the limestone walls pinched; 3D noise sliced by the curved walls ran across the beds
+    # and folded them, D158), so the beds stay level along the tube, round its bends too.
+    # 40% of before: the bed plates built into the shape carry the beds now, and pushed this far on top of them
+    # their edges folded into flaps (D158).
+    lime_primary = t.math('ADD', t_noise(rr(3.0), rr(3.0), rr(0.8), 2.0, rr(0.28)), t_noise(rr(1.2), rr(1.2), rr(0.4), 2.0, rr(0.12)))
+    lime_secondary = t.math('ADD', t_noise(rr(0.7), rr(0.7), rr(0.18), 3.0, rr(0.22)), grain)
     roof = t.math('MULTIPLY', t.smooth(nz, 0.55, 0.85), F)  # faces looking up: the roof
-    flat = t.math('MAXIMUM', t.math('MULTIPLY', H, 0.3), 1.0)  # one flat roof plane per this much height
-    fr = t.math('FRACT', t.math('DIVIDE', t.math('ADD', pz["Z"], t.math('MULTIPLY', noise(rr(4.0), rr(4.0), rr(4.0), 1.0, 1.0), flat)), flat))
-    lift = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, fr), flat), t.smooth(fr, 0.0, 0.3)), roof)
+    # The flat roof is the flat blocks built into the cave's shape (above); cut into height bands here as well, the
+    # bands ringed a chamber's dome like a contour map and folded at their steps (Mike: pinching, D158).
     lime_off = t.math('SUBTRACT', 1.0, t.math('MULTIPLY', roof, 0.7))  # keeps the flat roof flat
     limestone = t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off)
 
@@ -1370,24 +1391,6 @@ def cave_group():
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
     # the flow, little broken rock.
-    # Lava is read in tube space (D148, Mike: 3D noise sliced by the curved wall made round shapes that don't
-    # exist in lava tubes): along the tube, out to the side and up over the floor, so every form runs with the
-    # tube, round its bends too. Round the arc from the roof's centre line for the walls' lines.
-    tb, tr = t.xyz(t.named("lg_tube", 'FLOAT_VECTOR')), t.xyz(t.named("lg_tube_r", 'FLOAT_VECTOR'))
-    # The seed moves the noise by at most 100 of its cells: by the whole seed (up to hundreds of thousands) the
-    # noise was read so far out that its float steps ribbed the walls (Mike's shots).
-    t_seed = t.math('FLOORED_MODULO', seed, 100.0)
-    t_hn = t.math('DIVIDE', tb["Z"], t.math('MAXIMUM', tr["Y"], 1e-3))  # 0 floor .. 1 roof
-    t_arc = t.math('MULTIPLY', t.math('ARCTAN2', t.math('DIVIDE', tb["Y"], t.math('MAXIMUM', tr["X"], 1e-3)), t_hn),
-                   t.math('SQRT', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', tr["X"], tr["X"]), t.math('MULTIPLY', tr["Y"], tr["Y"])), 0.5)))
-
-    def t_noise(sa, ss, su, detail, amp, across=None):
-        """noise() in tube space: sa, ss, su its size along the tube, across it (side, or round the arc) and up."""
-        q = t.vec(t.math('DIVIDE', tb["X"], sa), t.math('DIVIDE', tb["Y"] if across is None else across, ss), t.math('DIVIDE', tb["Z"], su))
-        n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', q, t.vec(t_seed, t.math('MULTIPLY', t_seed, 0.7), 0.0)), Scale=1.0, Detail=detail, Roughness=0.6)
-        n.noise_dimensions = '3D'
-        return t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), amp)
-
     lava_primary = t_noise(rr(6.0), rr(2.0), rr(2.0), 1.0, rr(1.32))  # Mike: Wall Shape did little at 0.45
     # Where the passage flares into a chamber the tube's lines bend round the flare, and read along them the big
     # forms wrapped it in curved lips (Mike's shot of the join): there they blend back to the world-space forms
@@ -1439,11 +1442,10 @@ def cave_group():
     # still under a moving wall foot the turn folded into grooves round the rim; slid sideways it overlapped as a flap).
     bump = t.math('ADD', t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump),
                   t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', lava_out, F), wall), t.smooth(t_hn, 0.02, 0.3)))
-    lift = t.math('MULTIPLY', lift, t.math('LESS_THAN', gin["Rock"], 0.5))  # flat roofs: limestone only
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
     pushes = t.store(t.store(dense, "lg_push", t.vmath('ADD', t.vmath('SCALE', push, scale=bump), bench), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')
     pushed = t.node('GeometryNodeSetPosition', Geometry=pushes,
-                    Offset=t.vmath('ADD', t.named("lg_push", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, lift))).outputs[0]
+                    Offset=t.named("lg_push", 'FLOAT_VECTOR')).outputs[0]
     # Where the push still folds the wall through itself (a face turned to look away from where it looked
     # before), it is taken back out over a few faces round the fold, so the wall eases to its smooth shape there.
     turned = t.N.new('GeometryNodeFieldOnDomain')

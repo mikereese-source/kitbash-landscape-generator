@@ -691,7 +691,7 @@ def _t14():
     def rocks_in(o):
         dg = bpy.context.evaluated_depsgraph_get()
         dg.update()
-        return sum(1 for i in dg.object_instances if i.is_instance and i.parent and i.parent.original == o)
+        return sum(1 for i in dg.object_instances if i.is_instance and i.parent and i.parent.original == o and "KB Rock" in i.object.name)
     c.rubble = 0.0
     p0, _c0, _f0, n0 = cave_mesh(ob)
     r0 = rocks_in(ob)

@@ -8,7 +8,7 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty
 from bpy.types import Operator, PropertyGroup
 
-from . import features, nodes, rocks
+from . import features, formations, nodes, rocks
 
 CAVE_MODIFIER = "KB Cave"
 
@@ -25,7 +25,8 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "turn": "Turn", "drop": "Drop", "narrowing": "Narrowing", "chamber": "Chamber Size",
                 "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "wall_shape": "Wall Shape",
                 "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
-                "spread": "Spread"}
+                "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
+                "formation_stretch": "Formation Stretch", "clusters": "Clusters"}
 
 
 def sync_cave(ob):
@@ -42,6 +43,12 @@ def sync_cave(ob):
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
             nodes.input_socket(mod, f"{use} {size}").value = rocks.at_level(coll, ob.lg_cave.detail.title())
+    # Stalactites, stalagmites, columns and lava drips (5.4): the formation library's kits; the cave's Rock picks
+    # which of them grow (D168). Any collection can be put on the modifier's inputs instead.
+    for fam, prop in FORMATION_KITS.items():
+        kit = getattr(ob.lg_cave, prop) or formations.family(fam)
+        for (size, *_), coll in zip(formations.SIZES, formations.sizes(kit)):
+            nodes.input_socket(mod, f"{fam} {size}").value = rocks.at_level(coll, ob.lg_cave.detail.title())
     # Rebuild the scene's links to the rocks just swapped in (each Detail Level uses its own rock meshes):
     # setting the inputs alone left Blender unaware of the new ones, so they came out empty and a Jointed
     # cave, which cuts its wall masses from them, wiped itself at Ultra after a visit to High (Mike).
@@ -49,6 +56,10 @@ def sync_cave(ob):
     ob.update_tag()
 
 
+
+# Formation family -> the cave's kit picker (empty: the library's own); lava drips are not placed (D171).
+FORMATION_KITS = {"Stalactites": "stalactite_kit", "Stalagmites": "stalagmite_kit", "Columns": "column_kit",
+                  "Stalactite Clusters": "stalactite_cluster_kit", "Stalagmite Clusters": "stalagmite_cluster_kit"}
 
 DETAIL_ITEMS = (('PREVIEW', "Preview", "Light and fast, for placing and shaping the cave"),
                 ('HIGH', "High", "Full rock detail for the finished cave"),
@@ -139,6 +150,25 @@ class LG_CaveProps(PropertyGroup):
                         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     spread: FloatProperty(name="Spread", description="Rocks kept tight to the walls (0), or strewn out across the floor (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges, or lava drips in a lava tube: none (0) to a lot (1). Jointed rock grows none",
+                              default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
+    formation_size: FloatProperty(name="Formation Size", description="Make every stalactite, stalagmite and column smaller or bigger (never under 2 ft)",
+                                  default=1.0, min=0.1, soft_max=3.0, update=_sync)
+    formation_stretch: FloatProperty(name="Stretch", description="Short and stubby (0), or long and thin (1)",
+                                     default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    clusters: FloatProperty(name="Clusters", description="Single pieces (0), or many grown together into clusters (1)",
+                            default=0.45, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    stalactite_kit: PointerProperty(name="Stalactites", type=bpy.types.Collection, update=_sync,
+                                    description="The stalactite kit: a collection with Big and Medium collections inside (or one plain collection)")
+    stalagmite_kit: PointerProperty(name="Stalagmites", type=bpy.types.Collection, update=_sync,
+                                    description="The stalagmite kit: a collection with Big and Medium collections inside (or one plain collection)")
+    column_kit: PointerProperty(name="Columns", type=bpy.types.Collection, update=_sync,
+                                description="The column kit: a collection with Big and Medium collections inside (or one plain collection)")
+    stalactite_cluster_kit: PointerProperty(name="Stalactite Clusters", type=bpy.types.Collection, update=_sync,
+                                            description="The stalactite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
+    stalagmite_cluster_kit: PointerProperty(name="Stalagmite Clusters", type=bpy.types.Collection, update=_sync,
+                                            description="The stalagmite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
     rock: EnumProperty(name="Rock", description="What the cave is cut in: it sets the walls and the rocks lying in it",
                        items=ROCK_ITEMS, default='LIMESTONE', update=_rock_changed)
     # Which rock kits: rocks.py builds KB Cave Rocks (four kits, each Big / Medium / Small); any collection works.
@@ -167,7 +197,8 @@ class LG_OT_randomize_cave(Operator):
 # What Reset puts back and what a preset keeps: every setting except Seed and Detail Level (as on the
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
-               "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock")
+               "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
+               "formation_size", "formation_stretch", "clusters")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -268,6 +299,7 @@ def draw_section(layout, context):
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "wall_shape", slider=True)
+    col.prop(props, "formations", slider=True)
     header, sub = box.panel("lg_cave_rocks", default_closed=False)
     header.label(text="Rocks")
     if sub:
@@ -277,6 +309,14 @@ def draw_section(layout, context):
         sub.prop(props, "stretch", slider=True)
         sub.prop(props, "tilt", slider=True)
         sub.prop(props, "spread", slider=True)
+    header, sub = box.panel("lg_cave_formations", default_closed=False)
+    header.label(text="Formations")
+    if sub:
+        for prop in FORMATION_KITS.values():
+            sub.prop(props, prop)
+        sub.prop(props, "formation_size")
+        sub.prop(props, "formation_stretch", slider=True)
+        sub.prop(props, "clusters", slider=True)
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')

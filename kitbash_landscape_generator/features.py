@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 167
+CAVE_VERSION = 172
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -445,7 +445,11 @@ CAVE_INPUTS = (
     # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
-)
+    # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
+    ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
+    ("Clusters", 'NodeSocketFloat', 0.45),
+) + tuple((f"{fam} {size}", 'NodeSocketCollection', None) for fam in ("Stalactites", "Stalagmites", "Columns", "Lava Drips", "Stalactite Clusters", "Stalagmite Clusters")
+          for size in ("Big", "Medium"))
 CAVE_DETAIL = (6.0, 8.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
 # Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
 CAVE_FACES = (150_000, 4_000_000, 16_000_000)  # shell faces aimed for per Detail Level, by subdividing (D105)
@@ -1637,6 +1641,100 @@ def cave_group():
     t._set(tipped.inputs["Pivot Point"], t.position())
     tipped.inputs["Local Space"].default_value = False
     t.L.new(tipped.outputs[0], with_rocks.inputs[0])
+
+    # Formations (5.4, D168-D171; rules L1-L5 on docs/m5/c128_formation_refs.png). What grows follows the rock:
+    # limestone grows stalactites, stalagmites under them and columns where a pair meets; lava and jointed rock
+    # none (lava drips are a few cm, under the 2 ft least size, D171). Secondary and sometimes primary details
+    # (Mike): Medium and Big pieces only, none under 2 ft, so they read over the rocks on the floor.
+    # Where (L2, L3): along the roof's cracks and ledge lines, most of the roof bare, none in the daylit front of
+    # the cave. Points are picked on the Preview-grid space like the rocks, so the same formations at every level.
+    f_amount = t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), gin["Formations"])
+    f_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
+    f_s = t.N.new('GeometryNodeSampleIndex')
+    f_s.data_type, f_s.domain = 'FLOAT', 'POINT'
+    t._set(f_s.inputs["Geometry"], path)
+    t._set(f_s.inputs["Value"], t.named("c_s"))
+    t._set(f_s.inputs["Index"], f_near)
+    # The cracks: cell edges about 0.6 entrance widths apart, seen from below.
+    f_seed = t.math('MULTIPLY', t.math('FLOORED_MODULO', gin["Seed"], 100.0), 13.7)
+    f_cell = t.math('MAXIMUM', t.math('MULTIPLY', W, 0.6), 1.0)
+    crack = t.N.new('ShaderNodeTexVoronoi')
+    crack.voronoi_dimensions, crack.feature = '2D', 'DISTANCE_TO_EDGE'
+    crack.inputs["Scale"].default_value = 1.0
+    t._set(crack.inputs["Vector"], t.vmath('DIVIDE', t.vmath('ADD', t.position(), t.vec(f_seed, t.math('MULTIPLY', f_seed, 0.7), 0.0)), t.vec(f_cell, f_cell, f_cell)))
+    on_crack = t.math('LESS_THAN', crack.outputs["Distance"], 0.025)
+    f_roof = t.math('GREATER_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], 0.85)
+    f_sel = t.math('MULTIPLY', t.math('MULTIPLY', f_roof, on_crack), t.math('MULTIPLY', t.math('GREATER_THAN', f_s.outputs[0], 0.3), t.math('GREATER_THAN', f_amount, 0.0)))
+    drips = t.node('GeometryNodeDistributePointsOnFaces', Mesh=rock_space, Selection=f_sel, Seed=gin["Seed"],
+                   Density=t.math('MULTIPLY', f_amount, 0.4)).outputs["Points"]
+    # Up onto the finished roof, where it is near flat; then the gap down to the floor below. Ray results are stored before moving.
+    f_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
+                  Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=t.math('MULTIPLY', H, 0.5))
+    drips = t.store(drips, "f_rz", t.math('MULTIPLY', f_up.outputs["Is Hit"], t.xyz(f_up.outputs["Hit Normal"])["Z"]))
+    drips = t.store(drips, "f_roof", f_up.outputs["Hit Position"], 'FLOAT_VECTOR')
+    drips = t.node('GeometryNodeDeleteGeometry', Geometry=drips, Selection=t.math('LESS_THAN', t.named("f_rz"), 0.9)).outputs[0]  # 26 degrees: a fat root's 12% plug still covers the slope under it
+    drips = t.node('GeometryNodeSetPosition', Geometry=drips, Position=t.named("f_roof", 'FLOAT_VECTOR')).outputs[0]
+    f_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, 0.05)), Ray_Direction=(0.0, 0.0, -1.0),
+                    Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))
+    drips = t.store(drips, "f_gap", t.math('MULTIPLY', f_down.outputs["Is Hit"], f_down.outputs["Hit Distance"]))
+    drips = t.store(drips, "f_floor", f_down.outputs["Hit Position"], 'FLOAT_VECTOR')
+    # Stalagmites and columns stand only on near-flat floor (they grow straight up; on a slope the skirt lifted off).
+    drips = t.store(drips, "f_flat", t.math('MULTIPLY', f_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(f_down.outputs["Hit Normal"])["Z"], -0.97)))
+    gap = t.named("f_gap")
+    lime = t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), t.math('GREATER_THAN', gap, 0.0))
+    # A column where the gap is low enough for a pair to have met (L5), standing floor to roof.
+    col_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('LESS_THAN', gap, t.math('MULTIPLY', H, 0.3)),
+                      t.math('MULTIPLY', t.math('GREATER_THAN', t.named("f_rz"), 0.95), t.math('LESS_THAN', rand(0.0, 1.0, 411), 0.6))))
+    # Lengths follow the room: about 8% of the gap for a medium stalactite, at most 4 m; big pieces are 2-3x that
+    # (L1's spread in a cluster). Stalagmites about 5% of the gap, at most 3 m. The smallest fifth is left out
+    # and the rest made 17.5% bigger (Mike: bigger shapes, fewer very small ones); Formation Size scales them
+    # all, and none is ever under 2 ft (0.61 m, Mike). Stretch draws them out longer and thinner (1) or
+    # shorter and stubbier (0); 0.5 is the pieces as built.
+    r_len, r_high = rand(0.6, 1.3, 401), rand(0.5, 1.2, 421)
+    f_size = t.math('MULTIPLY', gin["Formation Size"], 1.175)
+    f_len = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.08), 4.0), r_len), f_size), 0.61)
+    f_high = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.05), 3.0), r_high), f_size), 0.61)
+    f_along = t.math('ADD', 0.7, t.math('MULTIPLY', gin["Formation Stretch"], 0.6))
+    f_round = t.math('SUBTRACT', 1.15, t.math('MULTIPLY', gin["Formation Stretch"], 0.3))
+    shaped = lambda s: t.vec(t.math('MULTIPLY', s, f_round), t.math('MULTIPLY', s, f_round), t.math('MULTIPLY', s, f_along))
+
+    f_pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, offset)).outputs[0]  # pick above is redefined below
+
+    def grow(points, selection, fam, scale, seed, medium_keep):
+        """One family on its points: Big or Medium by chance (no Small: too small to read, Mike), each piece
+        picked at random and turned about the vertical only (they grow plumb). medium_keep drops the shortest
+        Mediums: three in ten of them are the smallest fifth of all."""
+        u = rand(0.0, 1.0, seed)
+        for size, keep in (("Big", t.math('LESS_THAN', u, 0.25)), ("Medium", t.math('MULTIPLY', t.math('GREATER_THAN', u, 0.25), medium_keep))):
+            placed = t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=t.math('MULTIPLY', selection, keep), Instance=library(f"{fam} {size}"),
+                            Pick_Instance=True, Instance_Index=f_pick(seed + 1), Rotation=t.vec(0.0, 0.0, rand(0.0, 6.28, seed + 2)), Scale=scale).outputs[0]
+            t.L.new(placed, with_rocks.inputs[0])
+
+    # A single piece or a cluster grown as one (Mike: close ones become one asset; L1).
+    tite = t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_keep))
+    tite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 433), gin["Clusters"])
+    tite_big = t.math('GREATER_THAN', r_len, 0.81)
+    grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(f_len), 431, tite_big)
+    grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(f_len), 435, tite_big)
+    # Stalagmites under most drips (L4), on the floor straight below, sunk a little.
+    floor_at = t.node('GeometryNodeSetPosition', Geometry=drips, Position=t.vmath('SUBTRACT', t.named("f_floor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.04)))).outputs[0]
+    # None poking through a wall: four level rays from a third of the way up must not meet the shell inside
+    # the piece's reach.
+    f_pokes = None
+    for d in ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0)):
+        ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.3))),
+                     Ray_Direction=d, Ray_Length=f_high)  # a cluster's footprint reaches about its height
+        f_pokes = ray.outputs["Is Hit"] if f_pokes is None else t.math('MAXIMUM', f_pokes, ray.outputs["Is Hit"])
+    mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_keep),
+                       t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 461), 0.7), t.math('SUBTRACT', 1.0, f_pokes))))
+    mite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 473), t.math('MULTIPLY', gin["Clusters"], 0.8))
+    mite_big = t.math('GREATER_THAN', r_high, 0.71)
+    grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)
+    grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big)
+    col_w = t.math('MULTIPLY', gap, rand(0.45, 0.8, 481))
+    columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
+                     Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, rand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
+    t.L.new(columns, with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

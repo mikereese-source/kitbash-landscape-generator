@@ -13,11 +13,13 @@ import bmesh
 import bpy
 from mathutils import Vector, noise
 
-from .rocks import LEVELS, SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
+from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 1
+LIBRARY_VERSION = 5
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
+# Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
+SIZES = ROCK_SIZES[:2]
 # A medium piece is 1 long (a column 1 tall); big and small ones are that times their size (rocks.SIZES).
 # Hanging pieces have their pivot on the roof and hang down -Z; standing pieces stand up +Z from the floor.
 # Each runs on past its pivot into the rock (EMBED of its length), so it sits set in, never on top.
@@ -27,8 +29,13 @@ FAMILIES = {
     "Stalagmites": 53,  # L4: blunt round top, knobby stacked lobes, flared skirt
     "Columns": 59,      # L5: a stalactite and stalagmite grown together, fluted, narrowest near the join
     "Lava Drips": 61,   # V1: stubby shark teeth off a glazed lava-tube roof
+    # One asset each, several members grown together (Mike: close ones become one piece, not a scatter;
+    # L1's roots merging): the members' roots or skirts overlap, so it reads as one mass.
+    "Stalactite Clusters": 67,
+    "Stalagmite Clusters": 71,
 }
-HANGING = {"Stalactites", "Lava Drips"}
+CLUSTERS = {"Stalactite Clusters": ("Stalactites", 3, 6, 0.1, 0.28), "Stalagmite Clusters": ("Stalagmites", 2, 5, 0.15, 0.4)}  # member, how many, how far apart
+HANGING = {"Stalactites", "Lava Drips", "Stalactite Clusters"}
 
 
 def _lathe(subdivisions, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
@@ -107,6 +114,56 @@ def _piece(family, rng, scale, subdivisions):
     return bm
 
 
+def _union(meshes):
+    """One continuous closed mesh from overlapping closed meshes (Mike: a cluster is one mesh, not pieces
+    poking through each other): an exact Boolean union, evaluated in a scratch collection of the open scene
+    (a scene of its own has no depsgraph until Blender draws it).
+    The seams come out in triangles; those that pair up are joined back into quads."""
+    scratch = bpy.data.collections.new("KB Formation Union")
+    bpy.context.scene.collection.children.link(scratch)
+    rest = bpy.data.collections.new("KB Formation Union Rest")
+    obs = [bpy.data.objects.new("KB Union Part", me) for me in meshes]
+    for ob in obs:
+        scratch.objects.link(ob)
+    for ob in obs[1:]:
+        rest.objects.link(ob)
+    mod = obs[0].modifiers.new("Union", 'BOOLEAN')
+    mod.operation, mod.operand_type, mod.collection, mod.solver = 'UNION', 'COLLECTION', rest, 'EXACT'
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    joined = bpy.data.meshes.new_from_object(obs[0].evaluated_get(dg))
+    for ob in obs:
+        bpy.data.objects.remove(ob)
+    for me in meshes:
+        bpy.data.meshes.remove(me)
+    bpy.data.collections.remove(rest)
+    bpy.data.collections.remove(scratch)
+    bm = bmesh.new()
+    bm.from_mesh(joined)
+    bpy.data.meshes.remove(joined)
+    bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])  # slivers where two members just touch
+    bmesh.ops.join_triangles(bm, faces=bm.faces[:], angle_face_threshold=0.7, angle_shape_threshold=0.7)
+    return bm
+
+
+def _cluster(family, rng, scale, subdivisions):
+    """Several members grown into one mesh: a lead piece and smaller ones (60-100% of it, so none falls
+    under the least size) close enough that their roots or skirts overlap, then unioned into one continuous
+    surface. Members a level coarser, so a cluster costs about what two singles do."""
+    member, lo, hi, near, far = CLUSTERS[family]
+    meshes = []
+    for k in range(rng.randint(lo, hi)):
+        piece = _piece(member, rng, 1.0 if k == 0 else rng.uniform(0.6, 1.0), max(subdivisions - 1, 2))
+        shift = Vector((0.0, 0.0, 0.0)) if k == 0 else Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0)).normalized() * rng.uniform(near, far)
+        for v in piece.verts:
+            v.co = (v.co + shift) * scale
+        me = bpy.data.meshes.new("KB Union Part")
+        piece.to_mesh(me)
+        piece.free()
+        meshes.append(me)
+    return _union(meshes)
+
+
 def ensure_library():
     """Build (or rebuild, when this code changes) the formation library. Returns the top collection."""
     top = bpy.data.collections.get(LIBRARY)
@@ -137,7 +194,7 @@ def ensure_library():
                 state = rng.getstate()
                 for level, step in LEVELS:  # the same draws at every level: the same piece, finer or coarser
                     rng.setstate(state)
-                    bm = _piece(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2))
+                    bm = (_cluster if family in CLUSTERS else _piece)(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2))
                     me = bpy.data.meshes.new(f"KB Formation {family} {size} {i + 1}" + ("" if level == "High" else f" {level}"))
                     bm.to_mesh(me)
                     bm.free()

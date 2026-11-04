@@ -150,7 +150,7 @@ class LG_CaveProps(PropertyGroup):
                         default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     spread: FloatProperty(name="Spread", description="Rocks kept tight to the walls (0), or strewn out across the floor (1)",
                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
-    formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges, or lava drips in a lava tube: none (0) to a lot (1). Jointed rock grows none",
+    formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
     formation_size: FloatProperty(name="Formation Size", description="Make every stalactite, stalagmite and column smaller or bigger (never under 2 ft)",
@@ -301,7 +301,9 @@ def draw_section(layout, context):
     col.prop(props, "roughness", slider=True)
     col.prop(props, "rubble", slider=True)
     col.prop(props, "wall_shape", slider=True)
-    col.prop(props, "formations", slider=True)
+    row = col.row()
+    row.enabled = props.rock == 'LIMESTONE'  # only limestone grows formations (D168, D174)
+    row.prop(props, "formations", slider=True)
     row = col.row()
     row.enabled = props.rock == 'LIMESTONE'
     row.prop(props, "puddles", slider=True)
@@ -317,6 +319,7 @@ def draw_section(layout, context):
     header, sub = box.panel("lg_cave_formations", default_closed=False)
     header.label(text="Formations")
     if sub:
+        sub.enabled = props.rock == 'LIMESTONE'
         for prop in FORMATION_KITS.values():
             sub.prop(props, prop)
         sub.prop(props, "formation_size")

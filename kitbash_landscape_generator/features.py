@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 179
+CAVE_VERSION = 180
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1512,12 +1512,9 @@ def cave_group():
     l_blur.data_type = 'FLOAT'
     t._set(l_blur.inputs["Value"], lobe_lift)
     t._set(l_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('POWER', 2.0, levels), 0.85)).outputs[0])  # lighter than the bench's: the tongues kept their edges
-    # Broken crust over the lobes (Mike: more rock-like): the lobes' skin cracked into slabs about 2 m across,
-    # flat-faced with sharp seams (the jointed walls' blocks; smooth noise read as soft streaks), stepping about
-    # half a lobe's height; on the lobes only (masked by the blurred lift, full from 15% up, easing off at their feet; the blurred lift seldom nears full height).
-    l_full = t.math('MULTIPLY', H, t.math('ADD', 0.04, t.math('MULTIPLY', F, 0.06)))
-    crust = t.math('MULTIPLY', blocks(rr(0.06), t.math('MULTIPLY', t.math('MULTIPLY', l_full, 0.5), t.math('ADD', 0.4, R)), 63.1, 1.0, 0.12),  # about 2 m slabs; Roughness sets how broken
-                   t.smooth(l_blur.outputs["Value"], 0.0, t.math('MULTIPLY', l_full, 0.15)))
+    # No broken crust on the lobes (D184): as a displacement it drew seam lines at Preview and cloth-like ripples
+    # at High; real broken floors are loose flat slabs (Lava River Cave). The crust comes back as an M7
+    # displacement map (Mike); slab pieces are parked.
     # Limestone silt floor (5.4b, D175, D180; the Mammoth passages): level flats (the floor's bumps cut to a
     # quarter, above), banked gently up against the walls, about 3% of the entrance high, and puddle hollows in
     # the flats (the Ayyalon pool, the Marble Arch gours): shallow dips up to 2% of the entrance deep, off the
@@ -1534,7 +1531,7 @@ def cave_group():
     pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.05), t.math('MULTIPLY', H, 0.1))),
                                           t.math('SUBTRACT', 1.0, t.named("lg_piece", 'BOOLEAN'))))
     pool_d = t.math('MULTIPLY', pool, t.math('MULTIPLY', H, 0.02))
-    bench = t.vec(0.0, 0.0, t.math('ADD', t.math('ADD', b_blur.outputs["Value"], t.math('ADD', l_blur.outputs["Value"], crust)), t.math('SUBTRACT', bank, pool_d)))
+    bench = t.vec(0.0, 0.0, t.math('ADD', t.math('ADD', b_blur.outputs["Value"], l_blur.outputs["Value"]), t.math('SUBTRACT', bank, pool_d)))
 
     style = t.N.new('GeometryNodeIndexSwitch')
     style.data_type = 'FLOAT'

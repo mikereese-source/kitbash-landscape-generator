@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 178
+CAVE_VERSION = 179
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -558,11 +558,13 @@ def cave_group():
     # Rubble at the foot of the walls (Mike: rocks, a blend like Mesa's talus), taken out of the same space:
     # two rows of rock lumps along the passage, one each side, of varied size. Rubble sets how many and how
     # big (0 none); Roughness is only the rock surface, as on the landscapes (Mike).
-    def rand(lo, hi, offset):
+    def rand(lo, hi, offset, ident=None):
         n = t.N.new('FunctionNodeRandomValue')
         n.data_type = 'FLOAT'
         n.inputs["Min"].default_value, n.inputs["Max"].default_value = lo, hi
         t._set(n.inputs["Seed"], t.math('ADD', gin["Seed"], offset))
+        if ident is not None:  # a stored id, so a point keeps its value when others are deleted before it
+            t._set(n.inputs["ID"], ident)
         return n.outputs["Value"]
 
     ahead = t.N.new('GeometryNodeSampleIndex')  # the path's direction, from its neighbours
@@ -1767,6 +1769,10 @@ def cave_group():
     f_sel = t.math('MULTIPLY', t.math('MULTIPLY', f_roof, on_crack), t.math('MULTIPLY', t.math('GREATER_THAN', f_s.outputs[0], 0.3), t.math('GREATER_THAN', f_amount, 0.0)))
     drips = t.node('GeometryNodeDistributePointsOnFaces', Mesh=rock_space, Selection=f_sel, Seed=gin["Seed"],
                    Density=t.math('MULTIPLY', f_amount, 0.4)).outputs["Points"]
+    # Each drip point keeps the id it was born with: the keep tests below use the finished shell, which differs by
+    # Detail Level, so plain indices shifted and the same spot got another piece at High (review S1, c130).
+    drips = t.store(drips, "f_id", t.node('GeometryNodeInputIndex').outputs[0], 'INT')
+    frand = lambda lo, hi, offset: rand(lo, hi, offset, t.named("f_id", 'INT'))
     # Up onto the finished roof, where it is near flat; then the gap down to the floor below. Ray results are stored before moving.
     f_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
                   Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=t.math('MULTIPLY', H, 0.5))
@@ -1784,13 +1790,13 @@ def cave_group():
     lime = t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), t.math('GREATER_THAN', gap, 0.0))
     # A column where the gap is low enough for a pair to have met (L5), standing floor to roof.
     col_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('LESS_THAN', gap, t.math('MULTIPLY', H, 0.3)),
-                      t.math('MULTIPLY', t.math('GREATER_THAN', t.named("f_rz"), 0.95), t.math('LESS_THAN', rand(0.0, 1.0, 411), 0.6))))
+                      t.math('MULTIPLY', t.math('GREATER_THAN', t.named("f_rz"), 0.95), t.math('LESS_THAN', frand(0.0, 1.0, 411), 0.6))))
     # Lengths follow the room: about 8% of the gap for a medium stalactite, at most 4 m; big pieces are 2-3x that
     # (L1's spread in a cluster). Stalagmites about 5% of the gap, at most 3 m. The smallest fifth is left out
     # and the rest made 17.5% bigger (Mike: bigger shapes, fewer very small ones); Formation Size scales them
     # all, and none is ever under 2 ft (0.61 m, Mike). Stretch draws them out longer and thinner (1) or
     # shorter and stubbier (0); 0.5 is the pieces as built.
-    r_len, r_high = rand(0.6, 1.3, 401), rand(0.5, 1.2, 421)
+    r_len, r_high = frand(0.6, 1.3, 401), frand(0.5, 1.2, 421)
     f_size = t.math('MULTIPLY', gin["Formation Size"], 1.175)
     f_len = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.08), 4.0), r_len), f_size), 0.61)
     f_high = t.math('MAXIMUM', t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.05), 3.0), r_high), f_size), 0.61)
@@ -1798,21 +1804,21 @@ def cave_group():
     f_round = t.math('SUBTRACT', 1.15, t.math('MULTIPLY', gin["Formation Stretch"], 0.3))
     shaped = lambda s: t.vec(t.math('MULTIPLY', s, f_round), t.math('MULTIPLY', s, f_round), t.math('MULTIPLY', s, f_along))
 
-    f_pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, offset)).outputs[0]  # pick above is redefined below
+    f_pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=frand(0.0, 9999.0, offset)).outputs[0]  # pick above is redefined below
 
     def grow(points, selection, fam, scale, seed, medium_keep):
         """One family on its points: Big or Medium by chance (no Small: too small to read, Mike), each piece
         picked at random and turned about the vertical only (they grow plumb). medium_keep drops the shortest
         Mediums: three in ten of them are the smallest fifth of all."""
-        u = rand(0.0, 1.0, seed)
+        u = frand(0.0, 1.0, seed)
         for size, keep in (("Big", t.math('LESS_THAN', u, 0.25)), ("Medium", t.math('MULTIPLY', t.math('GREATER_THAN', u, 0.25), medium_keep))):
             placed = t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=t.math('MULTIPLY', selection, keep), Instance=library(f"{fam} {size}"),
-                            Pick_Instance=True, Instance_Index=f_pick(seed + 1), Rotation=t.vec(0.0, 0.0, rand(0.0, 6.28, seed + 2)), Scale=scale).outputs[0]
+                            Pick_Instance=True, Instance_Index=f_pick(seed + 1), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, seed + 2)), Scale=scale).outputs[0]
             t.L.new(placed, with_rocks.inputs[0])
 
     # A single piece or a cluster grown as one (Mike: close ones become one asset; L1).
     tite = t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_keep))
-    tite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 433), gin["Clusters"])
+    tite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 433), gin["Clusters"])
     tite_big = t.math('GREATER_THAN', r_len, 0.81)
     grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(f_len), 431, tite_big)
     grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(f_len), 435, tite_big)
@@ -1826,14 +1832,14 @@ def cave_group():
                      Ray_Direction=d, Ray_Length=f_high)  # a cluster's footprint reaches about its height
         f_pokes = ray.outputs["Is Hit"] if f_pokes is None else t.math('MAXIMUM', f_pokes, ray.outputs["Is Hit"])
     mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_keep),
-                       t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 461), 0.7), t.math('SUBTRACT', 1.0, f_pokes))))
-    mite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 473), gin["Clusters"])
+                       t.math('MULTIPLY', t.math('LESS_THAN', frand(0.0, 1.0, 461), 0.7), t.math('SUBTRACT', 1.0, f_pokes))))
+    mite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 473), gin["Clusters"])
     mite_big = t.math('GREATER_THAN', r_high, 0.71)
     grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)
     grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big)
-    col_w = t.math('MULTIPLY', gap, rand(0.45, 0.8, 481))
+    col_w = t.math('MULTIPLY', gap, frand(0.45, 0.8, 481))
     columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
-                     Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, rand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
+                     Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
     t.L.new(columns, with_rocks.inputs[0])
     # Puddle water (5.4b, D180; as the landscapes' water level, Mike: to see how things shape up): a flat sheet
     # a quarter of the deepest dip under the silt's own level, cut a little wider than the pool so the floor

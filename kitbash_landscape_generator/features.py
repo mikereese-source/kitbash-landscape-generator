@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 180
+CAVE_VERSION = 181
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1814,7 +1814,10 @@ def cave_group():
             t.L.new(placed, with_rocks.inputs[0])
 
     # A single piece or a cluster grown as one (Mike: close ones become one asset; L1).
-    tite = t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_keep))
+    # None shorter than a tenth of the entrance height (Mike, D185: in a big chamber the 2-3 m ones read as rows
+    # of tiny spikes, noise; against the cave's own size so a small cave keeps its stalactites).
+    tite_room = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.08), 4.0), r_len), f_size)
+    tite = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_keep)), t.math('GREATER_THAN', tite_room, t.math('MULTIPLY', H, 0.1)))
     tite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 433), gin["Clusters"])
     tite_big = t.math('GREATER_THAN', r_len, 0.81)
     grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(f_len), 431, tite_big)

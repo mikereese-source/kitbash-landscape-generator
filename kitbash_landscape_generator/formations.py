@@ -16,7 +16,7 @@ from mathutils import Vector, noise
 from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 9
+LIBRARY_VERSION = 10
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
 SIZES = ROCK_SIZES[:2]
@@ -36,6 +36,7 @@ FAMILIES = {
     # cleaner and fewer polygons than random ones unioned, which left odd bits sticking out).
     "Stalactite Clusters": 67,
     "Stalagmite Clusters": 71,
+    "Drapes": 73,  # L6: thin folded sheets off a sloping roof, alone or a row of pointed ribbons (board c142)
 }
 # Each design: (size against the lead, x, y) per member, the lead first; units of the lead's length. No member
 # under 70% of the lead (smaller ones only poked out of the others), and far enough apart that the bodies
@@ -59,7 +60,7 @@ CLUSTERS = {
         ((1.0, 0.0, 0.0), (0.7, 0.44, -0.1), (0.7, -0.22, 0.4)),                      # lead and two smaller
     )),
 }
-HANGING = {"Stalactites", "Lava Drips", "Stalactite Clusters"}
+HANGING = {"Stalactites", "Lava Drips", "Stalactite Clusters", "Drapes"}
 
 
 def _lathe(grid, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
@@ -92,7 +93,66 @@ def _lathe(grid, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
     return bm
 
 
+def _sheet(nu, nv, at):
+    """A thin closed all-quad sheet: a front and a back grid (nu across, nv down) joined round their edge by one
+    rim of quads. at(s, v, side) gives a point for s, v in 0..1 and side -1 (back) or 1 (front)."""
+    bm = bmesh.new()
+    grid = {side: [[bm.verts.new(at(i / nu, j / nv, side)) for j in range(nv + 1)] for i in range(nu + 1)] for side in (-1, 1)}
+    F, B = grid[1], grid[-1]
+    for i in range(nu):
+        for j in range(nv):
+            bm.faces.new((F[i][j], F[i + 1][j], F[i + 1][j + 1], F[i][j + 1]))
+            bm.faces.new((B[i][j + 1], B[i + 1][j + 1], B[i + 1][j], B[i][j]))
+    edge = [(i, 0) for i in range(nu)] + [(nu, j) for j in range(nv)] + [(i, nv) for i in range(nu, 0, -1)] + [(0, j) for j in range(nv, 0, -1)]
+    for k, (i, j) in enumerate(edge):
+        i2, j2 = edge[(k + 1) % len(edge)]
+        bm.faces.new((F[i2][j2], F[i][j], B[i][j], B[i2][j2]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    return bm
+
+
+def _drape(rng, scale, grid):
+    """L6 (board c142): a thin sheet hanging plumb from a level top line along the roof (X), its pivot on the roof
+    and a plug of EMBED up into the rock. Either one wavy sheet (Ruakuri) or a row of 3-8 ribbons on a shared
+    band, each tapering to a point, so the lower edge is a fringe (Boyden, Te Ananui); folded in plan, more
+    lower down (Crystal Grottoes). About 5% as thick as long at the top, thinner at the tips. A medium piece is
+    1 long; the faces as the other pieces (about 300 / 4,000 / 10,000)."""
+    # Ribbons 5-10x as long as wide (Te Ananui, Crystal Grottoes; wider ones read as a row of teeth), joined most
+    # of their length, V notches between their pointed tips; each ribbon a fold about as deep as it is wide.
+    row = rng.random() < 0.7
+    ribbons = rng.randrange(3, 9) if row else 1
+    rib_w = rng.uniform(0.1, 0.2)
+    width = rib_w * ribbons if row else rng.uniform(0.35, 0.55)
+    lens = [rng.uniform(0.5, 1.0) for _ in range(ribbons)]
+    notch = rng.uniform(0.25, 0.45)  # how far up the V between two tips reaches
+    folds, fold_at = (ribbons if row else rng.uniform(1.0, 2.0)), rng.uniform(0.0, 1.0)
+    fold_amp = rib_w * rng.uniform(0.4, 0.6) if row else width * rng.uniform(0.12, 0.2)
+    off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
+    thick = 0.05
+
+    def length(s):
+        k = min(int(s * ribbons), ribbons - 1)
+        c = (s * ribbons - k) * 2.0 - 1.0  # -1..1 across this ribbon
+        return lens[k] * (1.0 - notch * abs(c) ** 1.5) if row else lens[k] * (1.0 - 0.5 * abs(c) ** 2.0)
+
+    def at(s, v, side):
+        # the top tenth of the grid is the plug, rising EMBED into the rock; the rest hangs down the sheet
+        w = max((v - 0.1) / 0.9, 0.0)
+        z = EMBED * (1.0 - v / 0.1) if v < 0.1 else -length(s) * w
+        fold = fold_amp * math.sin(2.0 * math.pi * (folds * s + fold_at)) * (0.5 + 0.5 * w)
+        fold += 0.04 * noise.noise(Vector((s * width * 3.0, w * 3.0, 0.0)) + off)
+        t = thick * (1.0 - 0.6 * w) * 0.5
+        return Vector(((s - 0.5) * width, fold + side * t, z))
+    # whole columns per ribbon (at least two), so each tip comes to a point even at Preview
+    return _sheet(ribbons * max(2, round(2 * grid / ribbons)), max(round(1.5 * grid), 3), at)
+
+
 def _piece(family, rng, scale, grid, slim=False):
+    if family == "Drapes":
+        bm = _drape(rng, scale, grid)
+        for v in bm.verts:
+            v.co *= scale
+        return bm
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     lump = lambda u, phi, f: noise.noise(Vector((math.cos(phi) * f * 0.3, math.sin(phi) * f * 0.3, u * f)) + off)
     if family == "Stalactites":

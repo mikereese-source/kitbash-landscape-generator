@@ -160,3 +160,15 @@ Already on disk and used with them: `cathedral-caverns-interior-stalactites-loc-
 | `lava-stalactites-tubular-hawaii.jpg` (CC BY-SA 3.0, Dave Bunnell) | Tubular lava stalactites, film canister for scale | Lava drips, size |
 
 No free photo of small lava drip mounds was found; the NSS virtual cave page (caves.org/virtualcave/drip-stalagmite) has one, licence not stated.
+
+**Formation shape and placement rules (board `docs/m5/c128_formation_refs.png`):**
+| # | Family | Shape | Placement | Reference |
+|---|---|---|---|---|
+| L1 | Limestone stalactites | Carrots: a long thin taper to a sharp tip, 8-20x as long as wide; the root flares and merges with its neighbours'; slight ribs along the length | Clustered, lengths in a cluster varying about 5x | `stalactites-jaskinia-niedzwiedzia.jpg` |
+| L2 | (where) | | In rows along a roof crack or a ledge edge: a fringe of small ones, big ones under it | `cathedral-caverns-interior-stalactites-loc-0290.jpg` |
+| L3 | (how many) | | Most of the roof bare; small clusters only where a bed ledge or crack drips | `cathedral-caverns-interior-loc-0292.jpg` |
+| L4 | Limestone stalagmites | Blunt, round top, 1.5-3x as tall as wide, knobby stacked lobes, a flared skirt into the floor | Under a drip (under stalactites) | `stalagmite-vrelo-cave.jpg` |
+| L5 | Columns | A stalactite and the stalagmite under it grown together: fluted, ribbed bands, narrowest near the join | Where a pair is long enough to meet | `flowstone-timpanogos.jpg` |
+| L6 | Drapes | Folded ribbon curtains off ledges, small stalactites at their tips; flowstone, not cones | Ledges (5.4b) | `flowstone-eroded-mammoth.jpg` |
+| V1 | Lava drips | Stubby shark teeth 1-3x as long as wide, centimetres, off a glazed roof coating | Rows along the drips; High and Ultra only (D169) | `lava-stalactites-lavacicles-mushpot.jpg` |
+| V2 | Tubular lava drips | Thin wiggly cords about 1 cm wide, up to about 1 m | Sparse; High and Ultra only | `lava-stalactites-tubular-hawaii.jpg` |

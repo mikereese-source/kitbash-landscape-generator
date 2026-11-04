@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 176
+CAVE_VERSION = 177
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1403,12 +1403,9 @@ def cave_group():
         n = noise(rr(size), rr(size), rr(size * 1.6), 1.0, 2.0)
         # Ridge rounded over a wider band (0.04; at 0.01 it was narrower than the mesh and zippered, D164).
         return t.math('MULTIPLY', t.math('POWER', t.math('SQRT', t.math('ADD', t.math('MULTIPLY', n, n), 0.04)), 0.7), rr(amp))
-    # Facets and folds together (Mike: the facets keep the look of layered rock; the folds, lighter, break up
-    # their outlines so they don't read as a network of cracks).
-    # Seams blended over a narrow band (D164): wider, the blend reached where the second-nearest cell flips from one
-    # neighbour to another, and those flips stood up as rows of beads (zippers) along every seam.
-    facets = blocks(rr(0.35), rr(0.06), 41.7, 1.8, 0.12)
-    joint_secondary = t.math('ADD', t.math('ADD', facets, t.math('ADD', fold(0.65, 0.06), fold(0.25, 0.03))), t.math('MULTIPLY', grain, 0.5))
+    # The folds alone (D179, Mike): the facets that went with them drew their cell seams on the walls as dark
+    # zigzag lines with beads at the corners, a network of cracks that read as noise, not rock.
+    joint_secondary = t.math('ADD', t.math('ADD', fold(0.65, 0.06), fold(0.25, 0.03)), t.math('MULTIPLY', grain, 0.5))
     jointed = t.math('ADD', t.math('MULTIPLY', joint_primary, F), t.math('MULTIPLY', joint_secondary, R))
 
     # Limestone secondary, each part from the Mammoth reference (docs/m5/ref_limestone_shapes.jpg; its thin bed

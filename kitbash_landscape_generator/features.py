@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 175
+CAVE_VERSION = 176
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -615,8 +615,9 @@ def cave_group():
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
     # out across the floor to break it up. A rock is big or medium, never both on one spot.
-    big_keep = t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], t.math('ADD', 0.15, t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), 0.15))))  # lava: its big rocks are the fallen roof slabs, twice as many
-    keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep))
+    not_jointed = t.math('SUBTRACT', 1.0, t.math('COMPARE', gin["Rock"], 1.0))  # jointed rock's fallen blocks lie in heaps instead (D178)
+    big_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], t.math('ADD', 0.15, t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), 0.15)))), not_jointed)  # lava: its big rocks are the fallen roof slabs, twice as many
+    keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep)), not_jointed)
     # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
     strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=t.node('FunctionNodeFloatToInt', Float=t.math('ADD', 2.0, t.math('MULTIPLY', gin["Rubble"], 6.0))).outputs[0])
     strewn.domain = 'POINT'
@@ -629,7 +630,7 @@ def cave_group():
                         Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
     pebbles_at = t.node('GeometryNodeSetPosition', Geometry=pebble_at, Selection=pebble_ray.outputs["Is Hit"], Position=pebble_ray.outputs["Hit Position"]).outputs[0]
-    pebble_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), gin["Rubble"]), pebble_ray.outputs["Is Hit"])
+    pebble_keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), gin["Rubble"]), pebble_ray.outputs["Is Hit"]), not_jointed)
     # The rocks come from a collection of separate rock meshes (D105, rocks.py; any collection can be swapped
     # in), one picked at random per rock. Each fits -1..1 with its pivot 45% up, so it sits partly buried.
     def library(name):
@@ -1664,6 +1665,67 @@ def cave_group():
     t._set(tipped.inputs["Pivot Point"], t.position())
     tipped.inputs["Local Space"].default_value = False
     t.L.new(tipped.outputs[0], with_rocks.inputs[0])
+
+    # Breakdown heaps (5.4b, D175, D178; the sea-cave rockfall and Giant's Coffin blocks on docs/m5/c131): in
+    # jointed rock the fallen roof lies in a few big heaps, the rest of the floor clear. Each heap a cone of
+    # tumbled blocks at about 30 degrees (rockfall's angle of rest), the biggest round its foot, smaller ones up
+    # its sides, a thin apron round the base. Heap spots are picked on the Preview-grid space like the rocks
+    # (the same heaps at every level), apart along the cave and past its front; Rubble sets how many, Rock Size
+    # how big the blocks. Every block drops onto the finished floor under it and sits partly in its heap (a
+    # rock's pivot is 45% up from its middle); any that would poke through a wall is left out.
+    jointed = t.math('COMPARE', gin["Rock"], 1.0)
+    h_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
+    h_s = t.N.new('GeometryNodeSampleIndex')
+    h_s.data_type, h_s.domain = 'FLOAT', 'POINT'
+    t._set(h_s.inputs["Geometry"], path)
+    t._set(h_s.inputs["Value"], t.named("c_s"))
+    t._set(h_s.inputs["Index"], h_near)
+    h_floor = t.math('LESS_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.9)
+    spots = t.N.new('GeometryNodeDistributePointsOnFaces')
+    spots.distribute_method = 'POISSON'  # before the inputs: its spacing input only shows in this mode
+    t._set(spots.inputs["Mesh"], rock_space)
+    t._set(spots.inputs["Selection"], t.math('MULTIPLY', t.math('MULTIPLY', h_floor, jointed), t.math('GREATER_THAN', h_s.outputs[0], 0.3)))
+    t._set(spots.inputs["Distance Min"], t.math('MULTIPLY', W, 0.5))
+    t._set(spots.inputs["Density Max"], 1.0)
+    t._set(spots.inputs["Seed"], gin["Seed"])
+    spots = t.node('GeometryNodeDeleteGeometry', Geometry=spots.outputs["Points"], Selection=t.math('GREATER_THAN', rand(0.0, 1.0, 501), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.3)))).outputs[0]  # a few: about 5 in a big cave at Rubble 0.5
+    h_rad = t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), rand(0.5, 0.8, 503))  # each heap's radius (Mike: large heaps)
+    spots = t.store(spots, "h_rad", h_rad)
+    spots = t.store(spots, "h_mid", t.position(), 'FLOAT_VECTOR')
+    per = 90  # enough to cover the cone: thinner, the blocks read as scattered rocks, not a heap
+    heap = t.node('GeometryNodeDuplicateElements', Geometry=spots, Amount=per)
+    heap.domain = 'POINT'
+    hr = t.named("h_rad")
+    # Out from the heap's middle: most blocks on the cone, some on the apron just past its foot.
+    d = t.math('MULTIPLY', hr, t.math('ADD', t.math('SQRT', rand(0.0, 1.0, 505)), t.math('MULTIPLY', t.math('GREATER_THAN', rand(0.0, 1.0, 507), 0.8), rand(0.0, 0.35, 509))))
+    a = rand(0.0, 6.2832, 511)
+    h_xy = t.node('GeometryNodeSetPosition', Geometry=heap.outputs["Geometry"],
+                  Position=t.vmath('ADD', t.named("h_mid", 'FLOAT_VECTOR'), t.vec(t.math('MULTIPLY', d, t.math('COSINE', a)), t.math('MULTIPLY', d, t.math('SINE', a)), 0.0))).outputs[0]
+    h_xy = t.store(h_xy, "h_d", t.math('DIVIDE', d, t.math('MAXIMUM', hr, 1e-3)))
+    h_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.6))),
+                    Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
+    h_xy = t.store(h_xy, "h_hit", t.math('MULTIPLY', h_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(h_down.outputs["Hit Normal"])["Z"], -0.7)))
+    h_xy = t.store(h_xy, "h_ground", h_down.outputs["Hit Position"], 'FLOAT_VECTOR')
+    h_xy = t.node('GeometryNodeDeleteGeometry', Geometry=h_xy, Selection=t.math('LESS_THAN', t.named("h_hit"), 0.5)).outputs[0]
+    hd = t.named("h_d")
+    # Blocks shrink up the heap: about Rock Size x 28% of the heap's radius across at its foot, half that at the top.
+    h_size = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', hr, 0.14), gin["Rock Size"]),
+                    t.math('MULTIPLY', t.math('ADD', 0.5, t.math('MULTIPLY', t.math('MINIMUM', hd, 1.0), 0.6)), rand(0.7, 1.3, 513)))
+    cone = t.math('MULTIPLY', t.math('MULTIPLY', hr, 0.65), t.math('POWER', t.math('MAXIMUM', t.math('SUBTRACT', 1.0, hd), 0.0), 0.8))
+    h_at = t.node('GeometryNodeSetPosition', Geometry=h_xy,
+                  Position=t.vmath('ADD', t.named("h_ground", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('SUBTRACT', cone, t.math('MULTIPLY', h_size, 0.5))))).outputs[0]
+    h_pokes = None
+    for dvec in ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)):
+        ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.named("h_ground", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MAXIMUM', cone, t.math('MULTIPLY', h_size, 0.6)))),
+                     Ray_Direction=dvec, Ray_Length=t.math('MULTIPLY', h_size, 1.6))  # from just over the floor: from the pivot, under it at the heap's foot, every ray met the floor
+        h_pokes = ray.outputs["Is Hit"] if h_pokes is None else t.math('MAXIMUM', h_pokes, ray.outputs["Is Hit"])
+    big = t.math('MULTIPLY', t.math('GREATER_THAN', hd, 0.55), t.math('LESS_THAN', rand(0.0, 1.0, 515), 0.35))  # big blocks round the foot
+    tumble = t.vec(rand(-0.7, 0.7, 517), rand(-0.7, 0.7, 519), rand(0.0, 6.28, 521))
+    for name, sel, k, seed in (("Rubble Big", big, 0.4, 523), ("Rubble Medium", t.math('SUBTRACT', 1.0, big), 1.0, 527)):
+        blocks_at = t.node('GeometryNodeInstanceOnPoints', Points=h_at, Selection=t.math('MULTIPLY', sel, t.math('SUBTRACT', 1.0, h_pokes)), Instance=library(name),
+                           Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, seed)).outputs[0], Rotation=tumble,
+                           Scale=t.math('MULTIPLY', h_size, k)).outputs[0]
+        t.L.new(blocks_at, with_rocks.inputs[0])
 
     # Formations (5.4, D168-D171; rules L1-L5 on docs/m5/c128_formation_refs.png). What grows follows the rock:
     # limestone grows stalactites, stalagmites under them and columns where a pair meets; lava and jointed rock

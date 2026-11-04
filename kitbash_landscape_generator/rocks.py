@@ -211,7 +211,7 @@ def layout_review(scene, name="Rock Review", kits=None):
     xs = [(ob.matrix_world @ Vector(c)).x for ob in scene.objects if ob.type == 'MESH' for c in ob.bound_box]
     x0, y = (max(xs) + 12.0) if xs else 0.0, 0.0
     for kit in kits or [family(n) for n in FAMILIES]:
-        for coll in sizes(kit):
+        for coll in [c for c in sizes(kit) if c is not None]:  # a kit may have no Small (the formations)
             rocks = sorted(coll.objects, key=lambda ob: ob.name)
             gap = max(max(ob.dimensions.x, ob.dimensions.y) for ob in rocks) + 1.0
             label = bpy.data.objects.new(f"{coll.name} label", bpy.data.curves.new(f"{coll.name} label", 'FONT'))

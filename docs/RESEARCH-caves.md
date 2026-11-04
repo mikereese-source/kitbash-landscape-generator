@@ -172,3 +172,17 @@ No free photo of small lava drip mounds was found; the NSS virtual cave page (ca
 | L6 | Drapes | Folded ribbon curtains off ledges, small stalactites at their tips; flowstone, not cones | Ledges (5.4b) | `flowstone-eroded-mammoth.jpg` |
 | V1 | Lava drips | Stubby shark teeth 1-3x as long as wide, centimetres, off a glazed roof coating | Rows along the drips; High and Ultra only (D169) | `lava-stalactites-lavacicles-mushpot.jpg` |
 | V2 | Tubular lava drips | Thin wiggly cords about 1 cm wide, up to about 1 m | Sparse; High and Ultra only | `lava-stalactites-tubular-hawaii.jpg` |
+
+## Floor references (5.4b, 2026-11-04)
+
+Downloaded with Mike's OK to `E:/Projects/3D/Terrain Generator_Build/Terrain References/cave-floors/` (5 files,
+about 3.1 MB; licence and source page for each in `sources.json`). Internal reference only, never shipped.
+Board: `docs/m5/c131_floor_choices.png`.
+
+| File | Shows | For |
+|---|---|---|
+| `pools-gours-marble-arch.jpg` (CC BY 2.0) | Gour (rimstone) pools stepping down, flowstone beside them | Limestone puddles |
+| `pool-ayyalon-cave.jpg` (CC BY 3.0, Israel Naaman) | A still pool on a cave floor | Limestone puddles, water planes |
+| `lava-tube-floor-pahoehoe-stefanshellir.jpg` (CC BY-SA 4.0, Dave Bunnell) | Pahoehoe floor: low humps and lobes, a channel down the middle | Lava floor lobes |
+| `lava-tube-floor-cauliflower-pahoehoe.jpg` (CC BY-SA 2.5, Dave Bunnell) | Lumpy cauliflower lava floor | Lava floor grain (roughness/M7) |
+| `drapes-crystal-onyx.jpg` (CC BY 2.0, James St. John) | Draperies and flowstone hanging off a ledge | L6 drapes |

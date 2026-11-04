@@ -197,9 +197,10 @@ def at_level(coll, level):
     return bpy.data.collections.get(f"{coll.name} {level}") or coll
 
 
-def layout_review(scene, name="Rock Review"):
+def layout_review(scene, name="Rock Review", kits=None):
     """Every library rock laid out for review in its own collection: a block of rows per kit (big, medium,
-    small), beside whatever is in the scene. Shares each rock's mesh, so it shows the library as it is."""
+    small), beside whatever is in the scene. Shares each rock's mesh, so it shows the library as it is.
+    kits: other kits to lay out instead (the formation library's)."""
     old = bpy.data.collections.get(name)
     if old is not None:
         for ob in list(old.objects):
@@ -209,14 +210,12 @@ def layout_review(scene, name="Rock Review"):
     scene.collection.children.link(review)
     xs = [(ob.matrix_world @ Vector(c)).x for ob in scene.objects if ob.type == 'MESH' for c in ob.bound_box]
     x0, y = (max(xs) + 12.0) if xs else 0.0, 0.0
-    ensure_library()
-    for family_name in FAMILIES:
-        kit = family(family_name)
+    for kit in kits or [family(n) for n in FAMILIES]:
         for coll in sizes(kit):
             rocks = sorted(coll.objects, key=lambda ob: ob.name)
             gap = max(max(ob.dimensions.x, ob.dimensions.y) for ob in rocks) + 1.0
             label = bpy.data.objects.new(f"{coll.name} label", bpy.data.curves.new(f"{coll.name} label", 'FONT'))
-            label.data.body, label.data.size = coll.name.replace(f"{LIBRARY} ", ""), 1.0
+            label.data.body, label.data.size = coll.name.split("Cave ")[-1], 1.0
             label.location = (x0 - 14.0, y - 0.4, 0.0)
             review.objects.link(label)
             x = x0

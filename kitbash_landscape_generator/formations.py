@@ -16,7 +16,7 @@ from mathutils import Vector, noise
 from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 7
+LIBRARY_VERSION = 8
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
 SIZES = ROCK_SIZES[:2]
@@ -113,14 +113,19 @@ def _piece(family, rng, scale, grid, slim=False):
     elif family == "Stalagmites":
         # L4: 1.5-3x as tall as wide, a round blunt top, stacked lobes up the side, a skirt flared into the floor.
         # Stands from the floor (z 0) to its top (z 1); u runs down from the top.
-        R = 0.5 / (rng.uniform(2.4, 3.0) if slim else rng.uniform(1.5, 3.0))  # slim in a cluster, so neighbours stand clear
-        cap = 0.9 * R
-        skirt = rng.uniform(0.35, 0.6)
+        # Review S3 against six photos (docs/m5/c139): tapered cones, stacked tiers, deep knobs, some slender spires.
+        R = 0.5 / (rng.uniform(2.4, 3.0) if slim else rng.uniform(1.5, 5.0))  # slim in a cluster, so neighbours stand clear; up to Choranche's 5x
+        cap = 0.5 * R  # the top is narrower now, so a lower round cap
+        skirt = rng.uniform(0.4, 0.69)  # 15% wider (review S3)
+        tiers, tier_at = rng.uniform(2.0, 4.0), rng.uniform(0.0, 1.0)
 
         def radius(u, phi):
-            # knobs of every size, not rings (rings read as a screw against the Vrelo photo)
-            lobes = 1.0 + 0.1 * lump(u, phi, 5.0) + 0.06 * lump(u, phi, 14.0)
-            return R * (0.8 + 0.25 * u + skirt * math.exp(-(1.0 - u) * 5.0)) * lobes
+            # knobs of every size, not rings (rings read as a screw against the Vrelo photo); deep as Vrelo and Aranui
+            lobes = 1.0 + 0.2 * lump(u, phi, 5.0) + 0.12 * lump(u, phi, 14.0)
+            # 2-4 stacked tiers (Birthday Candle, Choranche), lopsided round the piece so they never close into rings
+            tier = 1.0 + 0.15 * math.sin(2.0 * math.pi * (tiers * u + tier_at) + 1.2 * lump(u, phi, 2.0))
+            # top about 55% of the base (Vrelo, Sophienhoehle: cones, not thumbs)
+            return R * (0.55 + 0.45 * u + skirt * math.exp(-(1.0 - u) * 5.0)) * lobes * tier
         bm = _lathe(grid, radius, 1.0 - cap, 0.0, top=cap, bottom=EMBED)
     else:  # Columns
         # L5: a stalactite from the roof and a stalagmite from the floor grown together; narrowest near where they

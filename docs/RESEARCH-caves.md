@@ -144,3 +144,19 @@ What each shows, and what we take from it:
 | `lava-beds-skull-cave-entrance.jpg` (CC BY-SA 4.0) | A collapse entrance: a wide, dark, rounded mouth below the plain, thin lava roof | Volcanic: a rounded tube mouth in a collapse hollow; the roof is thin |
 | `cathedral-caverns-interior-stalactites-loc-0290.jpg`, `-interior-loc-0292.jpg` (public domain) | Inside: hanging formations and a flowstone wall | For step 5.4 (stalactites), not the entrance |
 | `lava-tube-collapse-line-aerial-usgs.jpg` (public domain) | Aerial: a line of roof collapses along a lava tube | Background only: collapses line up along the tube |
+
+## Formation references (5.4, 2026-11-02)
+
+Downloaded with Mike's OK (D168, D169) to `E:/Projects/3D/Terrain Generator_Build/Terrain References/cave-formations/`
+(4 files, about 5.6 MB; licence and source page for each in `sources.json`). Internal reference only, never shipped.
+Already on disk and used with them: `cathedral-caverns-interior-stalactites-loc-0290.jpg`, `-interior-loc-0292.jpg`
+(cave-photos) and `flowstone-eroded-mammoth.jpg`, `flowstone-timpanogos.jpg` (cave-interiors).
+
+| File | Shows | For |
+|---|---|---|
+| `stalactites-jaskinia-niedzwiedzia.jpg` (CC BY-SA 4.0) | Limestone stalactites and flowstone | Limestone stalactites |
+| `stalagmite-vrelo-cave.jpg` (CC0) | A limestone stalagmite | Limestone stalagmites |
+| `lava-stalactites-lavacicles-mushpot.jpg` (CC BY-SA 3.0, Walter Siegmund) | Lava drips on a lava-tube roof, Lava Beds NM | Lava drips |
+| `lava-stalactites-tubular-hawaii.jpg` (CC BY-SA 3.0, Dave Bunnell) | Tubular lava stalactites, film canister for scale | Lava drips, size |
+
+No free photo of small lava drip mounds was found; the NSS virtual cave page (caves.org/virtualcave/drip-stalagmite) has one, licence not stated.

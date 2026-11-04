@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 181
+CAVE_VERSION = 182
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -448,7 +448,10 @@ CAVE_INPUTS = (
     # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
     ("Clusters", 'NodeSocketFloat', 0.85), ("Puddles", 'NodeSocketFloat', 0.5),  # mostly clusters, a few standing alone (Mike)
-) + tuple((f"{fam} {size}", 'NodeSocketCollection', None) for fam in ("Stalactites", "Stalagmites", "Columns", "Lava Drips", "Stalactite Clusters", "Stalagmite Clusters")
+    # Drapes drawn by the artist (D185): a curve on the roof, and how long, how full and how folded the curtains are.
+    ("Drape Lines", 'NodeSocketObject', None), ("Drape Length", 'NodeSocketFloat', 0.5), ("Drape Fullness", 'NodeSocketFloat', 0.8),
+    ("Drape Fold", 'NodeSocketFloat', 0.5),
+) + tuple((f"{fam} {size}", 'NodeSocketCollection', None) for fam in ("Stalactites", "Stalagmites", "Columns", "Lava Drips", "Stalactite Clusters", "Stalagmite Clusters", "Drapes")
           for size in ("Big", "Medium"))
 CAVE_DETAIL = (6.0, 8.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
 # Mike: Preview's bolder forms looked best, finer voxels broke the masses into thin stretched strips)
@@ -1841,6 +1844,44 @@ def cave_group():
     columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
                      Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
     t.L.new(columns, with_rocks.inputs[0])
+    # Drapes, drawn (5.4b, L6, D185; references c142, pieces c143): the artist draws lines on the roof (a curve
+    # object picked as Drape Lines); each line hangs a curtain of drape pieces laid end to end along it, half a
+    # piece apart so they overlap into one (Te Ananui, Boyden), each piece turned to run along the line, settled
+    # up onto the finished roof (the line was drawn on whatever Detail Level was showing) and hanging plumb.
+    # Limestone only. Drape Length: 10-50% of the entrance height, never past a third of the gap to the floor;
+    # Fullness keeps 30-100% of the pieces; Fold deepens the folds (the pieces' depth, 0.4x to 1.6x).
+    dl_info = t.node('GeometryNodeObjectInfo', Object=gin["Drape Lines"])
+    dl_info.transform_space = 'RELATIVE'
+    dl_len = t.math('MULTIPLY', H, t.math('ADD', 0.1, t.math('MULTIPLY', gin["Drape Length"], 0.4)))
+    dl_pts = t.N.new('GeometryNodeCurveToPoints')
+    dl_pts.mode = 'LENGTH'  # before linking: the mode adds the Length input
+    t._set(dl_pts.inputs["Curve"], dl_info.outputs["Geometry"])
+    t._set(dl_pts.inputs["Length"], t.math('MAXIMUM', t.math('MULTIPLY', dl_len, 0.5), 0.3))
+    dl = t.store(dl_pts.outputs["Points"], "dl_t", dl_pts.outputs["Tangent"], 'FLOAT_VECTOR')
+    dl = t.store(dl, "dl_id", t.node('GeometryNodeInputIndex').outputs[0], 'INT')
+    dlrand = lambda lo, hi, offset: rand(lo, hi, offset, t.named("dl_id", 'INT'))
+    dl_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
+                   Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=t.math('MULTIPLY', H, 0.5))
+    dl = t.store(dl, "dl_hit", t.math('MULTIPLY', dl_up.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(dl_up.outputs["Hit Normal"])["Z"], 0.2)))
+    dl = t.store(dl, "dl_roof", dl_up.outputs["Hit Position"], 'FLOAT_VECTOR')
+    dl = t.node('GeometryNodeDeleteGeometry', Geometry=dl, Selection=t.math('LESS_THAN', t.named("dl_hit"), 0.5)).outputs[0]
+    dl = t.node('GeometryNodeSetPosition', Geometry=dl, Position=t.named("dl_roof", 'FLOAT_VECTOR')).outputs[0]
+    dl_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, 0.05)), Ray_Direction=(0.0, 0.0, -1.0),
+                     Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))
+    dl = t.store(dl, "dl_gap", t.math('MULTIPLY', dl_down.outputs["Is Hit"], dl_down.outputs["Hit Distance"]))
+    dl_tan = t.named("dl_t", 'FLOAT_VECTOR')
+    dl_yaw = t.math('ARCTAN2', t.xyz(dl_tan)["Y"], t.xyz(dl_tan)["X"])
+    dl_l = t.math('MAXIMUM', t.math('MINIMUM', t.math('MULTIPLY', dl_len, dlrand(0.8, 1.2, 601)), t.math('MULTIPLY', t.named("dl_gap"), 0.33)), 0.61)
+    dl_fold = t.math('ADD', 0.4, t.math('MULTIPLY', gin["Drape Fold"], 1.2))
+    dl_keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), t.math('GREATER_THAN', t.named("dl_gap"), 3.0)),
+                     t.math('LESS_THAN', dlrand(0.0, 1.0, 603), t.math('ADD', 0.3, t.math('MULTIPLY', gin["Drape Fullness"], 0.7))))
+    dl_big = t.math('LESS_THAN', dlrand(0.0, 1.0, 605), 0.3)
+    for size, keep, k in (("Big", dl_big, 0.4), ("Medium", t.math('SUBTRACT', 1.0, dl_big), 1.0)):  # a Big piece is 2-3x a Medium: scaled to the same length
+        s = t.math('MULTIPLY', dl_l, k)
+        placed = t.node('GeometryNodeInstanceOnPoints', Points=dl, Selection=t.math('MULTIPLY', dl_keep, keep), Instance=library(f"Drapes {size}"),
+                        Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=dlrand(0.0, 9999.0, 607)).outputs[0],
+                        Rotation=t.vec(0.0, 0.0, dl_yaw), Scale=t.vec(s, t.math('MULTIPLY', s, dl_fold), s)).outputs[0]
+        t.L.new(placed, with_rocks.inputs[0])
     # Puddle water (5.4b, D180; as the landscapes' water level, Mike: to see how things shape up): a flat sheet
     # a quarter of the deepest dip under the silt's own level, cut a little wider than the pool so the floor
     # hides its edge (cut where the water showed, its stepped face edge stood over the floor); the waterline is

@@ -26,7 +26,8 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "wall_shape": "Wall Shape",
                 "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
                 "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
-                "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles"}
+                "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles",
+                "drape_length": "Drape Length", "drape_fullness": "Drape Fullness", "drape_fold": "Drape Fold"}
 
 
 def sync_cave(ob):
@@ -39,6 +40,7 @@ def sync_cave(ob):
     nodes.input_socket(mod, "Rock").value = ROCK_INDEX[ob.lg_cave.rock]
     nodes.input_socket(mod, "Show Mask").value = MASK_INDEX[ob.lg_cave.show_mask]
     nodes.input_socket(mod, "Mask Heatmap").value = ob.lg_cave.mask_colors == 'HEAT'
+    nodes.input_socket(mod, "Drape Lines").value = ob.lg_cave.drape_lines
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
@@ -59,7 +61,7 @@ def sync_cave(ob):
 
 # Formation family -> the cave's kit picker (empty: the library's own); lava drips are not placed (D171).
 FORMATION_KITS = {"Stalactites": "stalactite_kit", "Stalagmites": "stalagmite_kit", "Columns": "column_kit",
-                  "Stalactite Clusters": "stalactite_cluster_kit", "Stalagmite Clusters": "stalagmite_cluster_kit"}
+                  "Stalactite Clusters": "stalactite_cluster_kit", "Stalagmite Clusters": "stalagmite_cluster_kit", "Drapes": "drape_kit"}
 
 DETAIL_ITEMS = (('PREVIEW', "Preview", "Light and fast, for placing and shaping the cave"),
                 ('HIGH', "High", "Full rock detail for the finished cave"),
@@ -169,6 +171,17 @@ class LG_CaveProps(PropertyGroup):
                                             description="The stalactite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
     stalagmite_cluster_kit: PointerProperty(name="Stalagmite Clusters", type=bpy.types.Collection, update=_sync,
                                             description="The stalagmite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
+    # Drapes are drawn, not scattered (Mike, D185): a curve drawn on the roof, each line a continuous curtain.
+    drape_lines: PointerProperty(name="Drape Lines", type=bpy.types.Object, update=_sync, poll=lambda _self, o: o.type in {'CURVE', 'CURVES'},
+                                 description="A curve drawn on the cave's roof (Draw tool, projected onto the surface): each line hangs a curtain of drapes")
+    drape_length: FloatProperty(name="Drape Length", description="How far the curtains hang: short (0) to long (1), never past a third of the way to the floor",
+                                default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    drape_fullness: FloatProperty(name="Fullness", description="A broken row with gaps (0), or one solid curtain along each line (1)",
+                                  default=0.8, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    drape_fold: FloatProperty(name="Fold", description="Shallow ripples (0) to deep folds (1)",
+                              default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    drape_kit: PointerProperty(name="Drapes", type=bpy.types.Collection, update=_sync,
+                               description="The drape kit: a collection with Big and Medium collections inside (or one plain collection)")
     puddles: FloatProperty(name="Puddles", description="Water in hollows of the limestone floor's silt flats: none (0) to many (1). Plain water for now; the full water shader comes with the materials",
                            default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     rock: EnumProperty(name="Rock", description="What the cave is cut in: it sets the walls and the rocks lying in it",
@@ -200,7 +213,7 @@ class LG_OT_randomize_cave(Operator):
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
                "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
-               "formation_size", "formation_stretch", "clusters", "puddles")
+               "formation_size", "formation_stretch", "clusters", "puddles", "drape_length", "drape_fullness", "drape_fold")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -325,6 +338,17 @@ def draw_section(layout, context):
         sub.prop(props, "formation_size")
         sub.prop(props, "formation_stretch", slider=True)
         sub.prop(props, "clusters", slider=True)
+        sub.separator()
+        sub.prop(props, "drape_lines")
+        row = sub.row()
+        row.enabled = props.drape_lines is not None
+        row.prop(props, "drape_length", slider=True)
+        row = sub.row()
+        row.enabled = props.drape_lines is not None
+        row.prop(props, "drape_fullness", slider=True)
+        row = sub.row()
+        row.enabled = props.drape_lines is not None
+        row.prop(props, "drape_fold", slider=True)
     row = col.row(align=True)  # as on the landscapes
     row.prop(props, "seed")
     row.operator(LG_OT_randomize_cave.bl_idname, text="Randomize", icon='FILE_REFRESH')

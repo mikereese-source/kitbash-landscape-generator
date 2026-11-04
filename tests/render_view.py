@@ -34,6 +34,15 @@ if 'LG_ROUGH' in os.environ: c.roughness = float(os.environ['LG_ROUGH'])
 c.separate = os.environ.get('LG_SEP', '1') == '1'
 if os.environ.get('LG_MASK'): c.show_mask = os.environ['LG_MASK']; c.mask_colors = os.environ.get('LG_COLS', 'GRAY'); ob.data.color_attributes.active_color_name = 'lg_view'
 if 'LG_WS' in os.environ: c.wall_shape = float(os.environ['LG_WS'])
+if os.environ.get('LG_DRAPES'):   # a drawn drape line: "x,y,z;x,y,z;..." on the roof, as a poly curve (D185)
+    cu = bpy.data.curves.new("Drape Lines", 'CURVE'); cu.dimensions = '3D'
+    pts = [tuple(float(v) for v in p.split(',')) for p in os.environ['LG_DRAPES'].split(';')]
+    sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1)
+    for p_, xyz in zip(sp.points, pts): p_.co = (*xyz, 1.0)
+    lo = bpy.data.objects.new("Drape Lines", cu); sc.collection.objects.link(lo); lo.hide_render = True
+    c.drape_lines = lo
+    for k in ('LG_DL', 'LG_DF', 'LG_DFOLD'):
+        if k in os.environ: setattr(c, {'LG_DL': 'drape_length', 'LG_DF': 'drape_fullness', 'LG_DFOLD': 'drape_fold'}[k], float(os.environ[k]))
 lg.caves.sync_cave(ob)
 if os.environ.get('LG_FINFO'):
     import collections

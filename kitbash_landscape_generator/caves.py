@@ -158,7 +158,7 @@ class LG_CaveProps(PropertyGroup):
     formation_stretch: FloatProperty(name="Stretch", description="Short and stubby (0), or long and thin (1)",
                                      default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     clusters: FloatProperty(name="Clusters", description="Single pieces (0), or many grown together into clusters (1)",
-                            default=0.45, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+                            default=0.85, min=0.0, max=1.0, subtype='FACTOR', update=_sync)  # mostly clusters (Mike)
     stalactite_kit: PointerProperty(name="Stalactites", type=bpy.types.Collection, update=_sync,
                                     description="The stalactite kit: a collection with Big and Medium collections inside (or one plain collection)")
     stalagmite_kit: PointerProperty(name="Stalagmites", type=bpy.types.Collection, update=_sync,

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 172
+CAVE_VERSION = 173
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -447,7 +447,7 @@ CAVE_INPUTS = (
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
     # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
-    ("Clusters", 'NodeSocketFloat', 0.45),
+    ("Clusters", 'NodeSocketFloat', 0.85),  # mostly clusters, a few standing alone (Mike)
 ) + tuple((f"{fam} {size}", 'NodeSocketCollection', None) for fam in ("Stalactites", "Stalagmites", "Columns", "Lava Drips", "Stalactite Clusters", "Stalagmite Clusters")
           for size in ("Big", "Medium"))
 CAVE_DETAIL = (6.0, 8.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
@@ -1727,7 +1727,7 @@ def cave_group():
         f_pokes = ray.outputs["Is Hit"] if f_pokes is None else t.math('MAXIMUM', f_pokes, ray.outputs["Is Hit"])
     mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_keep),
                        t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 461), 0.7), t.math('SUBTRACT', 1.0, f_pokes))))
-    mite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 473), t.math('MULTIPLY', gin["Clusters"], 0.8))
+    mite_cl = t.math('LESS_THAN', rand(0.0, 1.0, 473), gin["Clusters"])
     mite_big = t.math('GREATER_THAN', r_high, 0.71)
     grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)
     grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big)

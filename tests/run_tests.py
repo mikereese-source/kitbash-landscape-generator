@@ -930,6 +930,56 @@ def _t31():
     return f"{len(sizes)} islands, {square:.0%} square, {even:.0%} even"
 
 
+@test("T15", "Stalactites hang, stalagmites stand")
+def _t15():
+    # 5.4 (D168-D173): formations only in limestone; stalactites hang plumb from the roof with their pivot on it,
+    # stalagmites stand on the floor sunk a little, none floats, none under 2 ft (Mike); none in jointed or lava.
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    c.chamber, c.ceiling, c.formations = 30.0, 16.0, 1.0
+
+    def pieces():
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        bvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(f.vertices) for f in me.polygons])
+        ev.to_mesh_clear()
+        out = [(i.object.name, i.matrix_world.copy(), np.ptp([v.co.z for v in i.object.data.vertices])) for i in dg.object_instances
+               if i.is_instance and i.parent and i.parent.original == ob and "KB Formation" in i.object.name]
+        return out, bvh
+    found, bvh = pieces()
+    hang = [f for f in found if "Stalactite" in f[0]]
+    stand = [f for f in found if "Stalagmite" in f[0]]
+    check(len(hang) > 5 and len(stand) > 2, f"limestone should grow stalactites and stalagmites: {len(hang)} and {len(stand)}")
+    for name, m, tall in found:
+        up = (m.to_3x3() @ Vector((0, 0, 1))).normalized()
+        check(up.z > 0.999, f"{name} is tipped ({up.z:.3f}); formations grow plumb")
+        check(tall * m.to_scale().z > 0.6, f"{name} is {tall * m.to_scale().z:.2f} m; none under 2 ft")
+    for name, m, _tall in hang:
+        p = m.translation
+        hit = bvh.ray_cast(p - Vector((0, 0, 1.0)), Vector((0, 0, 1)), 3.0)
+        check(hit[0] is not None and abs(hit[3] - 1.0) < 0.05, f"{name} pivot is off the roof by {None if hit[0] is None else round(hit[3] - 1.0, 3)} m")
+    for name, m, _tall in stand:
+        p = m.translation
+        hit = bvh.ray_cast(p + Vector((0, 0, 1.0)), Vector((0, 0, -1)), 3.0)
+        sunk = None if hit[0] is None else hit[3] - 1.0
+        check(sunk is not None and -0.02 < -sunk < 0.2, f"{name} should sit sunk 0-0.2 m into the floor: {sunk}")
+    n_lime = len(found)
+    rest = {}
+    for rock in ('JOINTED', 'LAVA'):
+        c.rock = rock
+        rest[rock] = len(pieces()[0])
+    check(not any(rest.values()), f"jointed and lava grow no formations: {rest}")
+    c.rock, c.formations = 'LIMESTONE', 0.0
+    check(not pieces()[0], "Formations 0 should grow none")
+    return f"{len(hang)} stalactites on the roof, {len(stand)} stalagmites set in the floor, all plumb and over 2 ft; none in jointed or lava, none at 0 ({n_lime} at 1)"
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

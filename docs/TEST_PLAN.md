@@ -30,7 +30,7 @@ An artist can add any of the 12 landscape types, fit it to their scene at any si
 | T13 | M7 | Auto-material | manual | Steep = rock, flat = ground, low pockets = sediment, high = snow in Cycles and Eevee | |
 | T14 | M5 | Cave is hollow | auto | Ray from inside the cave hits terrain in all directions; mesh is manifold | |
 | T30 | M5 | Cave patch watertight, local, real size | auto | Only the landscape border is open, no non-manifold edges, points away from the cave unchanged, cave keeps its width when the landscape doubles | PASS 2026-10-28 |
-| T15 | M5 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only | |
+| T15 | M5 | Stalactites hang, stalagmites stand | auto | Spikes point down from ceilings and up from floors only: limestone grows them, pivots on the roof and sunk 0-0.2 m into the floor, all plumb, none under 2 ft; none in jointed or lava, none at Formations 0 | PASS 2026-11-04 |
 | T16 | M7 | Caves texture without UVs | manual | No stretching on cave walls | |
 | T17 | M8 | Save, reopen, rescale | manual | A saved file reopens identical and still rescales correctly | |
 | T18 | M1 | Landscape tab | auto | A "Landscape" tab exists in the 3D Viewport sidebar; Add Landscape sits at the top and creates a landscape at the 3D cursor || PASS 2026-10-22 (auto part; button-at-top is a manual check) |

@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 173
+CAVE_VERSION = 174
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1495,6 +1495,23 @@ def cave_group():
     # over the bench's top, an overhanging lip with a dark slot and teeth under it (Mike's shot).
     lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.math('MULTIPLY', t.smooth(nz, -0.1, 0.5), t.smooth(t_hn, 0.3, 0.6)))
     lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R))
+
+    # Lava floor flow lobes (5.4b, D175; the Stefanshellir floor on docs/m5/c131): the floor rises in rounded
+    # pahoehoe tongues drawn out along the tube, flat-topped with rounded edges, overlapping, 4-10% of the
+    # entrance high (Wall Shape scales them; softer and lower they read as nothing), with a lower channel down the middle where the last lava drained.
+    # Lifted straight up like the bench, on the floor only, eased in and out as the bench is, and spread over
+    # the surface so nothing steps or folds. The cauliflower grain is roughness / M7 (Mike).
+    # About 2.5 times as long as wide: drawn out further they ran as thin ridges, the gaps between pinched into
+    # creases like folded cloth. Kept to the middle of the floor, clear of the bench along the walls.
+    tongue = t.smooth(t.math('ADD', t_noise(rr(0.9), rr(0.36), rr(4.0), 2.0, 1.0), t.math('MULTIPLY', t_noise(rr(0.45), rr(0.18), rr(4.0), 1.0, 1.0), 0.4)), -0.06, 0.1)
+    channel = t.math('MULTIPLY', t.smooth(t.math('ABSOLUTE', tb["Y"]), rr(0.08), rr(0.26)), t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', tb["Y"]), rr(0.5), rr(0.75))))
+    lobe_lift = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', tongue, channel), t.math('MULTIPLY', H, t.math('ADD', 0.04, t.math('MULTIPLY', F, 0.06)))),
+                       t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, wall), bench_in), t.math('COMPARE', gin["Rock"], 2.0)))
+    l_blur = t.N.new('GeometryNodeBlurAttribute')
+    l_blur.data_type = 'FLOAT'
+    t._set(l_blur.inputs["Value"], lobe_lift)
+    t._set(l_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('POWER', 2.0, levels)).outputs[0])  # lighter than the bench's: the tongues kept their edges
+    bench = t.vec(0.0, 0.0, t.math('ADD', b_blur.outputs["Value"], l_blur.outputs["Value"]))
 
     style = t.N.new('GeometryNodeIndexSwitch')
     style.data_type = 'FLOAT'

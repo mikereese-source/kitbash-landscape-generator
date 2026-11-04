@@ -155,7 +155,8 @@ def _cluster(family, rng, design, scale, grid):
 def ensure_library():
     """Build (or rebuild, when this code changes) the formation library. Returns the top collection."""
     top = bpy.data.collections.get(LIBRARY)
-    if top is not None and top.get("kb_version") == LIBRARY_VERSION and len(top.children) == len(FAMILIES):
+    # Its pieces deleted (a scene cleared of every object) counts as missing too: kits left empty grew nothing.
+    if top is not None and top.get("kb_version") == LIBRARY_VERSION and len(top.children) == len(FAMILIES) and top.all_objects:
         return top
     if top is None:
         top = bpy.data.collections.new(LIBRARY)

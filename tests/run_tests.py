@@ -607,6 +607,9 @@ def cave_mesh(ob):
     me = ev.to_mesh()
     bm = bmesh.new()
     bm.from_mesh(me)
+    lw = bm.verts.layers.bool.get("lg_water")  # puddle water is its own open sheet, split off at bake like the landscapes' (D180)
+    if lw is not None:
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v[lw]], context='VERTS')
     closed = all(e.is_manifold for e in bm.edges) and len(bm.edges) > 0
     # One piece: loose bits floating off the cave (Mike) count as a second island.
     seen, islands = set(), 0

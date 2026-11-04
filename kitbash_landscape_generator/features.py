@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 177
+CAVE_VERSION = 178
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -447,7 +447,7 @@ CAVE_INPUTS = (
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
     # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
-    ("Clusters", 'NodeSocketFloat', 0.85),  # mostly clusters, a few standing alone (Mike)
+    ("Clusters", 'NodeSocketFloat', 0.85), ("Puddles", 'NodeSocketFloat', 0.5),  # mostly clusters, a few standing alone (Mike)
 ) + tuple((f"{fam} {size}", 'NodeSocketCollection', None) for fam in ("Stalactites", "Stalagmites", "Columns", "Lava Drips", "Stalactite Clusters", "Stalagmite Clusters")
           for size in ("Big", "Medium"))
 CAVE_DETAIL = (6.0, 8.0, 8.0)  # voxels across the smaller of the entrance's half width and height (shape only;
@@ -1313,6 +1313,7 @@ def cave_group():
     rr = lambda k: t.math('MULTIPLY', r, k)
     grain = noise(rr(0.25), rr(0.25), rr(0.25), 3.0, rr(0.05))  # the smallest the shell shows, every rock
     floor_bump = t.math('MULTIPLY', noise(r, r, r, 4.0, 1.0), t.math('MULTIPLY', t.math('MULTIPLY', H, 0.06), R))
+    floor_bump = t.math('MULTIPLY', floor_bump, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), 0.75)))  # limestone: a level silt floor (D180)
 
     # Lava and limestone are read in tube space (D148, Mike: 3D noise sliced by the curved wall made round shapes
     # that don't exist in lava tubes): along the tube, out to the side and up over the floor, so every form runs with the
@@ -1515,7 +1516,23 @@ def cave_group():
     l_full = t.math('MULTIPLY', H, t.math('ADD', 0.04, t.math('MULTIPLY', F, 0.06)))
     crust = t.math('MULTIPLY', blocks(rr(0.06), t.math('MULTIPLY', t.math('MULTIPLY', l_full, 0.5), t.math('ADD', 0.4, R)), 63.1, 1.0, 0.12),  # about 2 m slabs; Roughness sets how broken
                    t.smooth(l_blur.outputs["Value"], 0.0, t.math('MULTIPLY', l_full, 0.15)))
-    bench = t.vec(0.0, 0.0, t.math('ADD', b_blur.outputs["Value"], t.math('ADD', l_blur.outputs["Value"], crust)))
+    # Limestone silt floor (5.4b, D175, D180; the Mammoth passages): level flats (the floor's bumps cut to a
+    # quarter, above), banked gently up against the walls, about 3% of the entrance high, and puddle hollows in
+    # the flats (the Ayyalon pool, the Marble Arch gours): shallow dips up to 2% of the entrance deep, off the
+    # walls and past the cave's front, soft-edged. Puddles sets how many (0 none). Each holds a water plane
+    # (below) and fills lg_depth for the M7 water.
+    lime_rock_f = t.math('LESS_THAN', gin["Rock"], 0.5)
+    bank = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', H, 0.03), t.math('SUBTRACT', 1.0, t.smooth(to_wall, rr(0.05), rr(0.35)))),
+                  t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.04), t.math('MULTIPLY', H, 0.12))), lime_rock_f))
+    pool_n = t_noise(rr(0.55), rr(0.45), rr(4.0), 1.0, 1.0)
+    pool = t.smooth(pool_n, t.math('SUBTRACT', 0.16, t.math('MULTIPLY', gin["Puddles"], 0.24)), t.math('SUBTRACT', 0.24, t.math('MULTIPLY', gin["Puddles"], 0.24)))  # Puddles 0.5: about a quarter of the open floor
+    pool = t.math('MULTIPLY', t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(to_wall, rr(0.25), rr(0.45)), t.math('SUBTRACT', 1.0, wall))),
+                  t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(p_s, 0.2, 0.3), lime_rock_f), t.math('GREATER_THAN', gin["Puddles"], 0.0)))
+    # Only down at floor level and never on a rock piece (a roof block's underside faces down like floor).
+    pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.05), t.math('MULTIPLY', H, 0.1))),
+                                          t.math('SUBTRACT', 1.0, t.named("lg_piece", 'BOOLEAN'))))
+    pool_d = t.math('MULTIPLY', pool, t.math('MULTIPLY', H, 0.02))
+    bench = t.vec(0.0, 0.0, t.math('ADD', t.math('ADD', b_blur.outputs["Value"], t.math('ADD', l_blur.outputs["Value"], crust)), t.math('SUBTRACT', bank, pool_d)))
 
     style = t.N.new('GeometryNodeIndexSwitch')
     style.data_type = 'FLOAT'
@@ -1530,7 +1547,7 @@ def cave_group():
     bump = t.math('ADD', t.math('ADD', t.math('MULTIPLY', style.outputs[0], wall), floor_bump),
                   t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', lava_out, F), wall), t.smooth(t_hn, 0.02, 0.3)))
     # The shell is only the cave's shape; rocks never touch it (Mike, D107).
-    pushes = t.store(t.store(dense, "lg_push", t.vmath('ADD', t.vmath('SCALE', push, scale=bump), bench), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')
+    pushes = t.store(t.store(t.store(dense, "lg_pool", pool_d), "lg_push", t.vmath('ADD', t.vmath('SCALE', push, scale=bump), bench), 'FLOAT_VECTOR'), "lg_n0", push, 'FLOAT_VECTOR')
     pushed = t.node('GeometryNodeSetPosition', Geometry=pushes,
                     Offset=t.named("lg_push", 'FLOAT_VECTOR')).outputs[0]
     # Where the push still folds the wall through itself (a face turned to look away from where it looked
@@ -1591,7 +1608,8 @@ def cave_group():
     m_wear = t.math('SUBTRACT', 1.0, t.smooth(m_curv, 0.2, 0.5))
     m_dep = t.math('MULTIPLY', t.math('MULTIPLY', m_floor, t.math('SUBTRACT', 1.0, m_slope)), t.smooth(m_curv, 0.3, 0.6))
     maps = (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv), ("lg_flow", m_flow),
-            ("lg_wear", m_wear), ("lg_deposit", m_dep), ("lg_depth", 0.0))
+            ("lg_wear", m_wear), ("lg_deposit", m_dep),
+            ("lg_depth", t.math('MINIMUM', t.math('DIVIDE', t.named("lg_pool"), t.math('MAXIMUM', t.math('MULTIPLY', H, 0.02), 1e-3)), 1.0)))
     for m_name, m_val in maps:
         smooth = t.store(smooth, m_name, m_val)
     # The viewer: the picked map as a colour the viewport shows in Solid mode, grey or heatmap (as nodes.py).
@@ -1817,6 +1835,28 @@ def cave_group():
     columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
                      Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, rand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
     t.L.new(columns, with_rocks.inputs[0])
+    # Puddle water (5.4b, D180; as the landscapes' water level, Mike: to see how things shape up): a flat sheet
+    # a quarter of the deepest dip under the silt's own level, cut a little wider than the pool so the floor
+    # hides its edge (cut where the water showed, its stepped face edge stood over the floor); the waterline is
+    # where the hollow's smooth slope meets it. The landscapes' plain water material, marked lg_water.
+    from .nodes import water_material
+    p_full = t.math('MULTIPLY', H, 0.02)
+    w_faces = t.N.new('GeometryNodeSeparateGeometry')
+    w_faces.domain = 'FACE'
+    t._set(w_faces.inputs["Geometry"], smooth)
+    t._set(w_faces.inputs["Selection"], t.math('GREATER_THAN', t.named("lg_pool"), t.math('MULTIPLY', p_full, 0.1)))
+    w_up = t.node('GeometryNodeSetPosition', Geometry=w_faces.outputs["Selection"],
+                  Offset=t.vec(0.0, 0.0, t.math('SUBTRACT', t.named("lg_pool"), t.math('MULTIPLY', p_full, 0.25)))).outputs[0]
+    w_level = t.N.new('GeometryNodeBlurAttribute')
+    w_level.data_type = 'FLOAT'
+    t._set(w_level.inputs["Value"], t.xyz(t.position())["Z"])
+    w_level.inputs["Iterations"].default_value = 8
+    w_up = t.node('GeometryNodeSetPosition', Geometry=w_up, Position=t.vec(t.xyz(t.position())["X"], t.xyz(t.position())["Y"], w_level.outputs["Value"])).outputs[0]
+    w_up = t.store(t.node('GeometryNodeSetShadeSmooth', Geometry=w_up).outputs[0], "lg_water", True, 'BOOLEAN', 'POINT')
+    w_mat = t.N.new('GeometryNodeSetMaterial')
+    w_mat.inputs["Material"].default_value = water_material()
+    t._set(w_mat.inputs["Geometry"], w_up)
+    t.L.new(w_mat.outputs[0], with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

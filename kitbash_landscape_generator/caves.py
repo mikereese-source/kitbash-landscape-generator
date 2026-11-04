@@ -26,7 +26,7 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "ceiling": "Ceiling Height", "chamber_drop": "Chamber Drop", "ramp": "Ramp", "rubble": "Rubble", "wall_shape": "Wall Shape",
                 "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
                 "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
-                "formation_stretch": "Formation Stretch", "clusters": "Clusters"}
+                "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles"}
 
 
 def sync_cave(ob):
@@ -169,6 +169,8 @@ class LG_CaveProps(PropertyGroup):
                                             description="The stalactite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
     stalagmite_cluster_kit: PointerProperty(name="Stalagmite Clusters", type=bpy.types.Collection, update=_sync,
                                             description="The stalagmite cluster kit: a collection with Big and Medium collections inside (or one plain collection)")
+    puddles: FloatProperty(name="Puddles", description="Water in hollows of the limestone floor's silt flats: none (0) to many (1). Plain water for now; the full water shader comes with the materials",
+                           default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     rock: EnumProperty(name="Rock", description="What the cave is cut in: it sets the walls and the rocks lying in it",
                        items=ROCK_ITEMS, default='LIMESTONE', update=_rock_changed)
     # Which rock kits: rocks.py builds KB Cave Rocks (four kits, each Big / Medium / Small); any collection works.
@@ -198,7 +200,7 @@ class LG_OT_randomize_cave(Operator):
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
                "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
-               "formation_size", "formation_stretch", "clusters")
+               "formation_size", "formation_stretch", "clusters", "puddles")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -300,6 +302,9 @@ def draw_section(layout, context):
     col.prop(props, "rubble", slider=True)
     col.prop(props, "wall_shape", slider=True)
     col.prop(props, "formations", slider=True)
+    row = col.row()
+    row.enabled = props.rock == 'LIMESTONE'
+    row.prop(props, "puddles", slider=True)
     header, sub = box.panel("lg_cave_rocks", default_closed=False)
     header.label(text="Rocks")
     if sub:

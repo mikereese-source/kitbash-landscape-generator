@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 174
+CAVE_VERSION = 175
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1503,15 +1503,21 @@ def cave_group():
     # the surface so nothing steps or folds. The cauliflower grain is roughness / M7 (Mike).
     # About 2.5 times as long as wide: drawn out further they ran as thin ridges, the gaps between pinched into
     # creases like folded cloth. Kept to the middle of the floor, clear of the bench along the walls.
-    tongue = t.smooth(t.math('ADD', t_noise(rr(0.9), rr(0.36), rr(4.0), 2.0, 1.0), t.math('MULTIPLY', t_noise(rr(0.45), rr(0.18), rr(4.0), 1.0, 1.0), 0.4)), -0.06, 0.1)
+    tongue = t.smooth(t.math('ADD', t_noise(rr(0.9), rr(0.36), rr(4.0), 2.0, 1.0), t.math('MULTIPLY', t_noise(rr(0.45), rr(0.18), rr(4.0), 1.0, 1.0), 0.4)), -0.05, 0.086)  # edges 15% sharper (Mike)
     channel = t.math('MULTIPLY', t.smooth(t.math('ABSOLUTE', tb["Y"]), rr(0.08), rr(0.26)), t.math('SUBTRACT', 1.0, t.smooth(t.math('ABSOLUTE', tb["Y"]), rr(0.5), rr(0.75))))
     lobe_lift = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', tongue, channel), t.math('MULTIPLY', H, t.math('ADD', 0.04, t.math('MULTIPLY', F, 0.06)))),
                        t.math('MULTIPLY', t.math('MULTIPLY', t.math('SUBTRACT', 1.0, wall), bench_in), t.math('COMPARE', gin["Rock"], 2.0)))
     l_blur = t.N.new('GeometryNodeBlurAttribute')
     l_blur.data_type = 'FLOAT'
     t._set(l_blur.inputs["Value"], lobe_lift)
-    t._set(l_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('POWER', 2.0, levels)).outputs[0])  # lighter than the bench's: the tongues kept their edges
-    bench = t.vec(0.0, 0.0, t.math('ADD', b_blur.outputs["Value"], l_blur.outputs["Value"]))
+    t._set(l_blur.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('POWER', 2.0, levels), 0.85)).outputs[0])  # lighter than the bench's: the tongues kept their edges
+    # Broken crust over the lobes (Mike: more rock-like): the lobes' skin cracked into slabs about 2 m across,
+    # flat-faced with sharp seams (the jointed walls' blocks; smooth noise read as soft streaks), stepping about
+    # half a lobe's height; on the lobes only (masked by the blurred lift, full from 15% up, easing off at their feet; the blurred lift seldom nears full height).
+    l_full = t.math('MULTIPLY', H, t.math('ADD', 0.04, t.math('MULTIPLY', F, 0.06)))
+    crust = t.math('MULTIPLY', blocks(rr(0.06), t.math('MULTIPLY', t.math('MULTIPLY', l_full, 0.5), t.math('ADD', 0.4, R)), 63.1, 1.0, 0.12),  # about 2 m slabs; Roughness sets how broken
+                   t.smooth(l_blur.outputs["Value"], 0.0, t.math('MULTIPLY', l_full, 0.15)))
+    bench = t.vec(0.0, 0.0, t.math('ADD', b_blur.outputs["Value"], t.math('ADD', l_blur.outputs["Value"], crust)))
 
     style = t.N.new('GeometryNodeIndexSwitch')
     style.data_type = 'FLOAT'

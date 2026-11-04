@@ -16,10 +16,13 @@ from mathutils import Vector, noise
 from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 5
+LIBRARY_VERSION = 7
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
 SIZES = ROCK_SIZES[:2]
+# Faces per piece at each Detail Level, a single or a whole cluster alike (Mike: about 300 / 3,000-5,000 /
+# 10,000, bold pieces with real detail): the cube-sphere's grid per side, 6 x n x n faces.
+LEVEL_GRID = {"Preview": 7, "High": 26, "Ultra": 41}
 # A medium piece is 1 long (a column 1 tall); big and small ones are that times their size (rocks.SIZES).
 # Hanging pieces have their pivot on the roof and hang down -Z; standing pieces stand up +Z from the floor.
 # Each runs on past its pivot into the rock (EMBED of its length), so it sits set in, never on top.
@@ -29,16 +32,37 @@ FAMILIES = {
     "Stalagmites": 53,  # L4: blunt round top, knobby stacked lobes, flared skirt
     "Columns": 59,      # L5: a stalactite and stalagmite grown together, fluted, narrowest near the join
     "Lava Drips": 61,   # V1: stubby shark teeth off a glazed lava-tube roof
-    # One asset each, several members grown together (Mike: close ones become one piece, not a scatter;
-    # L1's roots merging): the members' roots or skirts overlap, so it reads as one mass.
+    # Clusters: one asset each, a few laid-out designs (Mike: our own clusters, built once, spread around;
+    # cleaner and fewer polygons than random ones unioned, which left odd bits sticking out).
     "Stalactite Clusters": 67,
     "Stalagmite Clusters": 71,
 }
-CLUSTERS = {"Stalactite Clusters": ("Stalactites", 3, 6, 0.1, 0.28), "Stalagmite Clusters": ("Stalagmites", 2, 5, 0.15, 0.4)}  # member, how many, how far apart
+# Each design: (size against the lead, x, y) per member, the lead first; units of the lead's length. No member
+# under 70% of the lead (smaller ones only poked out of the others), and far enough apart that the bodies
+# never pass through each other: stalactites meet only at the flared roots by the roof (L1), stalagmites
+# only where their skirts run together on the floor. No Boolean: each member stays whole, all quads.
+CLUSTERS = {
+    "Stalactite Clusters": ("Stalactites", (
+        ((1.0, 0.0, 0.0), (0.8, 0.28, 0.02)),                                         # pair
+        ((1.0, 0.0, 0.0), (0.85, 0.28, 0.04), (0.75, -0.27, -0.03)),                  # trio in a row
+        ((1.0, 0.0, 0.0), (0.8, 0.24, 0.17), (0.8, -0.06, -0.29)),                    # trio in a knot
+        ((0.75, -0.56, 0.0), (0.9, -0.28, 0.03), (1.0, 0.0, 0.0), (0.85, 0.28, -0.02), (0.75, 0.56, 0.02)),  # fringe along a crack (L2)
+        ((1.0, 0.0, 0.0), (0.9, 0.28, 0.0), (0.85, 0.0, 0.28), (0.8, 0.29, 0.29)),     # block of four
+        ((1.0, 0.0, 0.0), (0.7, 0.27, 0.12), (0.7, -0.27, 0.12)),                     # lead and two flanks
+    )),
+    "Stalagmite Clusters": ("Stalagmites", (
+        ((1.0, 0.0, 0.0), (0.8, 0.46, 0.0)),                                          # pair
+        ((1.0, 0.0, 0.0), (0.95, 0.44, 0.06)),                                        # twins
+        ((1.0, 0.0, 0.0), (0.85, 0.46, 0.06), (0.75, -0.44, -0.02)),                  # trio in a row
+        ((1.0, 0.0, 0.0), (0.8, 0.4, 0.26), (0.8, -0.08, -0.46)),                     # trio in a knot
+        ((1.0, 0.0, 0.0), (0.9, 0.46, 0.0), (0.8, 0.0, 0.46), (0.75, 0.46, 0.46)),     # block of four
+        ((1.0, 0.0, 0.0), (0.7, 0.44, -0.1), (0.7, -0.22, 0.4)),                      # lead and two smaller
+    )),
+}
 HANGING = {"Stalactites", "Lava Drips", "Stalactite Clusters"}
 
 
-def _lathe(subdivisions, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
+def _lathe(grid, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
     """A closed all-quad shape turned round the Z axis (Mike: all quads): the rocks' cube-sphere, each point
     moved onto the shape. The side faces carry the body from z0 to z1, its radius(u, phi) for u 0..1 along it;
     an end with a height (top, bottom) is a round cap on the cube's end face, the end without one runs on to a
@@ -47,7 +71,7 @@ def _lathe(subdivisions, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
     root came out a flat disc at the roof line)."""
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=2.0)
-    cuts = max(round(1.25 * 2 ** subdivisions) - 1, 1)
+    cuts = max(grid - 1, 1)
     bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True)
     lo, hi = (0.25 if top else 0.0), (0.75 if bottom else 1.0)
     away = 1.0 if z0 > z1 else -1.0  # the top end's way out of the body
@@ -68,7 +92,7 @@ def _lathe(subdivisions, radius, z0, z1, top=0.0, bottom=0.0, sway=None):
     return bm
 
 
-def _piece(family, rng, scale, subdivisions):
+def _piece(family, rng, scale, grid, slim=False):
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     lump = lambda u, phi, f: noise.noise(Vector((math.cos(phi) * f * 0.3, math.sin(phi) * f * 0.3, u * f)) + off)
     if family == "Stalactites":
@@ -78,18 +102,18 @@ def _piece(family, rng, scale, subdivisions):
         taper, flare, fall = rng.uniform(0.9, 1.3), rng.uniform(0.4, 0.8), rng.uniform(5.0, 9.0)
         drift = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized() * rng.uniform(0.0, 0.03)
         radius = lambda u, phi: R * ((1.0 - u) ** taper + flare * math.exp(-u * fall)) * (1.0 + 0.06 * lump(u, phi, 18.0))
-        bm = _lathe(subdivisions, radius, 0.0, -1.0, top=EMBED, sway=lambda u: (drift.x * u * u, drift.y * u * u))
+        bm = _lathe(grid, radius, 0.0, -1.0, top=EMBED, sway=lambda u: (drift.x * u * u, drift.y * u * u))
     elif family == "Lava Drips":
         # V1: stubby, 1-3x as long as wide, swollen like a drop that set, the root spread into the glaze.
         R = 0.5 / rng.uniform(1.0, 3.0)
         taper, spread = rng.uniform(0.55, 0.85), rng.uniform(0.2, 0.4)
         bend = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized() * rng.uniform(0.0, 0.1)
         radius = lambda u, phi: R * ((1.0 - u) ** taper + spread * math.exp(-u * 4.0)) * (1.0 + 0.12 * lump(u, phi, 6.0))
-        bm = _lathe(subdivisions, radius, 0.0, -1.0, top=EMBED, sway=lambda u: (bend.x * u * u, bend.y * u * u))
+        bm = _lathe(grid, radius, 0.0, -1.0, top=EMBED, sway=lambda u: (bend.x * u * u, bend.y * u * u))
     elif family == "Stalagmites":
         # L4: 1.5-3x as tall as wide, a round blunt top, stacked lobes up the side, a skirt flared into the floor.
         # Stands from the floor (z 0) to its top (z 1); u runs down from the top.
-        R = 0.5 / rng.uniform(1.5, 3.0)
+        R = 0.5 / (rng.uniform(2.4, 3.0) if slim else rng.uniform(1.5, 3.0))  # slim in a cluster, so neighbours stand clear
         cap = 0.9 * R
         skirt = rng.uniform(0.35, 0.6)
 
@@ -97,7 +121,7 @@ def _piece(family, rng, scale, subdivisions):
             # knobs of every size, not rings (rings read as a screw against the Vrelo photo)
             lobes = 1.0 + 0.1 * lump(u, phi, 5.0) + 0.06 * lump(u, phi, 14.0)
             return R * (0.8 + 0.25 * u + skirt * math.exp(-(1.0 - u) * 5.0)) * lobes
-        bm = _lathe(subdivisions, radius, 1.0 - cap, 0.0, top=cap, bottom=EMBED)
+        bm = _lathe(grid, radius, 1.0 - cap, 0.0, top=cap, bottom=EMBED)
     else:  # Columns
         # L5: a stalactite from the roof and a stalagmite from the floor grown together; narrowest near where they
         # met, flared at both ends, fluted round and banded along. From the floor (z 0) to the roof (z 1).
@@ -108,60 +132,24 @@ def _piece(family, rng, scale, subdivisions):
         def radius(u, phi):
             r = R * (0.8 + 0.4 * abs(u - join) + 0.5 * math.exp(-u * 5.0) + 0.6 * math.exp(-(1.0 - u) * 5.0))
             return r * (1.0 + 0.09 * math.cos(flutes * phi + twist + 3.0 * u) + 0.05 * lump(u, phi, 8.0)) * (1.0 + 0.04 * math.sin(u * 40.0))
-        bm = _lathe(subdivisions, radius, 1.0, 0.0, top=EMBED, bottom=EMBED)
+        bm = _lathe(grid, radius, 1.0, 0.0, top=EMBED, bottom=EMBED)
     for v in bm.verts:
         v.co *= scale
     return bm
 
 
-def _union(meshes):
-    """One continuous closed mesh from overlapping closed meshes (Mike: a cluster is one mesh, not pieces
-    poking through each other): an exact Boolean union, evaluated in a scratch collection of the open scene
-    (a scene of its own has no depsgraph until Blender draws it).
-    The seams come out in triangles; those that pair up are joined back into quads."""
-    scratch = bpy.data.collections.new("KB Formation Union")
-    bpy.context.scene.collection.children.link(scratch)
-    rest = bpy.data.collections.new("KB Formation Union Rest")
-    obs = [bpy.data.objects.new("KB Union Part", me) for me in meshes]
-    for ob in obs:
-        scratch.objects.link(ob)
-    for ob in obs[1:]:
-        rest.objects.link(ob)
-    mod = obs[0].modifiers.new("Union", 'BOOLEAN')
-    mod.operation, mod.operand_type, mod.collection, mod.solver = 'UNION', 'COLLECTION', rest, 'EXACT'
-    dg = bpy.context.evaluated_depsgraph_get()
-    dg.update()
-    joined = bpy.data.meshes.new_from_object(obs[0].evaluated_get(dg))
-    for ob in obs:
-        bpy.data.objects.remove(ob)
-    for me in meshes:
-        bpy.data.meshes.remove(me)
-    bpy.data.collections.remove(rest)
-    bpy.data.collections.remove(scratch)
+def _cluster(family, rng, design, scale, grid):
+    """One laid-out cluster: its members, each whole and closed, in one mesh, sharing one piece's faces."""
+    member, _designs = CLUSTERS[family]
     bm = bmesh.new()
-    bm.from_mesh(joined)
-    bpy.data.meshes.remove(joined)
-    bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])  # slivers where two members just touch
-    bmesh.ops.join_triangles(bm, faces=bm.faces[:], angle_face_threshold=0.7, angle_shape_threshold=0.7)
-    return bm
-
-
-def _cluster(family, rng, scale, subdivisions):
-    """Several members grown into one mesh: a lead piece and smaller ones (60-100% of it, so none falls
-    under the least size) close enough that their roots or skirts overlap, then unioned into one continuous
-    surface. Members a level coarser, so a cluster costs about what two singles do."""
-    member, lo, hi, near, far = CLUSTERS[family]
-    meshes = []
-    for k in range(rng.randint(lo, hi)):
-        piece = _piece(member, rng, 1.0 if k == 0 else rng.uniform(0.6, 1.0), max(subdivisions - 1, 2))
-        shift = Vector((0.0, 0.0, 0.0)) if k == 0 else Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0)).normalized() * rng.uniform(near, far)
-        for v in piece.verts:
-            v.co = (v.co + shift) * scale
-        me = bpy.data.meshes.new("KB Union Part")
-        piece.to_mesh(me)
+    for size, x, y in design:
+        piece = _piece(member, rng, size, max(round(grid / len(design) ** 0.5), 4), slim=True)
+        piece.verts.index_update()
+        verts = [bm.verts.new((v.co + Vector((x, y, 0.0))) * scale) for v in piece.verts]
+        for f in piece.faces:
+            bm.faces.new([verts[v.index] for v in f.verts])
         piece.free()
-        meshes.append(me)
-    return _union(meshes)
+    return bm
 
 
 def ensure_library():
@@ -184,17 +172,21 @@ def ensure_library():
         rng = random.Random(seed)
         kit = bpy.data.collections.new(f"{LIBRARY} {family}")
         top.children.link(kit)
-        for size, count, (lo, hi), subdivisions in SIZES:
+        for size, count, (lo, hi), _subdivisions in SIZES:
             name = f"{LIBRARY} {family} {size}"
             colls = {}
             for level, _step in LEVELS:
                 colls[level] = bpy.data.collections.new(name if level == "High" else f"{name} {level}")
                 (kit if level == "High" else levels).children.link(colls[level])
-            for i in range(count):
+            designs = CLUSTERS[family][1] if family in CLUSTERS else None
+            for i in range(len(designs) if designs else count):  # a cluster family: each design once per size
                 state = rng.getstate()
-                for level, step in LEVELS:  # the same draws at every level: the same piece, finer or coarser
+                for level, _step in LEVELS:  # the same draws at every level: the same piece, finer or coarser
                     rng.setstate(state)
-                    bm = (_cluster if family in CLUSTERS else _piece)(family, rng, rng.uniform(lo, hi), max(subdivisions + step, 2))
+                    if designs:
+                        bm = _cluster(family, rng, designs[i], rng.uniform(lo, hi), LEVEL_GRID[level])
+                    else:
+                        bm = _piece(family, rng, rng.uniform(lo, hi), LEVEL_GRID[level])
                     me = bpy.data.meshes.new(f"KB Formation {family} {size} {i + 1}" + ("" if level == "High" else f" {level}"))
                     bm.to_mesh(me)
                     bm.free()

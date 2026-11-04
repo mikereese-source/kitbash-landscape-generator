@@ -16,7 +16,7 @@ from mathutils import Vector, noise
 from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 8
+LIBRARY_VERSION = 9
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
 SIZES = ROCK_SIZES[:2]
@@ -114,7 +114,7 @@ def _piece(family, rng, scale, grid, slim=False):
         # L4: 1.5-3x as tall as wide, a round blunt top, stacked lobes up the side, a skirt flared into the floor.
         # Stands from the floor (z 0) to its top (z 1); u runs down from the top.
         # Review S3 against six photos (docs/m5/c139): tapered cones, stacked tiers, deep knobs, some slender spires.
-        R = 0.5 / (rng.uniform(2.4, 3.0) if slim else rng.uniform(1.5, 5.0))  # slim in a cluster, so neighbours stand clear; up to Choranche's 5x
+        R = 0.5 / (rng.uniform(2.6, 4.0) if slim else rng.uniform(1.5, 5.0))  # slim in a cluster, so neighbours stand clear (and spires show, most are clusters); up to Choranche's 5x
         cap = 0.5 * R  # the top is narrower now, so a lower round cap
         skirt = rng.uniform(0.4, 0.69)  # 15% wider (review S3)
         tiers, tier_at = rng.uniform(2.0, 4.0), rng.uniform(0.0, 1.0)
@@ -123,7 +123,9 @@ def _piece(family, rng, scale, grid, slim=False):
             # knobs of every size, not rings (rings read as a screw against the Vrelo photo); deep as Vrelo and Aranui
             lobes = 1.0 + 0.2 * lump(u, phi, 5.0) + 0.12 * lump(u, phi, 14.0)
             # 2-4 stacked tiers (Birthday Candle, Choranche), lopsided round the piece so they never close into rings
-            tier = 1.0 + 0.15 * math.sin(2.0 * math.pi * (tiers * u + tier_at) + 1.2 * lump(u, phi, 2.0))
+            # (noise at f 5, x3: at f 2 it barely changed round the piece, so half the pieces stacked even pagoda
+            # rings, review pass 2); faded out over the top quarter so no bulb head sits on a neck
+            tier = 1.0 + 0.15 * min(u * 4.0, 1.0) * math.sin(2.0 * math.pi * (tiers * u + tier_at) + 3.0 * lump(u, phi, 5.0))
             # top about 55% of the base (Vrelo, Sophienhoehle: cones, not thumbs)
             return R * (0.55 + 0.45 * u + skirt * math.exp(-(1.0 - u) * 5.0)) * lobes * tier
         bm = _lathe(grid, radius, 1.0 - cap, 0.0, top=cap, bottom=EMBED)

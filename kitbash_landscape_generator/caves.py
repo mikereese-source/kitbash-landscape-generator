@@ -34,6 +34,11 @@ def sync_cave(ob):
     mod = cave_modifier(ob)
     if mod is None:
         return
+    # A cave saved with an older add-on catches up: its group rebuilt to this version (Mike, D189: an old cave
+    # kept the 178 group, which had no Drape Lines input, and its sliders stopped reaching the cave).
+    if mod.node_group.get("kb_version") != features.CAVE_VERSION:
+        mod.node_group = features.cave_group()
+    fill_kits(ob.lg_cave)
     for prop, sock in CAVE_SOCKETS.items():
         nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
@@ -81,8 +86,25 @@ MASK_ITEMS = (
 MASK_INDEX = {key: i for i, (key, _n, _d) in enumerate(MASK_ITEMS)}
 
 
+_filling = False
+
+
+def fill_kits(props):
+    """Empty formation pickers show the library's own kit, as the rock pickers do (Mike, D189: empty read as
+    nothing loaded). Set quietly: each set would otherwise run a full sync."""
+    global _filling
+    _filling = True
+    try:
+        for fam, prop in FORMATION_KITS.items():
+            if getattr(props, prop) is None:
+                setattr(props, prop, formations.family(fam))
+    finally:
+        _filling = False
+
+
 def _sync(props, _context):
-    sync_cave(props.id_data)
+    if not _filling:
+        sync_cave(props.id_data)
 
 
 def _show_mask(props, context):

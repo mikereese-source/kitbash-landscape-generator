@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 183
+CAVE_VERSION = 184
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1793,19 +1793,49 @@ def cave_group():
     # Detail Level, so plain indices shifted and the same spot got another piece at High (review S1, c130).
     drips = t.store(drips, "f_id", t.node('GeometryNodeInputIndex').outputs[0], 'INT')
     frand = lambda lo, hi, offset: rand(lo, hi, offset, t.named("f_id", 'INT'))
-    # Up onto the finished roof, where it is near flat; then the gap down to the floor below. Ray results are stored before moving.
-    f_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
+    # Every keep test (roof slope, gap, flat floor, walls in reach) reads the Preview-grid space, like the rocks,
+    # so Preview, High and Ultra keep exactly the same formations at the same sizes (Mike, D189: the finished
+    # roof differs by level and High kept about 7% more). Only where each piece sits comes from the finished shell.
+    f_reach = t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0))
+    c_up = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.25))),
                   Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=t.math('MULTIPLY', H, 0.5))
-    drips = t.store(drips, "f_rz", t.math('MULTIPLY', f_up.outputs["Is Hit"], t.xyz(f_up.outputs["Hit Normal"])["Z"]))
-    drips = t.store(drips, "f_roof", f_up.outputs["Hit Position"], 'FLOAT_VECTOR')
-    drips = t.node('GeometryNodeDeleteGeometry', Geometry=drips, Selection=t.math('LESS_THAN', t.named("f_rz"), 0.9)).outputs[0]  # 26 degrees: a fat root's 12% plug still covers the slope under it
-    drips = t.node('GeometryNodeSetPosition', Geometry=drips, Position=t.named("f_roof", 'FLOAT_VECTOR')).outputs[0]
-    f_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, 0.05)), Ray_Direction=(0.0, 0.0, -1.0),
-                    Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))
-    drips = t.store(drips, "f_gap", t.math('MULTIPLY', f_down.outputs["Is Hit"], f_down.outputs["Hit Distance"]))
-    drips = t.store(drips, "f_floor", f_down.outputs["Hit Position"], 'FLOAT_VECTOR')
+    drips = t.store(drips, "f_rz", t.math('MULTIPLY', c_up.outputs["Is Hit"], t.xyz(c_up.outputs["Hit Normal"])["Z"]))
+    c_down = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('SUBTRACT', c_up.outputs["Hit Position"], t.vec(0.0, 0.0, 0.05)),
+                    Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=f_reach)
+    drips = t.store(drips, "f_gap", t.math('MULTIPLY', c_down.outputs["Is Hit"], c_down.outputs["Hit Distance"]))
     # Stalagmites and columns stand only on near-flat floor (they grow straight up; on a slope the skirt lifted off).
-    drips = t.store(drips, "f_flat", t.math('MULTIPLY', f_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(f_down.outputs["Hit Normal"])["Z"], -0.97)))
+    drips = t.store(drips, "f_flat", t.math('MULTIPLY', c_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(c_down.outputs["Hit Normal"])["Z"], -0.97)))
+    drips = t.store(drips, "f_cfloor", c_down.outputs["Hit Position"], 'FLOAT_VECTOR')
+    # Up onto the finished roof; then down to the finished floor below. Ray results are stored before moving.
+    # Reaching twice as far as the test above: the finished roof can sit well off the Preview-grid one, and a miss left the piece floating.
+    f_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.5))),
+                  Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=H)
+    # Missed, or met a floor: the finished roof is cut well under the Preview-grid one (limestone's level roof
+    # blocks, up to ~20 m in a big chamber), so look down to it from inside the rock instead.
+    f_upok = t.math('MULTIPLY', f_up.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(f_up.outputs["Hit Normal"])["Z"], 0.2))
+    f_dn = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.1))),
+                  Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', H, 1.5))
+    f_dnok = t.math('MULTIPLY', f_dn.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(f_dn.outputs["Hit Normal"])["Z"], 0.2))
+    f_rp = t.N.new('GeometryNodeSwitch')
+    f_rp.input_type = 'VECTOR'
+    t._set(f_rp.inputs["Switch"], f_upok)
+    t._set(f_rp.inputs["False"], f_dn.outputs["Hit Position"])
+    t._set(f_rp.inputs["True"], f_up.outputs["Hit Position"])
+    drips = t.store(drips, "f_roof", f_rp.outputs[0], 'FLOAT_VECTOR')
+    drips = t.store(drips, "f_hit", t.math('MAXIMUM', f_upok, f_dnok), 'BOOLEAN')
+    drips = t.node('GeometryNodeDeleteGeometry', Geometry=drips, Selection=t.math('LESS_THAN', t.named("f_rz"), 0.9)).outputs[0]  # 26 degrees: a fat root's 12% plug still covers the slope under it
+    drips = t.node('GeometryNodeSetPosition', Geometry=drips, Selection=t.named("f_hit", 'BOOLEAN'), Position=t.named("f_roof", 'FLOAT_VECTOR')).outputs[0]
+    f_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, 0.05)), Ray_Direction=(0.0, 0.0, -1.0),
+                    Ray_Length=f_reach)
+    # Missed (rare): the floor point on the Preview-grid space, so the piece is kept either way.
+    f_fl = t.N.new('GeometryNodeSwitch')
+    f_fl.input_type = 'VECTOR'
+    t._set(f_fl.inputs["Switch"], f_down.outputs["Is Hit"])
+    t._set(f_fl.inputs["False"], t.named("f_cfloor", 'FLOAT_VECTOR'))
+    t._set(f_fl.inputs["True"], f_down.outputs["Hit Position"])
+    drips = t.store(drips, "f_floor", f_fl.outputs[0], 'FLOAT_VECTOR')
+    # The finished gap, floor to roof, for columns: they must meet both finished surfaces (the keep tests use the Preview-grid gap).
+    drips = t.store(drips, "f_fgap", t.math('SUBTRACT', t.xyz(t.position())["Z"], t.xyz(f_fl.outputs[0])["Z"]))
     gap = t.named("f_gap")
     lime = t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), t.math('GREATER_THAN', gap, 0.0))
     # A column where the gap is low enough for a pair to have met (L5), standing floor to roof.
@@ -1851,7 +1881,7 @@ def cave_group():
     # the piece's reach.
     f_pokes = None
     for d in ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0)):
-        ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.3))),
+        ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('ADD', t.named("f_cfloor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.3))),
                      Ray_Direction=d, Ray_Length=f_high)  # a cluster's footprint reaches about its height
         f_pokes = ray.outputs["Is Hit"] if f_pokes is None else t.math('MAXIMUM', f_pokes, ray.outputs["Is Hit"])
     mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_keep),
@@ -1860,9 +1890,10 @@ def cave_group():
     mite_big = t.math('GREATER_THAN', r_high, 0.71)
     grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)
     grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big)
-    col_w = t.math('MULTIPLY', gap, frand(0.45, 0.8, 481))
+    col_gap = t.named("f_fgap")
+    col_w = t.math('MULTIPLY', col_gap, frand(0.45, 0.8, 481))
     columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
-                     Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, gap)).outputs[0]
+                     Instance_Index=f_pick(483), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, 485)), Scale=t.vec(col_w, col_w, col_gap)).outputs[0]
     t.L.new(columns, with_rocks.inputs[0])
     # Drapes, drawn (5.4b, L6, D185; references c142, pieces c143): the artist draws lines on the roof (a curve
     # object picked as Drape Lines); each line hangs a curtain of drape pieces laid end to end along it, half a

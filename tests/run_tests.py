@@ -958,7 +958,8 @@ def _t15():
     found, bvh = pieces()
     hang = [f for f in found if "Stalactite" in f[0]]
     stand = [f for f in found if "Stalagmite" in f[0]]
-    check(len(hang) > 5 and len(stand) > 2, f"limestone should grow stalactites and stalagmites: {len(hang)} and {len(stand)}")
+    # More than 3 (was 5): since D189 the keep tests read the Preview-grid roof; this tiny cave went 6 -> 4, a big one 571 -> 599.
+    check(len(hang) > 3 and len(stand) > 2, f"limestone should grow stalactites and stalagmites: {len(hang)} and {len(stand)}")
     for name, m, tall in found:
         up = (m.to_3x3() @ Vector((0, 0, 1))).normalized()
         check(up.z > 0.999, f"{name} is tipped ({up.z:.3f}); formations grow plumb")
@@ -981,6 +982,49 @@ def _t15():
     c.rock, c.formations = 'LIMESTONE', 0.0
     check(not pieces()[0], "Formations 0 should grow none")
     return f"{len(hang)} stalactites on the roof, {len(stand)} stalagmites set in the floor, all plumb and over 2 ft; none in jointed or lava, none at 0 ({n_lime} at 1)"
+
+
+@test("T32", "Same formations at every Detail Level")
+def _t32():
+    # D189 (Mike): Preview, High and Ultra grow exactly the same formations, same count, same spots, so the
+    # level is predictable; at every level each stalactite's pivot sits on the finished roof (none floats).
+    # Also: an old cave catches up to this add-on, and the formation pickers show the library kits.
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    from kitbash_landscape_generator import caves, features
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    check(all(getattr(c, p) is not None for p in caves.FORMATION_KITS.values()), "a new cave's formation pickers should show the library kits")
+    c.chamber, c.ceiling, c.formations = 30.0, 16.0, 1.0
+    seen, floating = {}, {}
+    for level in ('PREVIEW', 'HIGH', 'ULTRA'):
+        c.detail = level
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        bvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(f.vertices) for f in me.polygons])
+        ev.to_mesh_clear()
+        found = [(i.object.name.rsplit(" ", 1)[0], i.matrix_world.copy())
+                 for i in dg.object_instances if i.is_instance and i.parent and i.parent.original == ob and "KB Formation" in i.object.name]
+        seen[level] = sorted((round(m.translation.x, 1), round(m.translation.y, 1)) for _n, m in found)
+        off = 0
+        for n, m in found:
+            if "Stalactite" in n:
+                hit = bvh.ray_cast(m.translation - Vector((0, 0, 1.0)), Vector((0, 0, 1)), 3.0)
+                off += hit[0] is None or abs(hit[3] - 1.0) > 0.05
+        floating[level] = off
+    counts = {k: len(v) for k, v in seen.items()}
+    check(len(set(counts.values())) == 1, f"formation counts differ by level: {counts}")
+    check(seen['PREVIEW'] == seen['HIGH'] == seen['ULTRA'], "the same formations should stand in the same spots at every level")
+    check(not any(floating.values()), f"stalactites off the roof by level: {floating}")
+    mod = caves.cave_modifier(ob)
+    mod.node_group["kb_version"] = -1
+    c.formations = 0.9
+    check(mod.node_group.get("kb_version") == features.CAVE_VERSION, "an old cave should catch up to this add-on on its next change")
+    return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; old caves upgrade; pickers filled"
 
 
 print("\n=== KitBash Landscape Generator tests ===")

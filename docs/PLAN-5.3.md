@@ -25,6 +25,17 @@ No code until Mike approves. A checkpoint (board + short summary) after each ste
 3. **Kits:** should Cut Selected leave a live Boolean modifier (editable, slower) or apply it (fast, final)? Default live.
 4. **Old built-in landscape caves (5.1):** keep them as they are next to the new Cave Object picker, or replace them?
 
+## Mike's calls (2026-11-05 discussion)
+- Lip: yes, kept simple. The opening outline is noisy and irregular, never a clean planar cut.
+- One lip shape for all rocks; each rock style adds its own surface (limestone rounded, jointed blocky pieces, lava tube smooth and slumped).
+- Lip slider for thickness, default about 0.15 of the entrance width.
+- Arch, not a full ring: the lip runs over the roof and down the walls; the walk-in floor stays flat and runs out of the mouth with no step.
+- Cutter (5.3b) moves to the very end of M5: a very basic cave shape used only as a Boolean cutter, built as the last thing before M5 wraps up.
+- Cutter clearance: about 1 voxel (3-5 m in a big cave) by default, with a slider.
+- Cutter on Kits: a live Boolean modifier (editable). Kept basic: Add Cutter, then Blender's own Boolean; a Cut Selected button only if it stays trivial.
+- 5.3c dropped (option A). The cave generator stays a standalone object; it goes into a host (Kit or landscape) with the basic cutter as a Boolean. Accepted cost: a Boolean into a landscape has no weld and no masks on the cut walls.
+- The old built-in landscape caves (5.1) stay. They become the base for the M6 cave landscape types, with their own, simpler controls.
+
 ## Not in 5.3
 The rubble slope running in through the mouth (the rocks already lie at the wall foot; a slope at the mouth could follow in 5.5 or M6),
 moss/soil on the lip (M7 materials), the drawn path (5.2b).

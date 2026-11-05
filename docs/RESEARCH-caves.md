@@ -186,3 +186,14 @@ Board: `docs/m5/c131_floor_choices.png`.
 | `lava-tube-floor-pahoehoe-stefanshellir.jpg` (CC BY-SA 4.0, Dave Bunnell) | Pahoehoe floor: low humps and lobes, a channel down the middle | Lava floor lobes |
 | `lava-tube-floor-cauliflower-pahoehoe.jpg` (CC BY-SA 2.5, Dave Bunnell) | Lumpy cauliflower lava floor | Lava floor grain (roughness/M7) |
 | `drapes-crystal-onyx.jpg` (CC BY 2.0, James St. John) | Draperies and flowstone hanging off a ledge | L6 drapes |
+
+## Cave landscape styles: what the ground does (2026-11-05, board docs/m5/c148_cave_landscape_refs.png)
+
+References in `Terrain References\cave-landscapes\` (23 new, sources.json) plus on-file ones; 7 to 11 per style (Mike: 5 at least).
+
+| Style | References | What the landscape does |
+|---|---|---|
+| Wide Walk-in | 11: Cathedral Caverns, Mammoth (x2), Falkensteiner, Dixon, Mas d'Azil (x3), Peak Cavern, Skocjan (high), Deer Cave | The mouth sits at the foot of a cliff band 2-4x taller than the opening, about as wide as tall or wider; a gentle apron (meadow, floodplain, river, path) runs to it; talus and blocks at the cliff foot either side; trees on ledges and the rim, the face just over the arch bare. A second form: the mouth at the bottom of a wooded sinkhole you walk down into (Mammoth, Dixon, Skocjan). |
+| Rock Shelter | 8: Cliff Palace (x3), Spruce Tree House, Betatakin, Navajo NM (high), Weeping Rock, Gorges de la Nesque | A horizontal recess in the upper or middle of a canyon wall, right under a flat, lightly treed mesa cap; 3-6x wider than tall, shallow; the roof a thick flat-bottomed slab, the back wall curving up into it; a talus or slickrock slope below to a wooded canyon floor. Extreme case: an arched alcove nearly the cliff's full height (Betatakin). |
+| Sea Cave | 8: Fingal's (x2), Staffa, Benagil (x2, one high), Carvoeiro, Rikoriko, Painted Cave | The opening always starts at the waterline, 1/3 to 2/3 of the cliff's height, rock always left above; near-vertical cliffs, no talus, at most a narrow wave-cut bench; a flat or gently domed top with grass or scrub to the edge (bush down the face on volcanic islands); caves in headlands, often in pairs or rows along one bed. |
+| Lava Tube | 7: Skull Cave, USGS collapse-line aerial, Lava Beds trench, Craters of the Moon (x2), Jameos (Lanzarote), Hualalai | Flat or gently sloping ground right to the edge, no hill or cliff: the opening is a hole below grade; steep-sided pits about 3-10 m deep, as wide as deep or wider, rims slightly overhanging; a rubble cone floor sloping down to the dark tube mouth at one or both ends; pits in chains along the tube; plants gather inside the pits, the field around sparse. |

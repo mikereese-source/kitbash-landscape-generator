@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 182
+CAVE_VERSION = 183
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1580,6 +1580,26 @@ def cave_group():
     t._set(finish.inputs["Iterations"], t.node('FunctionNodeFloatToInt', Float=t.math('MULTIPLY', t.math('MAXIMUM', t.math('SUBTRACT', levels, 3.0), 0.0), 2.0)).outputs[0])
     rough = t.node('GeometryNodeSetPosition', Geometry=rough, Selection=t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), t.math('LESS_THAN', t.named("lg_piece", 'BOOLEAN'), 0.5)),
                    Position=finish.outputs["Value"]).outputs[0]
+    # Jointed pieces stay inside (PARKING 2026-11-04, D188): they are trimmed to the cave grown by 3 voxels so
+    # they sink into the walls, metres past the shell, and from outside they hung under the chamber as spikes.
+    # Any part of a piece outside the shell is pulled back to a thin margin over it; that part is in the rock,
+    # so nothing changes from inside.
+    shell_only = t.N.new('GeometryNodeDeleteGeometry')
+    shell_only.domain = 'POINT'
+    t._set(shell_only.inputs["Geometry"], rough)
+    t._set(shell_only.inputs["Selection"], t.named("lg_piece", 'BOOLEAN'))
+    p_near = t.node('GeometryNodeProximity', Geometry=shell_only.outputs[0], Source_Position=t.position())
+    p_near.target_element = 'FACES'
+    p_n = t.N.new('GeometryNodeSampleNearestSurface')
+    p_n.data_type = 'FLOAT_VECTOR'
+    t._set(p_n.inputs["Mesh"], shell_only.outputs[0])
+    t._set(p_n.inputs["Value"], t.node('GeometryNodeInputNormal').outputs[0])
+    t._set(p_n.inputs["Sample Position"], t.position())
+    p_out = t.vmath('DOT_PRODUCT', t.vmath('SUBTRACT', t.position(), p_near.outputs["Position"]), p_n.outputs["Value"])  # normals point into the rock: > 0 is outside
+    p_margin = t.math('MINIMUM', t.math('MULTIPLY', voxel, 0.1), 0.5)
+    rough = t.node('GeometryNodeSetPosition', Geometry=rough,
+                   Selection=t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), jointed_on), t.math('GREATER_THAN', p_out, p_margin)),
+                   Position=t.vmath('ADD', p_near.outputs["Position"], t.vmath('SCALE', t.vmath('NORMALIZE', p_n.outputs["Value"]), scale=p_margin))).outputs[0]
     marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not

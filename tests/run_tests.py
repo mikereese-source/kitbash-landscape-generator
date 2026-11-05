@@ -1020,11 +1020,28 @@ def _t32():
     check(len(set(counts.values())) == 1, f"formation counts differ by level: {counts}")
     check(seen['PREVIEW'] == seen['HIGH'] == seen['ULTRA'], "the same formations should stand in the same spots at every level")
     check(not any(floating.values()), f"stalactites off the roof by level: {floating}")
+    # Each amount slider thins only its own family (Mike, D189).
+    def fams():
+        dg = bpy.context.evaluated_depsgraph_get(); dg.update()
+        names = [i.object.name for i in dg.object_instances if i.is_instance and i.parent and i.parent.original == ob and "KB Formation" in i.object.name]
+        return {f: sum(f in n for n in names) for f in ("Stalactite", "Stalagmite", "Column")}
+    c.detail = 'PREVIEW'
+    full = fams()
+    c.stalactite_amount = 0.0
+    no_tite = fams()
+    check(no_tite["Stalactite"] == 0 and no_tite["Stalagmite"] == full["Stalagmite"] and no_tite["Column"] == full["Column"], f"Stalactites 0 should take only the stalactites: {full} -> {no_tite}")
+    c.stalactite_amount, c.stalagmite_amount = 1.0, 0.0
+    no_mite = fams()
+    check(no_mite["Stalagmite"] == 0 and no_mite["Stalactite"] == full["Stalactite"], f"Stalagmites 0 should take only the stalagmites: {full} -> {no_mite}")
+    c.stalagmite_amount, c.column_amount = 1.0, 0.0
+    no_col = fams()
+    check(no_col["Column"] == 0 and no_col["Stalactite"] == full["Stalactite"] and no_col["Stalagmite"] == full["Stalagmite"], f"Columns 0 should take only the columns: {full} -> {no_col}")
+    c.column_amount = 1.0
     mod = caves.cave_modifier(ob)
     mod.node_group["kb_version"] = -1
     c.formations = 0.9
     check(mod.node_group.get("kb_version") == features.CAVE_VERSION, "an old cave should catch up to this add-on on its next change")
-    return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; old caves upgrade; pickers filled"
+    return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; amount sliders each take only their own family; old caves upgrade; pickers filled"
 
 
 print("\n=== KitBash Landscape Generator tests ===")

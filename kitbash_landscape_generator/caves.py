@@ -27,7 +27,8 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "roughness": "Roughness", "seed": "Seed", "rock_size": "Rock Size", "stretch": "Stretch", "tilt": "Tilt",
                 "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
                 "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles",
-                "drape_length": "Drape Length", "drape_fullness": "Drape Fullness", "drape_fold": "Drape Fold"}
+                "drape_length": "Drape Length", "drape_fullness": "Drape Fullness", "drape_fold": "Drape Fold",
+                "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
 
 
 def sync_cave(ob):
@@ -177,6 +178,12 @@ class LG_CaveProps(PropertyGroup):
     formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
+    stalactite_amount: FloatProperty(name="Stalactites", description="How many stalactites hang from the roof: none (0) to all their spots (1)",
+                                     default=1.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    stalagmite_amount: FloatProperty(name="Stalagmites", description="How many stalagmites stand on the floor: none (0) to all their spots (1)",
+                                     default=1.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    column_amount: FloatProperty(name="Columns", description="How many columns join floor and roof: none (0) to all their spots (1)",
+                                 default=1.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     formation_size: FloatProperty(name="Formation Size", description="Make every stalactite, stalagmite and column smaller or bigger (never under 2 ft)",
                                   default=1.0, min=0.1, soft_max=3.0, update=_sync)
     formation_stretch: FloatProperty(name="Stretch", description="Short and stubby (0), or long and thin (1)",
@@ -235,7 +242,7 @@ class LG_OT_randomize_cave(Operator):
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
                "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
-               "formation_size", "formation_stretch", "clusters", "puddles", "drape_length", "drape_fullness", "drape_fold")
+               "formation_size", "formation_stretch", "clusters", "stalactite_amount", "stalagmite_amount", "column_amount", "puddles", "drape_length", "drape_fullness", "drape_fold")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -357,6 +364,10 @@ def draw_section(layout, context):
         sub.enabled = props.rock == 'LIMESTONE'
         for prop in FORMATION_KITS.values():
             sub.prop(props, prop)
+        col = sub.column(heading="Amount")
+        col.prop(props, "stalactite_amount", slider=True)
+        col.prop(props, "stalagmite_amount", slider=True)
+        col.prop(props, "column_amount", slider=True)
         sub.prop(props, "formation_size")
         sub.prop(props, "formation_stretch", slider=True)
         sub.prop(props, "clusters", slider=True)

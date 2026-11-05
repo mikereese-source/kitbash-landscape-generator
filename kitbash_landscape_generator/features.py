@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 184
+CAVE_VERSION = 185
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -448,6 +448,8 @@ CAVE_INPUTS = (
     # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
     ("Clusters", 'NodeSocketFloat', 0.85), ("Puddles", 'NodeSocketFloat', 0.5),  # mostly clusters, a few standing alone (Mike)
+    # Each family's own amount, under Formations (Mike, D189): 0 none of it, 1 all its spots.
+    ("Stalactite Amount", 'NodeSocketFloat', 1.0), ("Stalagmite Amount", 'NodeSocketFloat', 1.0), ("Column Amount", 'NodeSocketFloat', 1.0),
     # Drapes drawn by the artist (D185): a curve on the roof, and how long, how full and how folded the curtains are.
     ("Drape Lines", 'NodeSocketObject', None), ("Drape Length", 'NodeSocketFloat', 0.5), ("Drape Fullness", 'NodeSocketFloat', 0.8),
     ("Drape Fold", 'NodeSocketFloat', 0.5),
@@ -1839,8 +1841,10 @@ def cave_group():
     gap = t.named("f_gap")
     lime = t.math('MULTIPLY', t.math('LESS_THAN', gin["Rock"], 0.5), t.math('GREATER_THAN', gap, 0.0))
     # A column where the gap is low enough for a pair to have met (L5), standing floor to roof.
-    col_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('LESS_THAN', gap, t.math('MULTIPLY', H, 0.3)),
+    col_spot = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('LESS_THAN', gap, t.math('MULTIPLY', H, 0.3)),
                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("f_rz"), 0.95), t.math('LESS_THAN', frand(0.0, 1.0, 411), 0.6))))
+    # Each amount slider thins only its own family: a column's spot left empty grows no pair in its place.
+    col_keep = t.math('MULTIPLY', col_spot, t.math('LESS_THAN', frand(0.0, 1.0, 489), gin["Column Amount"]))
     # Lengths follow the room: about 8% of the gap for a medium stalactite, at most 4 m; big pieces are 2-3x that
     # (L1's spread in a cluster). Stalagmites about 5% of the gap, at most 3 m. The smallest fifth is left out
     # and the rest made 17.5% bigger (Mike: bigger shapes, fewer very small ones); Formation Size scales them
@@ -1870,11 +1874,14 @@ def cave_group():
     # None shorter than a tenth of the entrance height (Mike, D185: in a big chamber the 2-3 m ones read as rows
     # of tiny spikes, noise; against the cave's own size so a small cave keeps its stalactites).
     tite_room = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gap, 0.08), 4.0), r_len), f_size)
-    tite = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_keep)), t.math('GREATER_THAN', tite_room, t.math('MULTIPLY', H, 0.1)))
+    tite = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.math('SUBTRACT', 1.0, col_spot)), t.math('GREATER_THAN', tite_room, t.math('MULTIPLY', H, 0.1)))
+    tite = t.math('MULTIPLY', tite, t.math('LESS_THAN', frand(0.0, 1.0, 437), gin["Stalactite Amount"]))
+    # Stalactites 15% bigger, Big and Medium alike (Mike, D189: more substantial); which ones grow is unchanged.
+    tite_len = t.math('MULTIPLY', f_len, 1.15)
     tite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 433), gin["Clusters"])
     tite_big = t.math('GREATER_THAN', r_len, 0.81)
-    grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(f_len), 431, tite_big)
-    grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(f_len), 435, tite_big)
+    grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(tite_len), 431, tite_big)
+    grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(tite_len), 435, tite_big)
     # Stalagmites under most drips (L4), on the floor straight below, sunk a little.
     floor_at = t.node('GeometryNodeSetPosition', Geometry=drips, Position=t.vmath('SUBTRACT', t.named("f_floor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.04)))).outputs[0]
     # None poking through a wall: four level rays from a third of the way up must not meet the shell inside
@@ -1884,8 +1891,9 @@ def cave_group():
         ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('ADD', t.named("f_cfloor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.3))),
                      Ray_Direction=d, Ray_Length=f_high)  # a cluster's footprint reaches about its height
         f_pokes = ray.outputs["Is Hit"] if f_pokes is None else t.math('MAXIMUM', f_pokes, ray.outputs["Is Hit"])
-    mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_keep),
+    mite_keep = t.math('MULTIPLY', t.math('MULTIPLY', lime, t.named("f_flat")), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, col_spot),
                        t.math('MULTIPLY', t.math('LESS_THAN', frand(0.0, 1.0, 461), 0.7), t.math('SUBTRACT', 1.0, f_pokes))))
+    mite_keep = t.math('MULTIPLY', mite_keep, t.math('LESS_THAN', frand(0.0, 1.0, 477), gin["Stalagmite Amount"]))
     mite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 473), gin["Clusters"])
     mite_big = t.math('GREATER_THAN', r_high, 0.71)
     grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)

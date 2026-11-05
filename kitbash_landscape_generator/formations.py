@@ -16,7 +16,7 @@ from mathutils import Vector, noise
 from .rocks import LEVELS, SIZES as ROCK_SIZES, at_level, sizes  # noqa: F401  (at_level, sizes: the same kit layout as the rocks)
 
 LIBRARY = "KB Cave Formations"
-LIBRARY_VERSION = 10
+LIBRARY_VERSION = 11
 LEVEL_LIBRARY = f"{LIBRARY} Levels"
 # Big and Medium only (Mike: the small ones are too small to read in a cave, and compete with the rocks).
 SIZES = ROCK_SIZES[:2]
@@ -28,7 +28,7 @@ LEVEL_GRID = {"Preview": 7, "High": 26, "Ultra": 41}
 # Each runs on past its pivot into the rock (EMBED of its length), so it sits set in, never on top.
 EMBED = 0.12
 FAMILIES = {
-    "Stalactites": 51,  # L1: carrots, long thin taper to a sharp tip, flared root
+    "Stalactites": 51,  # L1: carrots, long thin taper to a rounded tip, flared root, wandering down
     "Stalagmites": 53,  # L4: blunt round top, knobby stacked lobes, flared skirt
     "Columns": 59,      # L5: a stalactite and stalagmite grown together, fluted, narrowest near the join
     "Lava Drips": 61,   # V1: stubby shark teeth off a glazed lava-tube roof
@@ -160,9 +160,20 @@ def _piece(family, rng, scale, grid, slim=False):
         # ribs along the length; a little drift off straight. Hangs from the roof (z 0) to its tip (z -1).
         R = 0.5 / rng.uniform(5.0, 10.0)  # 8-20x as long as wide measured down the body, the root flare on top
         taper, flare, fall = rng.uniform(0.9, 1.3), rng.uniform(0.4, 0.8), rng.uniform(5.0, 9.0)
-        drift = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized() * rng.uniform(0.0, 0.03)
-        radius = lambda u, phi: R * ((1.0 - u) ** taper + flare * math.exp(-u * fall)) * (1.0 + 0.06 * lump(u, phi, 18.0))
-        bm = _lathe(grid, radius, 0.0, -1.0, top=EMBED, sway=lambda u: (drift.x * u * u, drift.y * u * u))
+        # Rounded tips, not icicle points (Mike, D189, docs/m5/ref_stalactite_wobble_markup.webp): the body ends
+        # at about a quarter of its root width (fuller read as rods, no taper) and a round cap closes it.
+        tip = R * rng.uniform(0.18, 0.28)
+        # A wander down the length, not straight (the markup): one to two gentle S bends, each way its own, none
+        # at the root so it still meets the roof square; at most about 5% of the length side to side (more read as tentacles).
+        bends, amp = rng.uniform(1.0, 2.0), rng.uniform(0.01, 0.025)
+        ph = (rng.uniform(0.0, 6.28), rng.uniform(0.0, 6.28))
+        lean = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized() * rng.uniform(0.0, 0.03)
+        radius = lambda u, phi: (tip + (R - tip) * ((1.0 - u) ** taper + flare * math.exp(-u * fall))) * (1.0 + 0.06 * lump(u, phi, 18.0))
+
+        def wander(u):
+            ease = min(u * 3.0, 1.0)  # none at the root
+            return tuple(amp * ease * (math.sin(math.pi * bends * u + p) - math.sin(p)) + d * u * u for p, d in zip(ph, (lean.x, lean.y)))
+        bm = _lathe(grid, radius, 0.0, -1.0 + tip, top=EMBED, bottom=tip, sway=wander)
     elif family == "Lava Drips":
         # V1: stubby, 1-3x as long as wide, swollen like a drop that set, the root spread into the glaze.
         R = 0.5 / rng.uniform(1.0, 3.0)

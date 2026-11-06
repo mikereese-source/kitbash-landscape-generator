@@ -370,3 +370,10 @@ DECISIONS.md, PROJECT.md, DESIGN.md.
   (Adaptive Subdivision, Cycles only)
 - Photos: Wikimedia Commons API (https://commons.wikimedia.org/w/api.php), every file page listed in each
   materials-*/sources.json (83 photos)
+
+## Mike's answers (2026-11-06, D194, D195)
+1. Textures: procedural plus texture maps. The M7 spike (Mountains) uses CC0 Poly Haven sets; the final version uses only KitBash 3D materials.
+2. First climates: Temperate, Arid, Alpine, Volcanic, Lush.
+3. Water shaders: their own milestone, right after M7.
+4. Unreal: 8 paint layers (2 weightmaps).
+5. Closest camera: background mountains down to walkable ground for games (close, not macro): near-ground layers about 1024 px/m, tileable and layered, blending to large-scale colour with distance. Grass and foliage come later as instanced meshes; Mike can supply meshes.

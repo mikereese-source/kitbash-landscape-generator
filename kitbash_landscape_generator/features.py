@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 185
+CAVE_VERSION = 186
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1731,7 +1731,10 @@ def cave_group():
     h_rad = t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), rand(0.5, 0.8, 503))  # each heap's radius (Mike: large heaps)
     spots = t.store(spots, "h_rad", h_rad)
     spots = t.store(spots, "h_mid", t.position(), 'FLOAT_VECTOR')
-    per = 90  # enough to cover the cone: thinner, the blocks read as scattered rocks, not a heap
+    # 90 blocks cover the cone at Rock Size 1; smaller blocks need more (by area), or they spread thin over a
+    # cone that isn't there: scattered rocks, some on nothing (Mike, Rock Size 0.5).
+    # shortcut: capped at 800 (Rock Size about 0.34); smaller still thins out, shrink the cone then if wanted.
+    per = t.node('FunctionNodeFloatToInt', Float=t.math('MINIMUM', t.math('DIVIDE', 90.0, t.math('POWER', t.math('MAXIMUM', gin["Rock Size"], 0.1), 2.0)), 800.0)).outputs[0]
     heap = t.node('GeometryNodeDuplicateElements', Geometry=spots, Amount=per)
     heap.domain = 'POINT'
     hr = t.named("h_rad")

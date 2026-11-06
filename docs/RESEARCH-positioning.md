@@ -186,4 +186,4 @@ Proof points we'd need to show:
 3. **Real-world terrain at launch:** not decided. Focus on a really good-looking, finished terrain; then presets and templates artists can pick from, real-world or not (it doesn't matter which).
 4. **Send-to-C4D:** there is a Cinema 4D MCP; whether this carries over is for later.
 5. **Publish the realism score:** no. It's an internal bar, so the team can look at a result and say "wow, this looks very good".
-6. **Track AI world tools:** question explained in chat (pending Mike's call).
+6. **Track AI world tools:** yes, keep tracking them (World Labs Marble and the like). With the Cargo MCP we'll have everything to build a world from a prompt with Kits and terrain, all premium: that's the angle they compete with. Check them at every milestone gate (positioning-researcher, short pass).

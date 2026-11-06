@@ -93,6 +93,13 @@ Access) release is stated** [W5][W6]. What it adds, as announced:
   Unreal, Unity, Godot, glTF and OpenPBR, and has an MCP server with 65 tools [W8]. No link to World Creator's
   terrain materials is stated.
 
+A third-party overview, "Introducing World Creator 4 - NextGen Terrain Generation Software" (Defonten, 2026-11-06,
+4:57) [W9], is described as covering the highlights, features and pricing. Its description adds nothing about
+materials. It says there is a "new ecosystem of 5 distinct products", the yearly naming is dropped (back to World
+Creator 3 and 4), and WC4 brings real-time planetary generation and a node-based workflow. **⚠ Contradiction:** the
+BiteTheBytes site lists four products (World Creator, Material Creator, Byte Installer, Byte Editor) and "two more"
+in development for 2027 [W2]. I could read only the video's description, not what it shows.
+
 What it means for us: colour carried down the drainage is now in **both** leaders (Gaea ColorErosion, World Creator
 Color Erosion), so it moves up the feature list; "colour blocking first, then detail" is a good pattern for our
 climate switch; an MCP server on the running editor (WC4, Material Creator) supports our Cargo MCP plan. The bar on
@@ -296,7 +303,8 @@ plan, risks and an 11-step M7 plan.
   open. Not stated on any page I opened: height blending, triplanar, stochastic / anti-tiling, transition width,
   splat channels per map. Earlier search snippets claimed height blending with a displacement texture, a
   non-exportable triplanar option and a bakeable stochastic sampler; they stay unverified and are out of the table.
-  Also unverified: the tutorial video's content (captions blocked), WC4's new material system (no details
+  Also unverified: the content of both videos [W7][W9] (only their descriptions were readable; the transcript
+  route was blocked, and the Defonten video has no chapters), WC4's new material system (no details
   published) and a full-release date (none stated). ArtStation returned a bot check; X, Discord and Steam were not
   checked (login needed or no listing).
 - **Gaea 2/3 docs:** most reference pages opened are Gaea 1.3 docs; Gaea 3 facts come from its product pages. The
@@ -334,6 +342,8 @@ DECISIONS.md, PROJECT.md, DESIGN.md.
 - [W6] https://www.bitethebytes.com/products/world-creator/pricing (WC4 Early Access with every purchase, 140+ scans, WC3 3.0.1 FAQ)
 - [W7] https://www.bitethebytes.com/products/world-creator/tutorials and https://www.youtube.com/watch?v=5fD0l6j79cg (description only)
 - [W8] https://www.bitethebytes.com/products/material-creator
+- [W9] https://youtu.be/k003RsAABJ4 (Defonten, "Introducing World Creator 4 - NextGen Terrain Generation Software",
+  2026-11-06; title, channel, date and description via its watch page and https://www.youtube.com/oembed?url=https://youtu.be/k003RsAABJ4&format=json)
 - [H1] https://www.sidefx.com/docs/houdini/nodes/sop/heightfield_maskbyfeature.html
 - [H2] https://www.sidefx.com/docs/houdini/heightfields/texturelayers.html
 - [H3] https://www.sidefx.com/docs/houdini/nodes/sop/heightfield_erode.html

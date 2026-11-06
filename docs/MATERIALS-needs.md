@@ -478,3 +478,5 @@ Shrub 02 and Shrub 04, Fir Sapling and Pine Sapling Small (tree line; Mike may c
 - **Scree-sized rocks:** only a few loose rocks (Rock 07, Rock 09, Stone 01) and the two mossy rock sets; no
   dedicated scree stone set.
 - **No LODs anywhere,** so dense scatter needs our own decimation or Blender's instancing display limits.
+
+**Normal maps as PNG (Mike, 2026-11-06):** every texture set's normal map was also downloaded as PNG at the same resolution (22 files, 1.18 GB), so close-up lighting shows no JPG blocks or banding. Use the `*_nor_gl_*.png`; the JPGs stay as backups. Colour and roughness stay JPG, height EXR.

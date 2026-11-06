@@ -30,6 +30,7 @@ c.rock = os.environ.get('LG_ROCK', 'LIMESTONE')
 if len(args) > 2 and args[2] == 'mike3':
     c.ramp = os.environ.get('LG_RAMP') == '1'
     [setattr(c, k, v) for k, v in dict(width=float(os.environ.get('LG_W',46.32)), height=28.94, depth=168.42, wiggle=0.2928, turn=-0.064, drop=0.23, narrowing=0.0, chamber=float(os.environ.get('LG_CH', 177.88)), ceiling=62.18, chamber_drop=31.28, rubble=float(os.environ.get('LG_RUB',0.5)), wall_shape=float(os.environ.get('LG_WS',1.0)), roughness=0.9588, seed=22635).items()]
+if 'LG_WATER' in os.environ: c.water = os.environ['LG_WATER']; c.water_level = float(os.environ.get('LG_WL', 0.6))
 if 'LG_RS' in os.environ: c.rock_size = float(os.environ['LG_RS'])
 if 'LG_ROUGH' in os.environ: c.roughness = float(os.environ['LG_ROUGH'])
 c.separate = os.environ.get('LG_SEP', '1') == '1'
@@ -342,6 +343,7 @@ if os.environ.get('LG_PICK'):
     raise SystemExit
 sc.render.engine = 'BLENDER_WORKBENCH'
 if os.environ.get('LG_MATCOL'): sc.display.shading.color_type = 'MATERIAL'  # water shows in its own colour
+if os.environ.get('LG_MATCOL'): [setattr(m, 'diffuse_color', (0.12, 0.3, 0.55, 1.0)) for m in bpy.data.materials if 'water' in m.name.lower()]  # water reads as water in a board
 if os.environ.get('LG_UV'):
     img = bpy.data.images.new("grid", 2048, 2048); img.generated_type = 'COLOR_GRID'
     mat = bpy.data.materials.new("uvgrid"); mat.use_nodes = True

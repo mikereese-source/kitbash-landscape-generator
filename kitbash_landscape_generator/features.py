@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 186
+CAVE_VERSION = 187
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -449,6 +449,8 @@ CAVE_INPUTS = (
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
     ("Clusters", 'NodeSocketFloat', 0.85), ("Puddles", 'NodeSocketFloat', 0.5),  # mostly clusters, a few standing alone (Mike)
     # Each family's own amount, under Formations (Mike, D189): 0 none of it, 1 all its spots.
+    # Water (D193): 0 none, 1 puddles, 2 the chamber flooded to Water Level (0 the chamber floor, 1 the passage floor).
+    ("Water", 'NodeSocketInt', 1), ("Water Level", 'NodeSocketFloat', 0.6),
     ("Stalactite Amount", 'NodeSocketFloat', 1.0), ("Stalagmite Amount", 'NodeSocketFloat', 1.0), ("Column Amount", 'NodeSocketFloat', 1.0),
     # Drapes drawn by the artist (D185): a curve on the roof, and how long, how full and how folded the curtains are.
     ("Drape Lines", 'NodeSocketObject', None), ("Drape Length", 'NodeSocketFloat', 0.5), ("Drape Fullness", 'NodeSocketFloat', 0.8),
@@ -489,6 +491,14 @@ def cave_group():
     rc = t.math('MAXIMUM', t.math('MULTIPLY', gin["Chamber Size"], 0.5), 1e-3)
     has_chamber = t.math('GREATER_THAN', gin["Chamber Size"], 0.0)
     seed = t.math('MULTIPLY', gin["Seed"], 17.13)
+    # Flooded chamber (D193, refs docs/m5/c151): one flat water level, from the chamber floor (Water Level 0) up to
+    # the passage floor where the chamber opens (1), so you walk out onto the shore. Without a Chamber Drop the
+    # range is a third of the entrance height, and the water never reaches the mouth.
+    flood_on = t.math('COMPARE', gin["Water"], 2.0)
+    w_bottom = t.math('SUBTRACT', t.math('MULTIPLY', gin["Drop"], -1.0), t.math('MULTIPLY', gin["Chamber Drop"], has_chamber))
+    w_top = t.math('MINIMUM', t.math('MAXIMUM', t.math('MULTIPLY', gin["Drop"], -0.6), t.math('ADD', w_bottom, t.math('MULTIPLY', H, 0.3))),
+                   t.math('MULTIPLY', H, -0.05))
+    w_z = t.math('ADD', w_bottom, t.math('MULTIPLY', gin["Water Level"], t.math('SUBTRACT', w_top, w_bottom)))
 
     # The path: from just in front of the mouth (so the front pokes out through the face) to Depth.
     y0 = t.math('MULTIPLY', W, -0.3)
@@ -1633,7 +1643,10 @@ def cave_group():
     m_dep = t.math('MULTIPLY', t.math('MULTIPLY', m_floor, t.math('SUBTRACT', 1.0, m_slope)), t.smooth(m_curv, 0.3, 0.6))
     maps = (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv), ("lg_flow", m_flow),
             ("lg_wear", m_wear), ("lg_deposit", m_dep),
-            ("lg_depth", t.math('MINIMUM', t.math('DIVIDE', t.named("lg_pool"), t.math('MAXIMUM', t.math('MULTIPLY', H, 0.02), 1e-3)), 1.0)))
+            ("lg_depth", t.math('MAXIMUM', t.math('MINIMUM', t.math('DIVIDE', t.named("lg_pool"), t.math('MAXIMUM', t.math('MULTIPLY', H, 0.02), 1e-3)), 1.0),
+                                # flooded: 0 at the shore, 1 a quarter of the entrance height down
+                                t.math('MULTIPLY', flood_on, t.math('MINIMUM', t.math('MAXIMUM', t.math('DIVIDE', t.math('SUBTRACT', w_z, t.xyz(t.position())["Z"]),
+                                                                                                          t.math('MULTIPLY', H, 0.25)), 0.0), 1.0)))))
     for m_name, m_val in maps:
         smooth = t.store(smooth, m_name, m_val)
     # The viewer: the picked map as a colour the viewport shows in Solid mode, grey or heatmap (as nodes.py).
@@ -1811,6 +1824,7 @@ def cave_group():
     # Stalagmites and columns stand only on near-flat floor (they grow straight up; on a slope the skirt lifted off).
     drips = t.store(drips, "f_flat", t.math('MULTIPLY', c_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(c_down.outputs["Hit Normal"])["Z"], -0.97)))
     drips = t.store(drips, "f_cfloor", c_down.outputs["Hit Position"], 'FLOAT_VECTOR')
+    drips = t.store(drips, "f_croof", t.xyz(c_up.outputs["Hit Position"])["Z"])
     # Up onto the finished roof; then down to the finished floor below. Ray results are stored before moving.
     # Reaching twice as far as the test above: the finished roof can sit well off the Preview-grid one, and a miss left the piece floating.
     f_up = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('SUBTRACT', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.5))),
@@ -1863,12 +1877,14 @@ def cave_group():
 
     f_pick = lambda offset: t.node('FunctionNodeFloatToInt', Float=frand(0.0, 9999.0, offset)).outputs[0]  # pick above is redefined below
 
-    def grow(points, selection, fam, scale, seed, medium_keep):
+    def grow(points, selection, fam, scale, seed, medium_keep, fits=None):
         """One family on its points: Big or Medium by chance (no Small: too small to read, Mike), each piece
         picked at random and turned about the vertical only (they grow plumb). medium_keep drops the shortest
         Mediums: three in ten of them are the smallest fifth of all."""
         u = frand(0.0, 1.0, seed)
         for size, keep in (("Big", t.math('LESS_THAN', u, 0.25)), ("Medium", t.math('MULTIPLY', t.math('GREATER_THAN', u, 0.25), medium_keep))):
+            if fits is not None:  # flooded chamber: only what clears the water (a Big piece is 2-3x a Medium's length)
+                keep = t.math('MULTIPLY', keep, fits(3.0 if size == "Big" else 1.0, 2.0 if size == "Big" else 1.0))
             placed = t.node('GeometryNodeInstanceOnPoints', Points=points, Selection=t.math('MULTIPLY', selection, keep), Instance=library(f"{fam} {size}"),
                             Pick_Instance=True, Instance_Index=f_pick(seed + 1), Rotation=t.vec(0.0, 0.0, frand(0.0, 6.28, seed + 2)), Scale=scale).outputs[0]
             t.L.new(placed, with_rocks.inputs[0])
@@ -1883,8 +1899,12 @@ def cave_group():
     tite_len = t.math('MULTIPLY', f_len, 1.15)
     tite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 433), gin["Clusters"])
     tite_big = t.math('GREATER_THAN', r_len, 0.81)
-    grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(tite_len), 431, tite_big)
-    grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(tite_len), 435, tite_big)
+    # Flooded: no stalactite tip in the water (they don't grow under it; refs c151), measured at its longest.
+    w_clear = t.math('ADD', w_z, 0.3)
+    tite_fits = lambda longest, _shortest: t.math('MAXIMUM', t.math('SUBTRACT', 1.0, flood_on), t.math('GREATER_THAN', t.math('SUBTRACT', t.named("f_croof"),
+                                                     t.math('MULTIPLY', t.math('MULTIPLY', tite_len, f_along), longest)), w_clear))
+    grow(drips, t.math('MULTIPLY', tite, t.math('SUBTRACT', 1.0, tite_cl)), "Stalactites", shaped(tite_len), 431, tite_big, tite_fits)
+    grow(drips, t.math('MULTIPLY', tite, tite_cl), "Stalactite Clusters", shaped(tite_len), 435, tite_big, tite_fits)
     # Stalagmites under most drips (L4), on the floor straight below, sunk a little.
     floor_at = t.node('GeometryNodeSetPosition', Geometry=drips, Position=t.vmath('SUBTRACT', t.named("f_floor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MULTIPLY', f_high, 0.04)))).outputs[0]
     # None poking through a wall: four level rays from a third of the way up must not meet the shell inside
@@ -1899,8 +1919,11 @@ def cave_group():
     mite_keep = t.math('MULTIPLY', mite_keep, t.math('LESS_THAN', frand(0.0, 1.0, 477), gin["Stalagmite Amount"]))
     mite_cl = t.math('LESS_THAN', frand(0.0, 1.0, 473), gin["Clusters"])
     mite_big = t.math('GREATER_THAN', r_high, 0.71)
-    grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big)
-    grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big)
+    # Flooded: none wholly under the water; those that rise out of it stay (Drac), measured at their shortest.
+    mite_fits = lambda _longest, shortest: t.math('MAXIMUM', t.math('SUBTRACT', 1.0, flood_on), t.math('GREATER_THAN', t.math('ADD', t.xyz(t.named("f_cfloor", 'FLOAT_VECTOR'))["Z"],
+                                                     t.math('MULTIPLY', t.math('MULTIPLY', f_high, f_along), shortest)), w_clear))
+    grow(floor_at, t.math('MULTIPLY', mite_keep, t.math('SUBTRACT', 1.0, mite_cl)), "Stalagmites", shaped(f_high), 471, mite_big, mite_fits)
+    grow(floor_at, t.math('MULTIPLY', mite_keep, mite_cl), "Stalagmite Clusters", shaped(f_high), 475, mite_big, mite_fits)
     col_gap = t.named("f_fgap")
     col_w = t.math('MULTIPLY', col_gap, frand(0.45, 0.8, 481))
     columns = t.node('GeometryNodeInstanceOnPoints', Points=floor_at, Selection=col_keep, Instance=library("Columns Medium"), Pick_Instance=True,
@@ -1966,6 +1989,35 @@ def cave_group():
     w_mat.inputs["Material"].default_value = water_material()
     t._set(w_mat.inputs["Geometry"], w_up)
     t.L.new(w_mat.outputs[0], with_rocks.inputs[0])
+    # Flooded chamber water (D193): a flat sheet at the water level over the whole cave, kept where it lies in the
+    # cave's space (straight up from it is roof, not a floor seen from under it or a rock piece from inside), one
+    # row of faces past that, and those outer corners pulled onto the wall so the shore sits exactly on it.
+    w_bb = t.node('GeometryNodeBoundBox', Geometry=rock_space)
+    w_lo, w_hi = t.xyz(w_bb.outputs["Min"]), t.xyz(w_bb.outputs["Max"])
+    w_sx, w_sy = t.math('SUBTRACT', w_hi["X"], w_lo["X"]), t.math('SUBTRACT', w_hi["Y"], w_lo["Y"])
+    w_step = t.math('MAXIMUM', t.math('MULTIPLY', voxel, 0.5), t.math('DIVIDE', t.math('MAXIMUM', w_sx, w_sy), 1000.0))
+    w_n = lambda size: t.node('FunctionNodeFloatToInt', Float=t.math('ADD', t.math('DIVIDE', size, w_step), 2.0)).outputs[0]
+    w_grid = t.node('GeometryNodeMeshGrid', Size_X=w_sx, Size_Y=w_sy, Vertices_X=w_n(w_sx), Vertices_Y=w_n(w_sy)).outputs[0]
+    w_grid = t.node('GeometryNodeSetPosition', Geometry=w_grid, Offset=t.vec(t.math('MULTIPLY', t.math('ADD', w_lo["X"], w_hi["X"]), 0.5),
+                                                                              t.math('MULTIPLY', t.math('ADD', w_lo["Y"], w_hi["Y"]), 0.5), w_z)).outputs[0]
+    w_ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.position(), Ray_Direction=(0.0, 0.0, 1.0),
+                   Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))
+    w_grid = t.store(w_grid, "w_in", t.math('MULTIPLY', w_ray.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(w_ray.outputs["Hit Normal"])["Z"], 0.0)))
+    w_any = t.N.new('GeometryNodeFieldOnDomain')
+    w_any.data_type, w_any.domain = 'FLOAT', 'FACE'
+    t._set(w_any.inputs["Value"], t.named("w_in"))
+    w_del = t.N.new('GeometryNodeDeleteGeometry')
+    w_del.domain = 'FACE'
+    t._set(w_del.inputs["Geometry"], w_grid)
+    t._set(w_del.inputs["Selection"], t.math('MAXIMUM', t.math('LESS_THAN', w_any.outputs[0], 0.01), t.math('SUBTRACT', 1.0, flood_on)))
+    w_near = t.node('GeometryNodeProximity', Geometry=smooth, Source_Position=t.position())
+    w_shore = t.node('GeometryNodeSetPosition', Geometry=w_del.outputs[0], Selection=t.math('LESS_THAN', t.named("w_in"), 0.5),
+                     Position=t.vec(t.xyz(w_near.outputs["Position"])["X"], t.xyz(w_near.outputs["Position"])["Y"], w_z)).outputs[0]
+    w_shore = t.store(t.node('GeometryNodeSetShadeSmooth', Geometry=w_shore).outputs[0], "lg_water", True, 'BOOLEAN', 'POINT')
+    w_fmat = t.N.new('GeometryNodeSetMaterial')
+    w_fmat.inputs["Material"].default_value = water_material()
+    t._set(w_fmat.inputs["Geometry"], w_shore)
+    t.L.new(w_fmat.outputs[0], with_rocks.inputs[0])
     t.L.new(with_rocks.outputs[0], gout.inputs["Geometry"])
     ng["kb_version"] = CAVE_VERSION
     return ng

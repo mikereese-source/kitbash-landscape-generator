@@ -1044,6 +1044,63 @@ def _t32():
     return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; amount sliders each take only their own family; old caves upgrade; pickers filled"
 
 
+@test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
+def _t33():
+    # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the
+    # walls (no gap, nothing past the shell); no stalactite tip in the water, no stalagmite wholly under it; the same
+    # at every Detail Level; None and Puddles grow no flood sheet.
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    c.chamber, c.ceiling, c.chamber_drop, c.formations = 30.0, 16.0, 8.0, 1.0
+
+    def look():
+        dg = bpy.context.evaluated_depsgraph_get(); dg.update()
+        ev = ob.evaluated_get(dg); me = ev.to_mesh()
+        wet = me.attributes.get("lg_water")
+        wv = [v.co.copy() for v in me.vertices if wet and wet.data[v.index].value]
+        dry = [i for i, v in enumerate(me.vertices) if not (wet and wet.data[v.index].value)]
+        dset = set(dry)
+        bvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(f.vertices) for f in me.polygons if all(x in dset for x in f.vertices)])
+        ev.to_mesh_clear()
+        pcs = [(i.object.name, i.matrix_world.copy(), i.object) for i in dg.object_instances
+               if i.is_instance and i.parent and i.parent.original == ob and "KB Formation" in i.object.name]
+        return wv, bvh, pcs
+    c.water = 'PUDDLES'
+    wv, _b, _p = look()
+    c.water = 'FLOOD'
+    seen = {}
+    for level in ('PREVIEW', 'HIGH'):
+        c.detail = level
+        wv, bvh, pcs = look()
+        zs = {round(v.z, 3) for v in wv}
+        check(len(wv) > 100 and len(zs) == 1, f"{level}: the flood should be one flat sheet: {len(wv)} points at {len(zs)} heights")
+        wz = wv[0].z
+        # shore on the wall: every sheet point is in the cave (roof straight above) or on the shell itself
+        off = 0
+        for v in wv[::7]:
+            up = bvh.ray_cast(v + Vector((0, 0, 0.01)), Vector((0, 0, 1)), 500.0)
+            near = bvh.find_nearest(v)
+            off += not ((up[0] is not None and up[1].z > 0) or (near[0] is not None and near[3] < 0.5))
+        check(off == 0, f"{level}: {off} water points sit inside the rock, away from the wall")
+        wet_tip, drowned = 0, 0
+        for n, m, o in pcs:
+            zz = [(m @ Vector(b)).z for b in o.bound_box]
+            if "Stalactite" in n and min(zz) < wz:
+                wet_tip += 1
+            if "Stalagmite" in n and max(zz) < wz:
+                drowned += 1
+        check(not wet_tip and not drowned, f"{level}: {wet_tip} stalactite tips in the water, {drowned} stalagmites under it")
+        seen[level] = sorted((round(m.translation.x, 1), round(m.translation.y, 1)) for _n, m, _o in pcs)
+    check(seen['PREVIEW'] == seen['HIGH'], "the same formations should stand at every level when flooded")
+    c.water = 'NONE'
+    check(not look()[0], "Water None should grow no water")
+    return f"one flat sheet at {wz:.1f} m, shore on the walls, {len(seen['HIGH'])} formations clear of it at Preview and High; None dry"
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

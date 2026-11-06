@@ -28,7 +28,7 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
                 "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles",
                 "drape_length": "Drape Length", "drape_fullness": "Drape Fullness", "drape_fold": "Drape Fold",
-                "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
+                "water_level": "Water Level", "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
 
 
 def sync_cave(ob):
@@ -47,6 +47,9 @@ def sync_cave(ob):
     nodes.input_socket(mod, "Show Mask").value = MASK_INDEX[ob.lg_cave.show_mask]
     nodes.input_socket(mod, "Mask Heatmap").value = ob.lg_cave.mask_colors == 'HEAT'
     nodes.input_socket(mod, "Drape Lines").value = ob.lg_cave.drape_lines
+    nodes.input_socket(mod, "Water").value = WATER_INDEX[ob.lg_cave.water]
+    if ob.lg_cave.water != 'PUDDLES':  # one water at a time (D193)
+        nodes.input_socket(mod, "Puddles").value = 0.0
     # No rocks picked (an older cave, or the pick cleared): the library's own family.
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
@@ -117,6 +120,10 @@ ROCK_ITEMS = (('LIMESTONE', "Limestone", "Flat rock beds stepping in and out, fl
               ('JOINTED', "Jointed", "Long straight fractures standing the walls in flat faces, as in sea caves and cliffs; angular blocks"),
               ('LAVA', "Lava Tube", "A smooth round tube with long flow ledges along the walls; lava rubble"))
 ROCK_INDEX = {key: i for i, (key, _n, _d) in enumerate(ROCK_ITEMS)}
+WATER_ITEMS = (('NONE', "None", "A dry cave"),
+               ('PUDDLES', "Puddles", "Water in hollows of the limestone floor"),
+               ('FLOOD', "Flooded Chamber", "The chamber filled with still water to Water Level; the formations stand in it"))
+WATER_INDEX = {key: i for i, (key, _n, _d) in enumerate(WATER_ITEMS)}
 ROCK_KITS = {'LIMESTONE': ("Blocks", "Scree"), 'JOINTED': ("Blocks", "Scree"), 'LAVA': ("Lava", "Lava")}
 
 
@@ -178,6 +185,9 @@ class LG_CaveProps(PropertyGroup):
     formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
+    water: EnumProperty(name="Water", description="What water the cave holds", items=WATER_ITEMS, default='PUDDLES', update=_sync)
+    water_level: FloatProperty(name="Water Level", description="How high the flood stands: the chamber floor (0) up to the passage floor where it opens into the chamber (1)",
+                               default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     stalactite_amount: FloatProperty(name="Stalactites", description="How many stalactites hang from the roof: none (0) to all their spots (1)",
                                      default=1.0, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     stalagmite_amount: FloatProperty(name="Stalagmites", description="How many stalagmites stand on the floor: none (0) to all their spots (1)",
@@ -242,7 +252,7 @@ class LG_OT_randomize_cave(Operator):
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
                "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
-               "formation_size", "formation_stretch", "clusters", "stalactite_amount", "stalagmite_amount", "column_amount", "puddles", "drape_length", "drape_fullness", "drape_fold")
+               "formation_size", "formation_stretch", "clusters", "stalactite_amount", "stalagmite_amount", "column_amount", "water", "water_level", "puddles", "drape_length", "drape_fullness", "drape_fold")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -346,9 +356,13 @@ def draw_section(layout, context):
     row = col.row()
     row.enabled = props.rock == 'LIMESTONE'  # only limestone grows formations (D168, D174)
     row.prop(props, "formations", slider=True)
-    row = col.row()
-    row.enabled = props.rock == 'LIMESTONE'
-    row.prop(props, "puddles", slider=True)
+    col.prop(props, "water")
+    if props.water == 'PUDDLES':
+        row = col.row()
+        row.enabled = props.rock == 'LIMESTONE'
+        row.prop(props, "puddles", slider=True)
+    elif props.water == 'FLOOD':
+        col.prop(props, "water_level", slider=True)
     header, sub = box.panel("lg_cave_rocks", default_closed=False)
     header.label(text="Rocks")
     if sub:

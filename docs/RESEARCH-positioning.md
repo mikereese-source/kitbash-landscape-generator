@@ -179,3 +179,11 @@ Proof points we'd need to show:
 - https://polyhaven.com/license
 - https://docs.worldlabs.ai/ (marble.worldlabs.ai and worldlabs.ai/pricing gave no content / 404)
 - https://www.kitbash3d.com/pages/pricing
+
+## Mike's answers (2026-11-06)
+1. **Packaging and price in Cargo:** not now. First make something that looks good enough to go further into Cargo; talk packaging later.
+2. **Kit placement or finished look first:** the finished look first (materials, fog, atmosphere: a terrain that looks done). Later, the MCP builds a terrain and places Kits in it; that complements the finished look.
+3. **Real-world terrain at launch:** not decided. Focus on a really good-looking, finished terrain; then presets and templates artists can pick from, real-world or not (it doesn't matter which).
+4. **Send-to-C4D:** there is a Cinema 4D MCP; whether this carries over is for later.
+5. **Publish the realism score:** no. It's an internal bar, so the team can look at a result and say "wow, this looks very good".
+6. **Track AI world tools:** question explained in chat (pending Mike's call).

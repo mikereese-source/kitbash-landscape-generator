@@ -325,9 +325,11 @@ Size per texture set = colour JPG + normal (GL) JPG + roughness JPG + height EXR
 - **Meshes:** glTF with 2K textures (Poly Haven's default; no model above 4K was taken).
 - **Result:** 22 texture sets (596 MB) and 15 models (153 MB), **37 assets, 169 files, 748 MB** in all. Every file
   matched the size the API states; no failures.
-- **Where:** `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\<id>\` (texture sets) and
-  `...\polyhaven\models\<id>\` (glTF, .bin and textures), each with a `sources.json` (id, name, page, license CC0,
-  authors, files with URL and size, resolution, px/m, date). Full list: `...\polyhaven\manifest.json`.
+- **Where (reorganised 2026-11-06):** under `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\`:
+  `textures\<id>\` (the 22 ground sets), `models\<id>\blend\` (native .blend with 2K textures, leaf alpha wired: use
+  these in Blender, 326 MB), `models\<id>\gltf\` (glTF for three.js later). Each `<id>` folder has its own
+  `sources.json` (id, name, page, license CC0, authors, files with URL and size, resolution, date) and moves as a unit.
+  Full list and layout: `manifest.json`.
 - Nothing was opened or run. These are spike stand-ins only and are never shipped (final version is KB3D only).
 
 ## 7. Poly Haven ground-cover meshes

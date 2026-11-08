@@ -28,7 +28,7 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "spread": "Spread", "formations": "Formations", "formation_size": "Formation Size",
                 "formation_stretch": "Formation Stretch", "clusters": "Clusters", "puddles": "Puddles",
                 "drape_length": "Drape Length", "drape_fullness": "Drape Fullness", "drape_fold": "Drape Fold",
-                "water_level": "Water Level", "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
+                "water_level": "Water Level", "lip": "Lip", "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
 
 
 def sync_cave(ob):
@@ -185,6 +185,8 @@ class LG_CaveProps(PropertyGroup):
     formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
+    lip: FloatProperty(name="Lip", description="How thick the rock rim round the open mouth is, against the entrance width: thin (0.05) to thick (0.4)",
+                       default=0.15, min=0.05, max=0.4, subtype='FACTOR', update=_sync)
     water: EnumProperty(name="Water", description="What water the cave holds", items=WATER_ITEMS, default='PUDDLES', update=_sync)
     water_level: FloatProperty(name="Water Level", description="How high the flood stands: the chamber floor (0) up to the passage floor where it opens into the chamber (1)",
                                default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
@@ -252,7 +254,7 @@ class LG_OT_randomize_cave(Operator):
 # landscapes, Reset keeps the layout and detail you picked).
 SHAPE_PROPS = ("width", "height", "depth", "wiggle", "turn", "drop", "narrowing", "chamber", "ceiling", "chamber_drop",
                "ramp", "roughness", "rubble", "wall_shape", "rock_size", "stretch", "tilt", "spread", "rock", "formations",
-               "formation_size", "formation_stretch", "clusters", "stalactite_amount", "stalagmite_amount", "column_amount", "water", "water_level", "puddles", "drape_length", "drape_fullness", "drape_fold")
+               "formation_size", "formation_stretch", "clusters", "stalactite_amount", "stalagmite_amount", "column_amount", "water", "water_level", "lip", "puddles", "drape_length", "drape_fullness", "drape_fold")
 PRESET_PROPS = SHAPE_PROPS + ("seed", "detail")
 
 
@@ -333,6 +335,7 @@ def draw_section(layout, context):
     col.prop(props, "width")
     col.prop(props, "height")
     col.prop(props, "depth")
+    col.prop(props, "lip", slider=True)
     col.prop(props, "wiggle", slider=True)
     col.prop(props, "turn", slider=True)
     col.prop(props, "narrowing", slider=True)

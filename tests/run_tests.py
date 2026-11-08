@@ -629,14 +629,41 @@ def cave_mesh(ob):
     closed = closed and islands == 1
     co = np.empty(len(me.vertices) * 3)
     me.vertices.foreach_get("co", co)
-    floor = np.array([f.center[:] for f in me.polygons if f.normal.z < -0.95])
+    # The inside only (D196): the cave is a hollow rock body now, and its outside (lg_outer) is not the cave's
+    # shape (the hull's top faces down into the rock like a floor).
+    outer = np.zeros(len(me.vertices), bool)
+    if me.attributes.get("lg_outer") is not None:
+        me.attributes["lg_outer"].data.foreach_get("value", outer)
+    floor = np.array([f.center[:] for f in me.polygons if f.normal.z < -0.95 and not any(outer[i] for i in f.vertices)])
     n = len(me.polygons)
     bm.free()
     ev.to_mesh_clear()
-    return co.reshape(-1, 3), closed, floor, n
+    return co.reshape(-1, 3)[~outer], closed, floor, n
 
 
-@test("T14", "Cave object: closed, walk-in floor, real-size mouth")
+def cave_hits(ob, origin, direction, most=4):
+    """Distances along a ray to each surface of the cave's evaluated mesh it crosses, nearest first."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    tree = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+    ev.to_mesh_clear()
+    o, d, out, gone = Vector(origin), Vector(direction).normalized(), [], 0.0
+    for _ in range(most):
+        hit = tree.ray_cast(o, d)
+        if hit[0] is None:
+            break
+        gone += hit[3]
+        out.append(gone)
+        o = hit[0] + d * 1e-3
+        gone += 1e-3
+    return out
+
+
+@test("T14", "Cave object: closed rock body, open mouth, Lip, walk-in floor, real-size mouth")
 def _t14():
     fresh_scene()
     check(bpy.ops.landscape.add_cave() == {'FINISHED'}, "Add Cave did not finish")
@@ -647,7 +674,7 @@ def _t14():
     t0 = time.time()
     pts, closed, floor, n = cave_mesh(ob)
     dt = time.time() - t0
-    check(closed, "the cave mesh should be closed (usable as a Boolean cutter)")
+    check(closed, "the cave mesh should be one closed solid (the rock body round the cave, D196)")
     near = floor[(floor[:, 1] > 0.0) & (floor[:, 1] < c.depth * 0.5) & (np.abs(floor[:, 0]) < c.width * 0.2)]  # the walkway behind the mouth (the rounded front pokes out of the face and is cut away); talus rises at the sides
     check(len(near) > 0 and np.abs(near[:, 2]).max() < 0.12 * c.height, f"the floor by the mouth should be flat at 0 (off by {np.abs(near[:, 2]).max():.2f} m)")
     sec = pts[np.abs(pts[:, 1] - c.width * 0.5) < c.width * 0.08]
@@ -655,6 +682,26 @@ def _t14():
     check(abs(w / c.width - 1) < 0.3 and abs(h / c.height - 1) < 0.3, f"mouth {w:.1f} x {h:.1f} m, set {c.width:.0f} x {c.height:.0f} m")
     check(c.depth < pts[:, 1].max() < c.depth + c.width, f"cave should run back about {c.depth:.0f} m, reaches {pts[:, 1].max():.1f} m")
     check(pts[:, 1].min() < 0, "the front should poke out in front of the mouth, through the face")
+    # The open mouth (5.3a, D196): from mid-passage, looking out at head height, nothing in the way; the floor
+    # runs out in front. Sideways through the mouth's wall: the inside, then the rock's outside, a wall the Lip
+    # slider sets apart (at least 1.5 Preview voxels, the narrower of the half width and the height over 6).
+    out_hits = cave_hits(ob, (0.0, c.depth * 0.3, c.height * 0.5), (0.0, -1.0, 0.0))
+    check(not out_hits, f"the mouth should be open: looking out from inside hit rock {out_hits[0]:.1f} m away" if out_hits else "")
+    check(cave_hits(ob, (0.0, -c.width * 0.3, 2.0), (0.0, 0.0, -1.0)), "the floor should run out of the mouth")
+
+    def wall(lip):
+        c.lip = lip
+        # Sideways through the wall just behind the face cut, under the roof's ledges: the mouth's rock, the only
+        # wall Lip thins (behind the mouth it stays at least 3 Preview voxels, D197).
+        up = cave_hits(ob, (0.0, c.width * 0.4, c.height * 0.3), (1.0, 0.0, 0.0))
+        return (up[1] - up[0]) if len(up) >= 2 else 0.0, max(c.width * lip, 1.5 * min(c.width * 0.5, c.height) / 6.0)
+    thin, want_thin = wall(0.15)
+    mid, want_mid = wall(0.25)
+    thick, want_thick = wall(0.4)
+    # Every step of the slider counts, the default included (first-pass review: under 0.25 it did nothing).
+    check(all(0.6 < a / b < 1.6 for a, b in ((thin, want_thin), (mid, want_mid), (thick, want_thick))) and thin < mid < thick,
+          f"the rock over the mouth should be as thick as Lip sets: {thin:.1f} / {mid:.1f} / {thick:.1f} m at 0.15 / 0.25 / 0.4 (want {want_thin:.1f} / {want_mid:.1f} / {want_thick:.1f})")
+    c.lip = 0.15
     c.chamber, c.ceiling = 30.0, 15.0
     pc, closed2, _f, _n = cave_mesh(ob)
     back = pc[pc[:, 1] > c.depth * 0.8]
@@ -925,12 +972,25 @@ def _t31():
     sizes = {}
     for i in range(len(me.polygons)):
         sizes[find(i)] = sizes.get(find(i), 0) + 1
+    # The inside's islands (D196): the rock body's outside (lg_outer) gets its own few, which are not counted.
+    outer = np.zeros(len(me.vertices), bool)
+    if me.attributes.get("lg_outer") is not None:
+        me.attributes["lg_outer"].data.foreach_get("value", outer)
+    inside = {find(p.index) for p in me.polygons if not outer[list(p.vertices)].any()}
+    # Square and even measured on the inside too; the outside is reported (its UVs come with M7, D196).
+    t_in = ~outer[vi].any(1)
+
+    w_good = a3[good] * t_in[good]
+    square_out = square
+    square = float((sv[:, 0] / np.maximum(sv[:, 1], 1e-12) < 1.5) @ (w_good / w_good.sum()))
+    w_ok = a3[ok] * t_in[ok]
+    even = float(((r > 0.5) & (r < 2.0)) @ (w_ok / w_ok.sum()))
     ev.to_mesh_clear()
     small = sum(1 for v in sizes.values() if v < 50)
-    check(len(sizes) <= 12 and small == 0, f"{len(sizes)} UV islands, {small} under 50 faces (want at most 12, none small)")
+    check(len(inside) <= 12 and small == 0, f"{len(inside)} UV islands inside ({len(sizes)} in all), {small} under 50 faces (want at most 12 inside, none small)")
     check(square > 0.9, f"{square:.0%} of the area has square UVs (under 1.5 to 1); want over 90%")
     check(even > 0.9, f"{even:.0%} of the area is within 0.5x to 2x of the average texel density; want over 90%")
-    return f"{len(sizes)} islands, {square:.0%} square, {even:.0%} even"
+    return f"{len(inside)} islands inside, {len(sizes)} in all, {square:.0%} square, {even:.0%} even inside ({square_out:.0%} square with the outside)"
 
 
 @test("T15", "Stalactites hang, stalagmites stand")

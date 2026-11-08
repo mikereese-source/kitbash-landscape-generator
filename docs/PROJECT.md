@@ -5,7 +5,7 @@
 **Track:** full
 **Stage:** Build (pre-Alpha)
 **Current milestone:** M5 — Cliffs, caves, stalactites (step 5.1 done; re-planned 2026-10-28, D93; 5.2 cave object next). M4 PASSED 2026-10-28 (D90, tag m4; rollback snapshots/kitbash_landscape_generator-m4-gate-2026-10-28.zip). M3 PASSED 2026-10-28 (D86, tag m3; rollback snapshots/kitbash_landscape_generator-m3-gate-2026-10-27.zip). M2 passed 2026-10-26 (D73, tag m2).
-**Last updated:** 2026-10-28
+**Last updated:** 2026-11-08
 
 ## Pre-build checklist
 - [x] Design doc approved (2026-10-22) → `DESIGN.md`
@@ -91,7 +91,7 @@ Every plan includes an errors & edge cases milestone and a final check.
 | 5.2c | Cave detail reset (D105): shell density per Detail Level (about 150k / 4M / 16M faces), rocks and scree as swappable instances (not cut into the shell), wall detail rebuilt from interior photo references. Parts 1 (density) and 2 (rock library) done, D108; walls by rock type done (Lava D146–D157, Limestone D158–D163, Jointed D164); tube coordinates and UVs (D148–D150, T31). Wall-foot ledges and fine bed layering moved to M7 materials (D157, D163). Last: Jointed polish (pillow-like masses, a few zipper bits) | M–L — nearly done |
 | 5.4 | Stalactites and stalagmites inside the cave object as swappable instances (D105), sharp tips (D11), ceilings and floors only (T15). A library like the rocks, so the pieces can be made into Kits (Mike). Only what the rock type really grows (D168): Limestone the full set, Lava small lava drips and drip mounds (High and Ultra only, D169), Jointed none | M � done 2026-11-04 (D168-D174, T15 PASS; lava drip patches parked) |
 | 5.4b | Next. Cave detail pass 3: floor detail (puddle hollows, flat breakdown slabs, sediment patches) (Mike, D103) | M |
-| 5.3 | Front opening and cutter (reworked, D167). The cave object gets a real opening: the shell is cut at the front and the cut edge welds shut into a natural rock lip, so the mouth is open, not a closed hull. A much simpler cutter mesh is made from the shell (the shell itself gets very dense) and used with a Boolean modifier on any mesh, Kits included. Pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut) | M–L |
+| 5.3 | Front opening and cutter (reworked, D167). 5.3a mouth done 2026-11-08 (D196): a hollow rock body cut open in the SDF stage with a stepped lip; the cutter (5.3b) is built last before the 5.5 gate (D189). The cave object gets a real opening: the shell is cut at the front and the cut edge welds shut into a natural rock lip, so the mouth is open, not a closed hull. A much simpler cutter mesh is made from the shell (the shell itself gets very dense) and used with a Boolean modifier on any mesh, Kits included. Pick a cave in a landscape's panel and it's carved in watertight with masks (the 5.1 cut) | M–L |
 | 5.2b | Cave path you draw (D96, Mike): the cave can follow an editable curve. Drag its points to shape the passage, add strands to branch it; every strand keeps the cave's size, drop and chamber settings. Built-in Blender handles, so no gizmo needed for the path. Plan drafted 2026-11-02 (sub-steps: path curve, strands, single-path fixes and tests T32/T33; L, not M) | L |
 | 5.5 | Tests, then the gate for the cave creator: checker, rollback zip, Mike sign-off | S–M |
 

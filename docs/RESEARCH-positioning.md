@@ -187,3 +187,108 @@ Proof points we'd need to show:
 4. **Send-to-C4D:** there is a Cinema 4D MCP; whether this carries over is for later.
 5. **Publish the realism score:** no. It's an internal bar, so the team can look at a result and say "wow, this looks very good".
 6. **Track AI world tools:** yes, keep tracking them (World Labs Marble and the like). With the Cargo MCP we'll have everything to build a world from a prompt with Kits and terrain, all premium: that's the angle they compete with. Check them at every milestone gate (positioning-researcher, short pass).
+
+---
+
+# Company profiles and industry standing (2026-11-08)
+
+Research only, public web, no logins. Every fact below was read on **2026-11-08** from the page cited (numbers in
+brackets point to the sources list at the end of this section). Features and pricing are in sections 2–3 above and
+are not repeated. "Claimed" = on the vendor's own site; "confirmed" = a third party (the studio itself, a press
+interview or a job posting) says it.
+
+## Verdict first
+
+**There is no single standard. Gaea and World Machine are the two names studios actually ask for; World Creator is
+a strong third with the biggest visible community but the weakest independent AAA evidence.** Confidence: medium.
+- **AAA games:** Gaea and World Machine are named together ("Gaea/World Machine") in most of the 2026 terrain and
+  landscape job postings we saw [14][15]; Houdini heightfields sit beside them at some studios [16]. World Machine
+  is the older pipeline standard (Ghost Recon Wildlands, 2017 [12]); Gaea has the newer, studio-confirmed wins
+  (Remedy: "primary tool" for Alan Wake II [11]). Momentum is with Gaea.
+- **Film/VFX:** Gaea has the only studio-signed testimonial (Wētā FX environments model supervisor [4]) plus a long
+  logo wall (Scanline VFX, Netflix, BBC Studios, Lucasfilm Games). Houdini is the other usual VFX terrain tool (not
+  researched here). Neither World Machine nor World Creator quotes a named film studio.
+- **Indie/hobby/Unity:** World Creator (Unity Asset Store roots, 13,066-member Discord [9], "50,000+ creators"
+  claimed [7]) is the most visible. One open-world studio (Intrepid, Ashes of Creation) lists World Creator and
+  Houdini, not Gaea [17].
+- No public survey or LinkedIn/ArtStation job-count data was reachable (LinkedIn returned 403), so this rests on a
+  handful of postings and named credits, not market-share numbers.
+
+## Comparison table
+
+| | **Gaea** (QuadSpinner) | **World Machine** (World Machine Software LLC) | **World Creator** (BiteTheBytes GmbH) |
+|---|---|---|---|
+| **Based** | Questa, New Mexico, USA; remote team in Asia, E. Europe, N. America, Middle East [1] | Seattle, WA, USA [5] | Fulda, Germany [8][10] |
+| **Company founded** | 2008, near Volcano Arenal, Costa Rica [1] | "Est. 2008" [5] | 2007 per own site (EXIST grant, Fulda University) [8]; GmbH registered 27 May 2010, HRB 5804 Fulda [10] |
+| **Founders** | Dax Pandhi (Chief Architect), Cynthia Najim (CEO) [1] | Stephen Schmitt [5] | Stefan Kraus (MD), Prof. Stephan Jacob (CFO), Timo Armbruster (CTO; own timeline says he joined in 2011) [8] |
+| **Product since** | Gaea 1: 2019; Gaea 2: 2024; Gaea 3 in Early Access [1] | 1.0 in 2005; 2.0 in Aug 2008 [2]; Dragontail Peak in alpha (2026) | World Creator 1 ~2011 (with GeoControl's creator); Unity tool 2015; WC2 standalone 2017; WC 2022/2023/2025/2026; WC4 Early Access [8] |
+| **Ownership** | Founder-owned; says it is bootstrapped and self-sufficient [1] | "Independent" small indie company [5] | Founder-led GmbH; public start-up grant only; shareholders not public [8][10] |
+| **Funding / acquisitions** | None found | None found | None found (government grant and awards only) [8] |
+| **Size** | 8 people on team page [1]; LinkedIn band unknown (403) | Only the founder named [5]; headcount unknown; LinkedIn unknown (403) | 6 people on team page [8]; "micro enterprise" in register data [10]; LinkedIn unknown (403) |
+| **Customers claimed on own site** | Wētā FX, Sony Santa Monica, Kojima Productions, Remedy, Larian, Lucasfilm Games, Respawn, Ubisoft, Scanline VFX, Netflix, BBC Studios, CBS Studios, NASA, Microsoft, Quixel/Epic [4] | Testimonials from Microsoft Games Studio, NVIDIA (Supersonic Sled demo), Specular Interactive; no logos, games or films named [3] | ILM, Bungie, Ubisoft, Weta Digital, NASA; games: Dune Awakening, Star Wars Outlaws, Star Citizen, Forza 6, Gears of War 4, The Witcher 3, Dark Souls 3 and others; film: Dune [7] |
+| **Independently confirmed** | Alan Wake II (Remedy lead environment artist, quoted on QuadSpinner's blog [11]); Wētā FX testimonial is named and titled [4]; asked for in 2026 postings (Sperasoft, Lighthouse Games, Avalon, Wargaming, Magnopus, Absurd Ventures) [14][15][16] | Ghost Recon Wildlands (Ubisoft leads, 80.lv 2017 [12]); Battlefield 3 slides (forum report only [13]); same 2026 postings as "Gaea/World Machine" [14][15] | Intrepid Studios (Ashes of Creation) terrain posting [17]. **None of its listed AAA games or films confirmed** |
+| **Community** | Forum; size not published [4] | Official forum: 45 active users in 30 days [18] | Discord: 13,066 members, 1,924 online [9]; "50,000+ creators" and "80+ studios" claimed [7] |
+| **Standing** | **Leading** for new AAA and VFX work | **Legacy standard**, still asked for alongside Gaea; slow release pace | **Strong in indie/Unity/real-time**; AAA claims unproven |
+
+## Per-company notes
+
+**Gaea / QuadSpinner.** Two-founder, bootstrapped company with an 8-person listed team in four regions [1]. It has the
+most credible customer list of the three: named, titled quotes from Wētā FX [4] and Remedy [11], and a big logo wall
+that carries a "no endorsement implied" note [4]. Some showcase titles (God of War, Avatar, Jedi, Baldur's Gate) are
+only image filenames on the page, so treat them as unconfirmed. Death Stranding 2 is a homepage spotlight [4], but no
+Kojima Productions source confirming Gaea was found. Dax Pandhi's earlier tool, GeoGlyph, was a World Machine plug-in
+(search result only, not opened), so Gaea grew out of the World Machine community.
+
+**World Machine.** A one-founder, independent Seattle LLC; the product (2005) is the oldest of the three [2][5]. It has
+the deepest documented AAA history: Ubisoft built Ghost Recon Wildlands' terrain in it and paid Schmitt for custom
+work [12]. The site calls itself an "industry-standard solution" but names no games or films [3][5]. Release pace is
+slow (Dragontail Peak still in alpha in 2026) and the official forum is quiet [18]. Postings still name it next to
+Gaea, so skills are treated as interchangeable.
+
+**World Creator / BiteTheBytes.** A small German GmbH (6 listed staff, "micro enterprise") that began as a university
+spin-out on a government start-up grant [8][10]. Its own timeline admits World Creator 2022 stumbled before a 2023
+comeback [8]. It has the largest visible community (13k Discord [9]) and the boldest claims (ILM, Bungie, Dune
+Awakening, Star Wars Outlaws, The Witcher 3) [7], none confirmed by a studio source. Some look doubtful on timing:
+The Witcher 3 (2015) and Dark Souls 3 (2016) shipped before the standalone WC2 (2017), so at most an early version or
+one artist's work could be meant. The page also says some logos belong to studios that have closed [7].
+
+## What this means for us
+- None of the three is a big company: all are founder-run, 1–8 visible staff, no VC or acquirer found. A KitBash tool
+  would not face a large vendor's sales team; it would face habit (Gaea/World Machine in AAA job ads).
+- The AAA hand-off vocabulary is "heightfield + masks into Unreal" (Avalon, Sperasoft postings [14][15]). Our
+  Send-to-Unreal should export heightmaps and masks the way Gaea users expect.
+- An acquisition of any of these by a larger platform (Epic, Adobe, Maxon) would change the picture quickly; none was
+  found as of 2026-11-08.
+
+## Unknowns
+- LinkedIn headcount bands and listed employee counts for all three: LinkedIn returned HTTP 403, and no other credible
+  headcount was found. Team-page counts are the only figures and may miss contractors.
+- World Machine's 2005/2008 release years come from secondary sources seen in search results [2]; the company page
+  gives no release year.
+- The Hessischer Gründerpreis 2013 PDF on BiteTheBytes could not be read.
+- Gaea Discord/forum size and any subreddit sizes: not found.
+- No survey or ArtStation/LinkedIn job-count data found; the verdict rests on about 8 postings and named credits.
+- The polycount comparison thread returned 403; only a search snippet was seen (one user's terrain artists prefer Gaea
+  but fall back to World Machine for some tasks). Not used as evidence.
+
+## Sources (all accessed 2026-11-08)
+1. https://quadspinner.com/about
+2. https://www.cgchannel.com/2026/05/world-machine-dragontail-peak-preview/ and the WM2 user guide revision history
+   (https://www.scribd.com/document/631236507/WM2-User-Guide-pdf): search results only, not opened
+3. https://www.world-machine.com/
+4. https://quadspinner.com/
+5. https://www.world-machine.com/company.php
+7. https://www.bitethebytes.com/products/world-creator (redirect from world-creator.com)
+8. https://www.bitethebytes.com/about and https://www.bitethebytes.com/docs/world-creator
+9. https://discord.com/servers/world-creator-now-bitethebytes-326701194573512715
+10. https://app.implisense.com/en/companies/bitethebytes-gmbh-fulda--DEBOUUEKCC02 (German register data)
+11. https://blog.quadspinner.com/alan-wake-gaea/ (post dated 2024-09-11)
+12. https://80.lv/articles/procedural-technology-in-ghost-recon-wildlands (2017-04-13)
+13. https://forum.world-machine.com/t/world-machine-being-used-in-battlefield-4/3663 (search result only)
+14. https://apply.workable.com/sperasoft/jobs/view/BFEDD0F062.md (Senior Landscape Artist, posted 2026-05-26)
+15. https://career.com/job/avalon/ta-gaea-to-unreal-environment-technical-artist/j202503060201135042675, plus
+    Wargaming, Magnopus and Absurd Ventures postings: search results only, not opened
+16. https://www.terra.do/climate-jobs/job-board/Senior-Environment-Artist-Lighthouse-Games-8416107/
+17. https://hitmarker.net/jobs/intrepid-studios-senior-terrain-artist-903898
+18. https://forum.world-machine.com/about
+- LinkedIn company pages for QuadSpinner, BiteTheBytes, World Machine Software: HTTP 403, no data.

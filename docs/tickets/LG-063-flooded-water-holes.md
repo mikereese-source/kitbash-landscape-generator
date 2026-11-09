@@ -1,5 +1,5 @@
 # LG-063 Holes in the flooded chamber water next to pieces
-Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: TBD (set after Mike's full review)
+Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: none
 
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
+- 2026-11-09 prioritized P1, step 4 of the review order (TICKETS.md)

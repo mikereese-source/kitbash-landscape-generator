@@ -1,5 +1,5 @@
 # LG-064 Jointed: full re-evaluation against the earlier version
-Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: L | Priority: TBD (set after Mike's full review)
+Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: L | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
+- 2026-11-09 prioritized P1, step 14 of the review order (TICKETS.md)

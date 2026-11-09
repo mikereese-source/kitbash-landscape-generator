@@ -1,5 +1,5 @@
 # LG-057 Lip minimum 0.3, range to 0.5, and fix pinches
-Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: TBD (set after Mike's full review)
+Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
@@ -23,3 +23,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created from Mike's review (limestone)
 - 2026-11-09 Mike (lava review): 0.3 is the minimum for all rocks; 0.4-0.5 give some pretty cool results. Minimum raised to 0.3, range up to at least 0.5
+- 2026-11-09 prioritized P1, step 1 of the review order (TICKETS.md)

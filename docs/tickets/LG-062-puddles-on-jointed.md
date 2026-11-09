@@ -1,5 +1,5 @@
 # LG-062 Puddles slider greyed out on Jointed
-Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: TBD (set after Mike's full review)
+Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: none
 
@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
 - 2026-11-09 Mike (lava review): Puddles are greyed out on Lava Tube too. If someone wants puddles they should just work, the same on every rock
+- 2026-11-09 prioritized P1, step 3 of the review order (TICKETS.md)

@@ -1,5 +1,5 @@
 # LG-055 Show face counts per Detail Level before switching
-Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: TBD (set after Mike's full review)
+Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P2
 Status: todo | Lane: side | Needs Blender: tests only | Mike review: yes
 Depends on: none | Blocks: none
 
@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (limestone)
+- 2026-11-09 prioritized P2, step 17 of the review order (TICKETS.md)

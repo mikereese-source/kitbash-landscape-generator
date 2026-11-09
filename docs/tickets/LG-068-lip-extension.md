@@ -1,5 +1,5 @@
 # LG-068 Extend the lip outward (all three rocks)
-Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: M | Priority: TBD (set after Mike's full review)
+Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: M | Priority: P3
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (lava)
+- 2026-11-09 prioritized P3, step 16 of the review order (TICKETS.md)

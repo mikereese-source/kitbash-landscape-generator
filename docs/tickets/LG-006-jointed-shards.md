@@ -1,6 +1,6 @@
 # LG-006 Jointed shards under the passage join (outside)
 Type: bug | Milestone: M5 5.5 | Phase: A Cave fixes | Size: S | Priority: P3
-Status: ready | Lane: main | Needs Blender: yes | Mike review: no
+Status: folded into LG-064 | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: LG-017
 
 ## Why

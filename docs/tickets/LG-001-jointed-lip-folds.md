@@ -1,6 +1,6 @@
 # LG-001 Jointed lip folds into pale patches
 Type: bug | Milestone: M5 5.3a | Phase: A Cave fixes | Size: S-M | Priority: P1
-Status: ready | Lane: main | Needs Blender: yes | Mike review: yes
+Status: folded into LG-064 | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: LG-008, LG-016
 
 ## Why

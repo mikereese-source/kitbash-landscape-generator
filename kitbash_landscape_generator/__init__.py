@@ -687,7 +687,7 @@ class LG_ObjectProps(PropertyGroup):
     # Meters, not a share of the size: like the cave, it stays put when the landscape is resized. 20 m is
     # 10% of the default 200 m landscape, a bit under its default relief.
     base_depth: FloatProperty(name="Base Depth", description="How far the flat bottom sits below the lowest ground",
-                              default=20.0, min=0.01, soft_max=1000.0, unit='LENGTH', update=_sync)
+                              default=20.0, min=0.01, max=100000.0, soft_max=1000.0, unit='LENGTH', update=_sync)
     cave_layout: EnumProperty(name="Cave", description="Carve a cave into the landscape. Every cave starts with an entrance",
                               items=CAVE_ITEMS, default='NONE', update=_cave_changed)
     cave_x: FloatProperty(name="Across", description="Where the cave sits across the landscape, left to right",

@@ -1322,6 +1322,8 @@ def _build(ng, recipe):
     # (face) and flat shaded so materials and exports can skip them; the top and its masks stay as they are.
     # The water sheet already covers exactly Size X by Size Y, so it ends at the sides. Off while erosion samples.
     b_bottom = math('SUBTRACT', m_stats.outputs["Min"], inp["Base Depth"])
+    # Any edge with one face (< 1.5: counts are whole numbers) is the border: the landscape is closed everywhere
+    # else (cave cuts are stitched shut, T30), and this also follows a Mesa floor-off outline, not just the rectangle.
     b_open = N.new('GeometryNodeInputMeshEdgeNeighbors')
     b_ext = N.new('GeometryNodeExtrudeMesh')
     b_ext.mode = 'EDGES'
@@ -1331,7 +1333,7 @@ def _build(ng, recipe):
     b_side = N.new('GeometryNodeStoreNamedAttribute')
     b_side.data_type = 'BOOLEAN'
     b_side.domain = 'FACE'
-    b_side.inputs["Name"].default_value = "lg_base"
+    b_side.inputs["Name"].default_value = "lg_base"  # side points copy the border's masks; lg_base is how materials and exports skip them
     L.new(b_ext.outputs["Mesh"], b_side.inputs["Geometry"])
     L.new(b_ext.outputs["Side"], b_side.inputs["Value"])
     b_loop = N.new('GeometryNodeMeshToCurve')
@@ -1359,6 +1361,7 @@ def _build(ng, recipe):
     b_weld = N.new('GeometryNodeMergeByDistance')  # stitch the bottom to the sides; only bottom points take part
     L.new(b_join.outputs[0], b_weld.inputs["Geometry"])
     L.new(math('MULTIPLY', spacing, 0.01), b_weld.inputs["Distance"])  # well under a grid step at any size
+    # Bottom points only: the top never comes lower than Base Depth above the bottom, so half-way splits them safely.
     L.new(math('LESS_THAN', m_pos.outputs["Z"], math('ADD', b_bottom, math('MULTIPLY', inp["Base Depth"], 0.5))), b_weld.inputs["Selection"])
     b_is = N.new('GeometryNodeInputNamedAttribute')
     b_is.data_type = 'BOOLEAN'

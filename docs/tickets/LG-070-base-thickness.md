@@ -1,6 +1,6 @@
 # LG-070 Base thickness (solid sides)
 Type: feature | Milestone: M6 6.4c | Phase: E M6 | Size: S | Priority: P2
-Status: review | Lane: main | Needs Blender: yes | Mike review: yes
+Status: review | Lane: side | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -12,10 +12,12 @@ Other terrain tools show the landscape as a solid slab with thick sides, which r
 - Water level stops at the base edge
 - Layered rock material on the sides comes later in M7 (LG-031 area)
 - Test
+- Code review: mattpocock-skills:code-review against this ticket before merge
 
 ## Files
 - `kitbash_landscape_generator/nodes.py`
 - `kitbash_landscape_generator/__init__.py`
+- `kitbash_landscape_generator/presets.py`
 - `tests/run_tests.py`
 
 ## Agent brief
@@ -24,4 +26,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created (D203)
-- 2026-11-09 built in worktree lg-070-base-thickness: Base + Base Depth (20 m), T34; library rebuild and tests still to run (no Blender) -> review
+- 2026-11-09 a210071 built in worktree lg-070-base-thickness: Base + Base Depth (20 m), T34; library rebuild and tests still to run (no Blender) -> review

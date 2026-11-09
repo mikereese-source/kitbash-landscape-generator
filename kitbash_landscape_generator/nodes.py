@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 142  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 143  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -56,6 +56,8 @@ INPUTS = (
     ("Cave Size", 'NodeSocketFloat', 12.0, 0.5, 1000.0, "Entrance width in meters (real size: it doesn't grow with the landscape, D91)"),
     ("Cave Height", 'NodeSocketFloat', 6.0, 0.5, 500.0, "Entrance height in meters, floor to roof"),
     ("Cave Depth", 'NodeSocketFloat', 18.0, 1.0, 5000.0, "How far the entrance runs into the rock, in meters (set by the add-on per layout)"),
+    ("Base", 'NodeSocketBool', False, None, None, "Solid sides down to a flat, closed bottom (LG-070)"),
+    ("Base Depth", 'NodeSocketFloat', 20.0, 0.01, 100000.0, "How far the flat bottom sits below the lowest ground, in meters"),
 )
 
 
@@ -1315,9 +1317,64 @@ def _build(ng, recipe):
     w_on.input_type = 'GEOMETRY'
     L.new(math('MULTIPLY', inp["Water"], math('LESS_THAN', inp["Pad Cells"], 0.5)), w_on.inputs["Switch"])  # never while erosion samples the grid
     L.new(w_mat.outputs[0], w_on.inputs["True"])
+    # Base (LG-070, D203): the open border edges pushed straight down to a flat bottom Base Depth below the
+    # lowest ground, the bottom filled, so the landscape is a closed slab. Sides and bottom are marked lg_base
+    # (face) and flat shaded so materials and exports can skip them; the top and its masks stay as they are.
+    # The water sheet already covers exactly Size X by Size Y, so it ends at the sides. Off while erosion samples.
+    b_bottom = math('SUBTRACT', m_stats.outputs["Min"], inp["Base Depth"])
+    b_open = N.new('GeometryNodeInputMeshEdgeNeighbors')
+    b_ext = N.new('GeometryNodeExtrudeMesh')
+    b_ext.mode = 'EDGES'
+    L.new(shade.outputs[0], b_ext.inputs["Mesh"])
+    L.new(math('LESS_THAN', b_open.outputs["Face Count"], 1.5), b_ext.inputs["Selection"])
+    L.new(vec(0.0, 0.0, math('SUBTRACT', b_bottom, m_pos.outputs["Z"])), b_ext.inputs["Offset"])
+    b_side = N.new('GeometryNodeStoreNamedAttribute')
+    b_side.data_type = 'BOOLEAN'
+    b_side.domain = 'FACE'
+    b_side.inputs["Name"].default_value = "lg_base"
+    L.new(b_ext.outputs["Mesh"], b_side.inputs["Geometry"])
+    L.new(b_ext.outputs["Side"], b_side.inputs["Value"])
+    b_loop = N.new('GeometryNodeMeshToCurve')
+    L.new(b_ext.outputs["Mesh"], b_loop.inputs["Mesh"])
+    L.new(b_ext.outputs["Top"], b_loop.inputs["Selection"])
+    b_fill = N.new('GeometryNodeFillCurve')  # fills in the XY plane: put it back at the bottom
+    L.new(b_loop.outputs[0], b_fill.inputs["Curve"])
+    b_drop = N.new('GeometryNodeSetPosition')
+    L.new(b_fill.outputs[0], b_drop.inputs["Geometry"])
+    L.new(vec(m_pos.outputs["X"], m_pos.outputs["Y"], b_bottom), b_drop.inputs["Position"])
+    b_nrm = N.new('ShaderNodeSeparateXYZ')
+    L.new(N.new('GeometryNodeInputNormal').outputs[0], b_nrm.inputs[0])
+    b_flip = N.new('GeometryNodeFlipFaces')  # the bottom faces down, whichever way the loop ran
+    L.new(b_drop.outputs[0], b_flip.inputs["Mesh"])
+    L.new(math('GREATER_THAN', b_nrm.outputs["Z"], 0.0), b_flip.inputs["Selection"])
+    b_cap = N.new('GeometryNodeStoreNamedAttribute')
+    b_cap.data_type = 'BOOLEAN'
+    b_cap.domain = 'FACE'
+    b_cap.inputs["Name"].default_value = "lg_base"
+    b_cap.inputs["Value"].default_value = True
+    L.new(b_flip.outputs[0], b_cap.inputs["Geometry"])
+    b_join = N.new('GeometryNodeJoinGeometry')
+    L.new(b_cap.outputs[0], b_join.inputs["Geometry"])
+    L.new(b_side.outputs[0], b_join.inputs["Geometry"])
+    b_weld = N.new('GeometryNodeMergeByDistance')  # stitch the bottom to the sides; only bottom points take part
+    L.new(b_join.outputs[0], b_weld.inputs["Geometry"])
+    L.new(math('MULTIPLY', spacing, 0.01), b_weld.inputs["Distance"])  # well under a grid step at any size
+    L.new(math('LESS_THAN', m_pos.outputs["Z"], math('ADD', b_bottom, math('MULTIPLY', inp["Base Depth"], 0.5))), b_weld.inputs["Selection"])
+    b_is = N.new('GeometryNodeInputNamedAttribute')
+    b_is.data_type = 'BOOLEAN'
+    b_is.inputs["Name"].default_value = "lg_base"
+    b_flat = N.new('GeometryNodeSetShadeSmooth')
+    L.new(b_weld.outputs[0], b_flat.inputs["Geometry"])
+    L.new(b_is.outputs["Attribute"], b_flat.inputs["Selection"])
+    b_flat.inputs["Shade Smooth"].default_value = False
+    b_on = N.new('GeometryNodeSwitch')
+    b_on.input_type = 'GEOMETRY'
+    L.new(math('MULTIPLY', inp["Base"], math('LESS_THAN', inp["Pad Cells"], 0.5)), b_on.inputs["Switch"])
+    L.new(shade.outputs[0], b_on.inputs["False"])
+    L.new(b_flat.outputs[0], b_on.inputs["True"])
     join = N.new('GeometryNodeJoinGeometry')
     L.new(w_on.outputs[0], join.inputs["Geometry"])
-    L.new(shade.outputs[0], join.inputs["Geometry"])
+    L.new(b_on.outputs[0], join.inputs["Geometry"])
     L.new(join.outputs[0], gout.inputs["Geometry"])
     _prune(ng, gout)
     ng["kb_version"] = GROUP_VERSION

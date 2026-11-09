@@ -214,6 +214,7 @@ def sync_object(ob):
     if props.terrace_strength <= 0:  # count and tilt do nothing without strength: keep them out of the erosion key
         values["Terraces"], values["Terrace Tilt"] = 8.0, 0.0
     values["Water"], values["Water Level"] = props.water, props.water_level
+    values["Base"], values["Base Depth"] = props.base, props.base_depth
     values["Cave"] = CAVE_INDEX[props.cave_layout]
     values["Cave X"], values["Cave Y"], values["Cave Size"] = props.cave_x, props.cave_y, props.cave_size
     values["Cave Height"] = props.cave_height
@@ -239,7 +240,8 @@ def sync_object(ob):
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
              "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
-             "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth"}  # water and caves never change the eroded terrain: no re-erosion
+             "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth",
+             "Base", "Base Depth"}  # water, caves and the base never change the eroded terrain: no re-erosion
 _pending = {}
 
 
@@ -680,6 +682,12 @@ class LG_ObjectProps(PropertyGroup):
                         default=False, update=_sync)
     water_level: FloatProperty(name="Water Level", description="How high the water comes: 0 the lowest ground, 1 the highest",
                                default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    base: BoolProperty(name="Base", description="Solid sides down to a flat, closed bottom, so the landscape reads as a slab",
+                       default=False, update=_sync)
+    # Meters, not a share of the size: like the cave, it stays put when the landscape is resized. 20 m is
+    # 10% of the default 200 m landscape, a bit under its default relief.
+    base_depth: FloatProperty(name="Base Depth", description="How far the flat bottom sits below the lowest ground",
+                              default=20.0, min=0.01, soft_max=1000.0, unit='LENGTH', update=_sync)
     cave_layout: EnumProperty(name="Cave", description="Carve a cave into the landscape. Every cave starts with an entrance",
                               items=CAVE_ITEMS, default='NONE', update=_cave_changed)
     cave_x: FloatProperty(name="Across", description="Where the cave sits across the landscape, left to right",
@@ -1266,6 +1274,14 @@ class LG_PT_main(Panel):
             row.enabled = props.water
             row.prop(props, "water_level", slider=True)
             box.label(text="Plain water for now; full lake, sea and river shaders come with the materials", icon='INFO')
+
+        header, box = layout.panel("lg_base", default_closed=True)
+        header.label(text="Base")
+        header.prop(props, "base", text="")
+        if box:
+            row = box.row()
+            row.enabled = props.base
+            row.prop(props, "base_depth")
 
 
         header, box = layout.panel("lg_masks", default_closed=True)

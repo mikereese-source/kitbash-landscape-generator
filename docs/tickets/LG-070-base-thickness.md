@@ -1,6 +1,6 @@
 # LG-070 Base thickness (solid sides)
 Type: feature | Milestone: M6 6.4c | Phase: E M6 | Size: S | Priority: P2
-Status: ready | Lane: main | Needs Blender: yes | Mike review: yes
+Status: review | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -24,3 +24,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created (D203)
+- 2026-11-09 built in worktree lg-070-base-thickness: Base + Base Depth (20 m), T34; library rebuild and tests still to run (no Blender) -> review

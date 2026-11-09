@@ -1161,6 +1161,65 @@ def _t33():
     return f"one flat sheet at {wz:.1f} m, shore on the walls, {len(seen['HIGH'])} formations clear of it at Preview and High; None dry"
 
 
+@test("T34", "Base: solid sides to a flat bottom, watertight, top untouched")
+def _t34():
+    # LG-070 (D203): Base off leaves the landscape as it was; on, the border goes straight down to a flat bottom
+    # Base Depth below the lowest ground and the bottom is closed. Only sides and bottom carry lg_base.
+    import bmesh
+    fresh_scene()
+    ob = add("mountains")
+    lg.sync_object(ob)
+
+    def look():
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        co = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        flag = np.zeros(len(me.polygons), bool)
+        if "lg_base" in me.attributes:
+            me.attributes["lg_base"].data.foreach_get("value", flag)
+        h = np.empty(len(me.vertices))
+        me.attributes["lg_height"].data.foreach_get("value", h)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.faces.ensure_lookup_table()
+        edge_faces = [len(e.link_faces) for e in bm.edges]
+        faces = [(np.array([v.index for v in f.verts]), np.array(f.normal), np.array(f.calc_center_median())) for f in bm.faces]
+        bm.free()
+        ev.to_mesh_clear()
+        return co.reshape(-1, 3), flag, h, edge_faces, faces
+    check(not ob.lg.base, "Base should start off")
+    co0, flag0, h0, ef0, faces0 = look()
+    check(not flag0.any() and min(ef0) == 1, "Base off should leave the open landscape sheet")
+    ob.lg.base, ob.lg.base_depth = True, 15.0
+    co, flag, h, ef, faces = look()
+    n = len(co0)
+    bottom = co0[:, 2].min() - 15.0
+    check(min(ef) == 2 and max(ef) == 2, f"not watertight: edges with {sorted(set(ef))} faces")
+    check(np.allclose(co[:n], co0) and np.allclose(h[:n], h0), "the base moved the top surface or changed its masks")
+    check(np.abs(co[n:, 2] - bottom).max() < 1e-3, f"bottom not flat at lowest - depth ({bottom:.2f} m)")
+    check(np.abs(co[n:, :2]).max(axis=0).max() <= max(ob.lg.size_x, ob.lg.size_y) / 2 + 1e-3, "the base reaches past the landscape edge")
+    check((~flag).sum() == len(faces0), f"{(~flag).sum()} unmarked faces, the top has {len(faces0)}")
+    side = cap = 0
+    for (vs, nrm, mid), on in zip(faces, flag):
+        low = (vs >= n).any()
+        check(on == low, "lg_base should be on the sides and bottom only")
+        if not on:
+            continue
+        if (vs >= n).all():
+            cap += 1
+            check(nrm[2] < -0.99, "the bottom should face down")
+        else:
+            side += 1
+            check(abs(nrm[2]) < 1e-3 and nrm[0] * mid[0] + nrm[1] * mid[1] > 0, "sides should be vertical and face out")
+    check(side > 0 and cap > 0, "no sides or no bottom")
+    ob.lg.base = False
+    check(len(look()[4]) == len(faces0), "turning Base off should give back the same faces")
+    return f"off: {len(faces0)} faces, open border; on: {side} side + {cap} bottom faces, watertight, flat at {bottom:.2f} m, top and masks untouched"
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

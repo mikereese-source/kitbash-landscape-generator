@@ -27,3 +27,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created (D203)
 - 2026-11-09 a210071 built in worktree lg-070-base-thickness: Base + Base Depth (20 m), T34; library rebuild and tests still to run (no Blender) -> review
+- 2026-11-09 a5273aa code-review fixes: T34 order-free, bake + water checks, why-comments, Base Depth max; lane side

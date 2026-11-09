@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-09 folds into LG-064 (Jointed full re-evaluation, Mike's review)

@@ -1,6 +1,6 @@
 # LG-003 Floating piles in cave renders
 Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P1
-Status: blocked | Lane: main | Needs Blender: yes | Mike review: yes
+Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: LG-016
 
 ## Why
@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-09 Mike: the floating piles are the Jointed rubble heaps (jointed shots 1-2). Handled in LG-061

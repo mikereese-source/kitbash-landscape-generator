@@ -1166,6 +1166,102 @@ def _t33():
     return f"one flat sheet at {wz:.1f} m, shore on the walls, {len(seen['HIGH'])} formations clear of it at Preview and High; None dry"
 
 
+@test("T34", "Base: solid sides to a flat bottom, watertight, top untouched; bakes; water inside it")
+def _t34():
+    # LG-070 (D203): Base off leaves the landscape as it was; on, the border goes straight down to a flat bottom
+    # Base Depth below the lowest ground and the bottom is closed. Only sides and bottom carry lg_base. Top and
+    # base are told apart by lg_base and position, never by point or face order.
+    import bmesh
+    fresh_scene()
+    ob = add("mountains")
+    lg.sync_object(ob)
+
+    def read(me):
+        co = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        flag = np.zeros(len(me.polygons), bool)
+        if "lg_base" in me.attributes:
+            me.attributes["lg_base"].data.foreach_get("value", flag)
+        wet = np.zeros(len(me.vertices), bool)
+        if "lg_water" in me.attributes:
+            me.attributes["lg_water"].data.foreach_get("value", wet)
+        h = np.zeros(len(me.vertices))
+        if "lg_height" in me.attributes:
+            me.attributes["lg_height"].data.foreach_get("value", h)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.faces.ensure_lookup_table()
+        edge_faces = [len(e.link_faces) for e in bm.edges if not wet[e.verts[0].index]]
+        faces = [(np.array([v.index for v in f.verts]), np.array(f.normal), np.array(f.calc_center_median()))
+                 for f in bm.faces]
+        bm.free()
+        return co, flag, wet, h, edge_faces, faces
+
+    def look():
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        out = read(ev.to_mesh())
+        ev.to_mesh_clear()
+        return out
+
+    def key(p):
+        return (round(float(p[0]), 3), round(float(p[1]), 3))
+    check(not ob.lg.base, "Base should start off")
+    co0, flag0, _w, h0, ef0, faces0 = look()
+    check(not flag0.any() and min(ef0) == 1, "Base off should leave the open landscape sheet")
+    top0 = {key(p): (p[2], hh) for p, hh in zip(co0, h0)}
+    ob.lg.base, ob.lg.base_depth = True, 15.0
+    co, flag, _w, h, ef, faces = look()
+    bottom = co0[:, 2].min() - 15.0
+    check(min(ef) == 2 and max(ef) == 2, f"not watertight: edges with {sorted(set(ef))} faces")
+    check((~flag).sum() == len(faces0), f"{(~flag).sum()} unmarked faces, the top has {len(faces0)}")
+    top = np.zeros(len(co), bool)
+    for (vs, _n, _m), on in zip(faces, flag):
+        if not on:
+            top[vs] = True
+    check(top.sum() == len(co0), f"{top.sum()} top points, Base off had {len(co0)}")
+    moved = 0
+    for p, hh in zip(co[top], h[top]):
+        z0, h_0 = top0.get(key(p), (None, None))
+        moved += z0 is None or abs(p[2] - z0) > 1e-4 or abs(hh - h_0) > 1e-5
+    check(moved == 0, f"the base moved or re-masked {moved} top points")
+    low = np.abs(co[:, 2] - bottom) < 1e-3
+    check(np.array_equal(low, ~top), f"base points should all sit flat at lowest - depth ({bottom:.2f} m)")
+    half = np.abs(co[top, :2]).max(0) + 1e-3  # the top's own footprint (it can sit a hair past Size / 2)
+    check((np.abs(co[:, :2]) <= half).all(), "the base reaches past the landscape edge")
+    side = cap = 0
+    for (vs, nrm, mid), on in zip(faces, flag):
+        check(on == bool(low[vs].any()), "lg_base should be on the sides and bottom only")
+        if not on:
+            continue
+        if low[vs].all():
+            cap += 1
+            check(nrm[2] < -0.99, "the bottom should face down")
+        else:
+            side += 1
+            check(abs(nrm[2]) < 1e-3 and nrm[0] * mid[0] + nrm[1] * mid[1] > 0, "sides should be vertical and face out")
+    check(side > 0 and cap > 0, "no sides or no bottom")
+    # Water + Base: the sheet stays inside the slab's footprint.
+    ob.lg.water, ob.lg.water_level = True, 0.4
+    cw, _f, wet, _h, ef_w, _fc = look()
+    check(wet.sum() == 4 and min(ef_w) == 2, "water on should add its sheet and keep the slab watertight")
+    land = cw[~wet]
+    check((np.abs(cw[wet][:, :2]).max(axis=0) <= np.abs(land[:, :2]).max(axis=0) + 1e-3).all(), "water hangs past the slab edge")
+    # Bake to Mesh keeps the base: lg_base and watertight once the water is split off.
+    with bpy.context.temp_override(active_object=ob, object=ob):
+        check(bpy.ops.landscape.bake(save_preset=False) == {'FINISHED'}, "Bake did not finish")
+    check("lg_base" in ob.data.attributes, "bake lost lg_base")
+    _c, bflag, _w, _h, ef_b, _fb = read(ob.data)
+    check(bflag.any() and min(ef_b) == 2 and max(ef_b) == 2, "baked slab is not watertight")
+    fresh_scene()
+    ob = add("mountains")
+    lg.sync_object(ob)
+    check(len(look()[5]) == len(faces0), "a new landscape with Base off should have the same faces as before")
+    return f"off: {len(faces0)} faces, open border; on: {side} side + {cap} bottom faces, watertight, flat at {bottom:.2f} m, top and masks untouched; water inside; bake keeps it"
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

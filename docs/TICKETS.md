@@ -48,7 +48,7 @@ LG-036 (Orbit team contact).
 | [LG-033](tickets/LG-033-climate-switch.md) | Climate switch | F M7 rest | M7 | todo | M | P2 | main | yes | materials.py; __init__.py | LG-028, LG-029, LG-030 |
 | [LG-034](tickets/LG-034-8k-texture-test.md) | 8K texture test | F M7 rest | M7 | todo | S | P3 | research | yes | - | LG-028 |
 | [LG-035](tickets/LG-035-m7-gate.md) | M7 gate | F M7 rest | M7 | todo | M | P1 | main | yes | run_tests.py | LG-031, LG-032, LG-033 |
-| [LG-036](tickets/LG-036-orbit-check.md) | Check Orbit's stack | D three.js spike | Project 2 prep | blocked | S | P2 | research | no | RESEARCH-engines.md | - |
+| [LG-036](tickets/LG-036-orbit-check.md) | Check Orbit's stack | D three.js spike | Project 2 prep | ready | S | P2 | research | no | RESEARCH-engines.md | - |
 | [LG-037](tickets/LG-037-threejs-spike-plan.md) | three.js spike plan | D three.js spike | Project 2 spike | todo | S | P1 | main | no | PLAN-threejs-spike.md | LG-028, LG-036 |
 | [LG-038](tickets/LG-038-threejs-mountains-shape.md) | three.js spike: Mountains shape and erosion | D three.js spike | Project 2 spike | todo | M-L | P1 | side | no | landscape-spike-threejs | LG-037 |
 | [LG-039](tickets/LG-039-threejs-mountains-look.md) | three.js spike: Mountains materials, side by side | D three.js spike | Project 2 spike | todo | M | P1 | side | no | landscape-spike-threejs | LG-038 |

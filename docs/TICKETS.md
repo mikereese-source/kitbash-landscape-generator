@@ -6,8 +6,7 @@ G M8, H Final. Phase E (M6) may move before C or D; Mike decides.
 
 **Can run now in parallel with main-lane LG-001:** LG-022 package spec (research), LG-018 cave realism refs (research),
 LG-043 checker-note fixes and LG-044 realism output folder (side, Blender for tests only, so not while main is testing).
-LG-007 preset save location (side) also fits. LG-051 CODING.md (research) also fits. **Blocked on Mike:** LG-003 (which render shows floating piles),
-LG-036 (Orbit team contact).
+LG-007 preset save location (side) also fits. LG-051 CODING.md (research) also fits. **Blocked on Mike:** LG-003 (which render shows floating piles).
 
 | ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
 |---|---|---|---|---|---|---|---|---|---|---|

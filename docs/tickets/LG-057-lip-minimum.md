@@ -1,4 +1,4 @@
-# LG-057 Lip minimum 0.25, default 0.3, and fix pinches
+# LG-057 Lip minimum 0.3, range to 0.5, and fix pinches
 Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: TBD (set after Mike's full review)
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
@@ -7,9 +7,9 @@ Depends on: none | Blocks: none
 At Lip 0.2 and below the lip turns into thin flaps that look like errors (shot 3 at 0.10, shot 2 at 0.15). 0.25 is getting there, 0.3 looks good, but even 0.3 has some pinches (review 2026-11-09).
 
 ## Done when
-- Lip slider runs from 0.25; default 0.3; old files below 0.25 open at 0.25
-- No pinches or thin flaps at 0.25-0.4 on all three rocks
-- T14 Lip check updated (0.25 < 0.3 < 0.4)
+- Lip slider runs 0.3-0.5 (or more); default 0.3; old files below 0.3 open at 0.3
+- No pinches or thin flaps at 0.3-0.5 on all three rocks
+- T14 Lip check updated (0.3 < 0.4 < 0.5)
 
 ## Files
 - `kitbash_landscape_generator/features.py`
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (limestone)
+- 2026-11-09 Mike (lava review): 0.3 is the minimum for all rocks; 0.4-0.5 give some pretty cool results. Minimum raised to 0.3, range up to at least 0.5

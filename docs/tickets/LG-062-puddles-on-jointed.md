@@ -7,7 +7,7 @@ Depends on: none | Blocks: none
 With Water set to Puddles on Jointed the Puddles slider is greyed out and no puddles form. Mike sees no reason Jointed can't have puddles (review 2026-11-09, jointed shot 5).
 
 ## Done when
-- Puddles work on Jointed (and Lava, unless there's a reason; say so)
+- Puddles work on Jointed and Lava Tube, the same on every rock (Mike)
 - Puddles stay off the lip (LG-058)
 
 ## Files
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
+- 2026-11-09 Mike (lava review): Puddles are greyed out on Lava Tube too. If someone wants puddles they should just work, the same on every rock

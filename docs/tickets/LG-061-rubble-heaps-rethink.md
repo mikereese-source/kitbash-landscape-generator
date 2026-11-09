@@ -1,4 +1,4 @@
-# LG-061 Rethink the rubble heaps
+# LG-061 Rethink the rubble heaps and rubble scatter
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: M-L | Priority: TBD (set after Mike's full review)
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
+- 2026-11-09 Mike (lava review): the lava rubble also overlaps oddly at times (lava shot 1). Use the same new scatter for all rubble, not only the Jointed heaps

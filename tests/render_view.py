@@ -36,6 +36,10 @@ if 'LG_ROUGH' in os.environ: c.roughness = float(os.environ['LG_ROUGH'])
 c.separate = os.environ.get('LG_SEP', '1') == '1'
 if os.environ.get('LG_MASK'): c.show_mask = os.environ['LG_MASK']; c.mask_colors = os.environ.get('LG_COLS', 'GRAY'); ob.data.color_attributes.active_color_name = 'lg_view'
 if 'LG_WS' in os.environ: c.wall_shape = float(os.environ['LG_WS'])
+if os.environ.get('LG_SET'):   # any cave settings: "lip=0.3,width=60,water=FLOODED"
+    for kv in os.environ['LG_SET'].split(','):
+        k, v = kv.split('='); cur = getattr(c, k)
+        setattr(c, k, type(cur)(float(v)) if isinstance(cur, (int, float)) and not isinstance(cur, bool) else (v == '1' if isinstance(cur, bool) else v))
 if os.environ.get('LG_DRAPES'):   # a drawn drape line: "x,y,z;x,y,z;..." on the roof, as a poly curve (D185)
     cu = bpy.data.curves.new("Drape Lines", 'CURVE'); cu.dimensions = '3D'
     pts = [tuple(float(v) for v in p.split(',')) for p in os.environ['LG_DRAPES'].split(';')]

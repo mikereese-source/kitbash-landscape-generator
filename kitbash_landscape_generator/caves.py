@@ -41,7 +41,8 @@ def sync_cave(ob):
         mod.node_group = features.cave_group()
     fill_kits(ob.lg_cave)
     for prop, sock in CAVE_SOCKETS.items():
-        nodes.input_socket(mod, sock).value = getattr(ob.lg_cave, prop)
+        # Lip under 0.3 tore into thin flaps (Mike, LG-057); caves saved before then open at 0.3.
+        nodes.input_socket(mod, sock).value = max(ob.lg_cave.lip, 0.3) if prop == "lip" else getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
     nodes.input_socket(mod, "Rock").value = ROCK_INDEX[ob.lg_cave.rock]
     nodes.input_socket(mod, "Show Mask").value = MASK_INDEX[ob.lg_cave.show_mask]
@@ -185,8 +186,8 @@ class LG_CaveProps(PropertyGroup):
     formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
-    lip: FloatProperty(name="Lip", description="How thick the rock rim round the open mouth is, against the entrance width: thin (0.05) to thick (0.4)",
-                       default=0.15, min=0.05, max=0.4, subtype='FACTOR', update=_sync)
+    lip: FloatProperty(name="Lip", description="How thick the rock rim round the open mouth is, against the entrance width: 0.3 (thinnest that reads as solid rock) to 0.5 (a heavy hood)",
+                       default=0.3, min=0.3, max=0.5, subtype='FACTOR', update=_sync)
     water: EnumProperty(name="Water", description="What water the cave holds", items=WATER_ITEMS, default='PUDDLES', update=_sync)
     water_level: FloatProperty(name="Water Level", description="How high the flood stands: the chamber floor (0) up to the passage floor where it opens into the chamber (1)",
                                default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
@@ -223,7 +224,7 @@ class LG_CaveProps(PropertyGroup):
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     drape_kit: PointerProperty(name="Drapes", type=bpy.types.Collection, update=_sync,
                                description="The drape kit: a collection with Big and Medium collections inside (or one plain collection)")
-    puddles: FloatProperty(name="Puddles", description="Water in hollows of the limestone floor's silt flats: none (0) to many (1). Plain water for now; the full water shader comes with the materials",
+    puddles: FloatProperty(name="Puddles", description="Water in hollows of the cave floor: none (0) to many (1). Plain water for now; the full water shader comes with the materials",
                            default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     rock: EnumProperty(name="Rock", description="What the cave is cut in: it sets the walls and the rocks lying in it",
                        items=ROCK_ITEMS, default='LIMESTONE', update=_rock_changed)
@@ -361,9 +362,7 @@ def draw_section(layout, context):
     row.prop(props, "formations", slider=True)
     col.prop(props, "water")
     if props.water == 'PUDDLES':
-        row = col.row()
-        row.enabled = props.rock == 'LIMESTONE'
-        row.prop(props, "puddles", slider=True)
+        col.prop(props, "puddles", slider=True)
     elif props.water == 'FLOOD':
         col.prop(props, "water_level", slider=True)
     header, sub = box.panel("lg_cave_rocks", default_closed=False)

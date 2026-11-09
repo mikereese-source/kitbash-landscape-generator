@@ -687,7 +687,7 @@ def _t14():
     # slider sets apart (at least 1.5 Preview voxels, the narrower of the half width and the height over 6).
     out_hits = cave_hits(ob, (0.0, c.depth * 0.3, c.height * 0.5), (0.0, -1.0, 0.0))
     check(not out_hits, f"the mouth should be open: looking out from inside hit rock {out_hits[0]:.1f} m away" if out_hits else "")
-    check(cave_hits(ob, (0.0, -c.width * 0.3, 2.0), (0.0, 0.0, -1.0)), "the floor should run out of the mouth")
+    check(cave_hits(ob, (0.0, -c.width * 0.1, 2.0), (0.0, 0.0, -1.0)), "the floor should run out of the mouth")
 
     def wall(lip):
         c.lip = lip
@@ -695,13 +695,13 @@ def _t14():
         # wall Lip thins (behind the mouth it stays at least 3 Preview voxels, D197).
         up = cave_hits(ob, (0.0, c.width * 0.4, c.height * 0.3), (1.0, 0.0, 0.0))
         return (up[1] - up[0]) if len(up) >= 2 else 0.0, max(c.width * lip, 1.5 * min(c.width * 0.5, c.height) / 6.0)
-    thin, want_thin = wall(0.15)
-    mid, want_mid = wall(0.25)
-    thick, want_thick = wall(0.4)
+    thin, want_thin = wall(0.3)
+    mid, want_mid = wall(0.4)
+    thick, want_thick = wall(0.5)
     # Every step of the slider counts, the default included (first-pass review: under 0.25 it did nothing).
     check(all(0.6 < a / b < 1.6 for a, b in ((thin, want_thin), (mid, want_mid), (thick, want_thick))) and thin < mid < thick,
-          f"the rock over the mouth should be as thick as Lip sets: {thin:.1f} / {mid:.1f} / {thick:.1f} m at 0.15 / 0.25 / 0.4 (want {want_thin:.1f} / {want_mid:.1f} / {want_thick:.1f})")
-    c.lip = 0.15
+          f"the rock over the mouth should be as thick as Lip sets: {thin:.1f} / {mid:.1f} / {thick:.1f} m at 0.3 / 0.4 / 0.5 (want {want_thin:.1f} / {want_mid:.1f} / {want_thick:.1f})")
+    c.lip = 0.3
     c.chamber, c.ceiling = 30.0, 15.0
     pc, closed2, _f, _n = cave_mesh(ob)
     back = pc[pc[:, 1] > c.depth * 0.8]
@@ -976,6 +976,10 @@ def _t31():
     outer = np.zeros(len(me.vertices), bool)
     if me.attributes.get("lg_outer") is not None:
         me.attributes["lg_outer"].data.foreach_get("value", outer)
+    # Puddle water is its own sheet, split off at bake (D180), and now on every rock (LG-062): not the rock's UVs.
+    wet_any = np.zeros(len(me.vertices), bool)
+    if me.attributes.get("lg_water") is not None:
+        me.attributes["lg_water"].data.foreach_get("value", wet_any); outer |= wet_any
     inside = {find(p.index) for p in me.polygons if not outer[list(p.vertices)].any()}
     # Square and even measured on the inside too; the outside is reported (its UVs come with M7, D196).
     t_in = ~outer[vi].any(1)
@@ -985,8 +989,9 @@ def _t31():
     square = float((sv[:, 0] / np.maximum(sv[:, 1], 1e-12) < 1.5) @ (w_good / w_good.sum()))
     w_ok = a3[ok] * t_in[ok]
     even = float(((r > 0.5) & (r < 2.0)) @ (w_ok / w_ok.sum()))
+    wet_isl = {find(p.index) for p in me.polygons if wet_any[list(p.vertices)].all()}
     ev.to_mesh_clear()
-    small = sum(1 for v in sizes.values() if v < 50)
+    small = sum(1 for k, v in sizes.items() if v < 50 and k not in wet_isl)  # puddle sheets are small by nature
     check(len(inside) <= 12 and small == 0, f"{len(inside)} UV islands inside ({len(sizes)} in all), {small} under 50 faces (want at most 12 inside, none small)")
     check(square > 0.9, f"{square:.0%} of the area has square UVs (under 1.5 to 1); want over 90%")
     check(even > 0.9, f"{even:.0%} of the area is within 0.5x to 2x of the average texel density; want over 90%")

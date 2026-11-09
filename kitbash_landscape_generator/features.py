@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 205
+CAVE_VERSION = 206
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -452,7 +452,7 @@ CAVE_INPUTS = (
     # Water (D193): 0 none, 1 puddles, 2 the chamber flooded to Water Level (0 the chamber floor, 1 the passage floor).
     ("Water", 'NodeSocketInt', 1), ("Water Level", 'NodeSocketFloat', 0.6),
     # The open mouth's rim (5.3a, D189): how thick the rock round the mouth is, against the entrance width.
-    ("Lip", 'NodeSocketFloat', 0.15),
+    ("Lip", 'NodeSocketFloat', 0.3),
     ("Stalactite Amount", 'NodeSocketFloat', 1.0), ("Stalagmite Amount", 'NodeSocketFloat', 1.0), ("Column Amount", 'NodeSocketFloat', 1.0),
     # Drapes drawn by the artist (D185): a curve on the roof, and how long, how full and how folded the curtains are.
     ("Drape Lines", 'NodeSocketObject', None), ("Drape Length", 'NodeSocketFloat', 0.5), ("Drape Fullness", 'NodeSocketFloat', 0.8),
@@ -1013,7 +1013,7 @@ def cave_group():
     cut_z0 = t.math('MULTIPLY', H, 0.06)  # just over the floor: the floor and the rock under it stay
     cb = t.xyz(t.position())
 
-    def cut_at(back, shift, z_from=cut_z0):
+    def cut_at(back, shift, z_from=cut_z0, wander=0.8, scale=2.5, detail=5.0):
         """Everything in front of a wandering line `back` x the width behind the mouth, from `z_from` up, as a
         distance field. `shift` moves the noise so each line wanders its own way."""
         box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0), Vertices_X=48, Vertices_Y=2, Vertices_Z=24).outputs["Mesh"]
@@ -1023,8 +1023,8 @@ def cave_group():
         # Notched, not a smooth curve (review: the rim read as a clean cut; Vranja's is jagged): finer noise,
         # wandering about a fifth of the width in and out.
         n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.5), W, t.math('MULTIPLY', W, 0.5))), t.vec(shift, shift, shift)),
-                   Scale=2.5, Detail=5.0, Roughness=0.6)
-        y = t.math('ADD', t.math('MULTIPLY', W, back), t.math('MULTIPLY', W, t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), 0.8)))
+                   Scale=scale, Detail=detail, Roughness=0.6)
+        y = t.math('ADD', t.math('MULTIPLY', W, back), t.math('MULTIPLY', W, t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), wander)))
         # Back face onto the wandering line (its noise read where it lands), front face well out in front.
         box = t.node('GeometryNodeSetPosition', Geometry=box, Selection=t.math('LESS_THAN', cb["Y"], 0.0),
                      Position=t.vec(cb["X"], t.math('MULTIPLY', cut_wide, -1.0), cb["Z"])).outputs[0]
@@ -1041,7 +1041,9 @@ def cave_group():
     step_grids = [(f, cut_at(back, shift, t.math('MULTIPLY', H, up))) for f, back, shift, up in steps]
     # The floor out in front stops half a width past the mouth (review: a tongue about a width long, saw-toothed
     # on Jointed, dominated every outside view): everything in front of a wandering line, floor and rock under it.
-    apron_grid = cut_at(-0.5, 11.9, t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_t, 4.0))))
+    # Shorter, with a gentle edge (Mike, LG-004: a whole width out it ran too far, and the fine notching sawed it):
+    # about a third of the width out, wandering slowly.
+    apron_grid = cut_at(-0.3, 11.9, t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_t, 4.0))), 0.3, 1.2, 2.0)
     # Jointed pieces (Mike: separate pieces for better AO and a better jointed look, but looking like the rest
     # of the cave, not plain cubes, and reaching only a little past it): the masses as one shape of their own,
     # trimmed to the cave's space grown by a voxel (so they sink just into the walls, floor and roof) and kept
@@ -1659,10 +1661,14 @@ def cave_group():
     pool_n = t_noise(rr(0.55), rr(0.45), rr(4.0), 1.0, 1.0)
     pool = t.smooth(pool_n, t.math('SUBTRACT', 0.16, t.math('MULTIPLY', gin["Puddles"], 0.24)), t.math('SUBTRACT', 0.24, t.math('MULTIPLY', gin["Puddles"], 0.24)))  # Puddles 0.5: about a quarter of the open floor
     pool = t.math('MULTIPLY', t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(to_wall, rr(0.25), rr(0.45)), t.math('SUBTRACT', 1.0, wall))),
-                  t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(p_s, 0.2, 0.3), lime_rock_f), t.math('GREATER_THAN', gin["Puddles"], 0.0)))
+                  t.math('MULTIPLY', t.smooth(p_s, 0.2, 0.3), t.math('GREATER_THAN', gin["Puddles"], 0.0)))  # every rock (Mike, LG-062)
     # Only down at floor level and never on a rock piece (a roof block's underside faces down like floor).
     pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.05), t.math('MULTIPLY', H, 0.1))),
                                           t.math('SUBTRACT', 1.0, t.named("lg_piece", 'BOOLEAN'))))
+    # Never at the mouth (Mike, LG-058: a little water round the lip read as an error): the mouth's floor, out to
+    # where the lip's own surface ends (0.45-0.75 of the width in), and never on the rock body's outside.
+    pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', W, 0.75), t.math('MULTIPLY', W, 1.0)),
+                                          t.math('SUBTRACT', 1.0, t.named("lg_outer", 'BOOLEAN'))))
     pool_d = t.math('MULTIPLY', pool, t.math('MULTIPLY', H, 0.02))
     bench = t.vec(0.0, 0.0, t.math('ADD', t.math('ADD', b_blur.outputs["Value"], l_blur.outputs["Value"]), t.math('SUBTRACT', bank, pool_d)))
 
@@ -2155,9 +2161,20 @@ def cave_group():
     w_grid = t.node('GeometryNodeMeshGrid', Size_X=w_sx, Size_Y=w_sy, Vertices_X=w_n(w_sx), Vertices_Y=w_n(w_sy)).outputs[0]
     w_grid = t.node('GeometryNodeSetPosition', Geometry=w_grid, Offset=t.vec(t.math('MULTIPLY', t.math('ADD', w_lo["X"], w_hi["X"]), 0.5),
                                                                               t.math('MULTIPLY', t.math('ADD', w_lo["Y"], w_hi["Y"]), 0.5), w_z)).outputs[0]
-    w_ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.position(), Ray_Direction=(0.0, 0.0, 1.0),
+    # Tested against the cave's space alone (Mike, LG-063/LG-066): against the finished mesh the rock body's outside
+    # (its underside faces up into the rock) let the sheet out under the mouth, and the jointed pieces cut holes
+    # in it; inside a piece the water is hidden in the rock anyway.
+    w_ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.position(), Ray_Direction=(0.0, 0.0, 1.0),
                    Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))
-    w_grid = t.store(w_grid, "w_in", t.math('MULTIPLY', w_ray.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(w_ray.outputs["Hit Normal"])["Z"], 0.0)))
+    # ...and against the finished mesh for the exact shore: roof above (normals point into the rock), or a jointed
+    # piece above, the water running on through it hidden (it had cut holes round the pieces).
+    w_fine = t.N.new('GeometryNodeRaycast')
+    w_fine.data_type = 'BOOLEAN'  # before linking: the type swaps the Attribute sockets
+    for k, v in (("Target Geometry", smooth), ("Attribute", t.named("lg_piece", 'BOOLEAN')), ("Source Position", t.position()), ("Ray Direction", (0.0, 0.0, 1.0)),
+                 ("Ray Length", t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', t.math('ADD', gin["Ceiling Height"], gin["Chamber Drop"]), 2.0)))):
+        t._set(w_fine.inputs[k], v)
+    fine_in = t.math('MULTIPLY', w_fine.outputs["Is Hit"], t.math('MAXIMUM', t.math('GREATER_THAN', t.xyz(w_fine.outputs["Hit Normal"])["Z"], 0.0), w_fine.outputs["Attribute"]))
+    w_grid = t.store(w_grid, "w_in", t.math('MULTIPLY', t.math('MULTIPLY', w_ray.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(w_ray.outputs["Hit Normal"])["Z"], 0.0)), fine_in))
     w_any = t.N.new('GeometryNodeFieldOnDomain')
     w_any.data_type, w_any.domain = 'FLOAT', 'FACE'
     t._set(w_any.inputs["Value"], t.named("w_in"))

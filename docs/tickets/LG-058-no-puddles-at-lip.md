@@ -1,6 +1,6 @@
 # LG-058 No puddles at the lip
 Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P1
-Status: todo | Lane: main | Needs Blender: yes | Mike review: no
+Status: review | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: none
 
 ## Why
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created from Mike's review (limestone)
 - 2026-11-09 prioritized P1, step 2 of the review order (TICKETS.md)
+- 2026-11-09 built (CAVE_VERSION 206, board docs/m5/c174_step1_fixes.png, tests 30/30): no puddles within 0.75-1.0 of the width (where the lip surface ends) or on the rock body's outside. Waiting on Mike's review

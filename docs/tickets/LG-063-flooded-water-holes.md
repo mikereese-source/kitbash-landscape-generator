@@ -1,6 +1,6 @@
 # LG-063 Holes in the flooded chamber water next to pieces
 Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: P1
-Status: todo | Lane: main | Needs Blender: yes | Mike review: no
+Status: review | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: none
 
 ## Why
@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created from Mike's review (jointed)
 - 2026-11-09 prioritized P1, step 4 of the review order (TICKETS.md)
+- 2026-11-09 built (CAVE_VERSION 206, board docs/m5/c174_step1_fixes.png, tests 30/30): flood sheet kept by a ray against the cave's space AND the finished mesh, a jointed piece above counting as inside: no holes beside pieces. Waiting on Mike's review

@@ -26,7 +26,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-001](tickets/LG-001-jointed-lip-folds.md) | Jointed lip folds into pale patches | A Cave fixes | M5 5.3a | folded into LG-064 | S-M | P1 | main | yes | features.py | - |
 | [LG-002](tickets/LG-002-limestone-lip.md) | Limestone lip too lumpy, hollow at front-left foot | A Cave fixes | M5 5.3a | ready | S | P1 | main | yes | features.py | - |
 | [LG-003](tickets/LG-003-floating-piles.md) | Floating piles in cave renders | A Cave fixes | M5 | todo | S | P1 | main | yes | features.py; rocks.py | - |
-| [LG-004](tickets/LG-004-floor-apron.md) | Trim floor apron in front of the mouth | A Cave fixes | M5 5.5 | ready | S | P2 | main | yes | features.py | - |
+| [LG-004](tickets/LG-004-floor-apron.md) | Trim floor apron in front of the mouth | A Cave fixes | M5 5.5 | review | S | P2 | main | yes | features.py | - |
 | [LG-005](tickets/LG-005-stalactites-through-ledge.md) | Stalactites hang through rock ledges | A Cave fixes | M5 5.5 | ready | S-M | P2 | main | yes | formations.py; features.py | - |
 | [LG-006](tickets/LG-006-jointed-shards.md) | Jointed shards under the passage join (outside) | A Cave fixes | M5 5.5 | folded into LG-064 | S | P3 | main | yes | features.py | - |
 | [LG-007](tickets/LG-007-preset-save-location.md) | Preset save location | A Cave fixes | M5 | ready | S | P2 | side | tests only | presets.py; __init__.py; caves.py; run_tests.py | - |
@@ -89,16 +89,16 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-054](tickets/LG-054-separate-detail-levels.md) | Separate Detail Levels for shell, rubble and formations | A Cave fixes | M5 | todo | M | P1 | main | yes | features.py; caves.py; rocks.py; formations.py; run_tests.py | - |
 | [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | todo | S | P2 | side | tests only | caves.py | - |
 | [LG-056](tickets/LG-056-ultra-at-render-time.md) | Ultra at render time (and camera-based detail) | A Cave fixes | M5 | todo | M-L | P2 | main | yes | features.py; caves.py | - |
-| [LG-057](tickets/LG-057-lip-minimum.md) | Lip minimum 0.3, range to 0.5, and fix pinches | A Cave fixes | M5 | todo | S-M | P1 | main | yes | features.py; caves.py; run_tests.py | - |
-| [LG-058](tickets/LG-058-no-puddles-at-lip.md) | No puddles at the lip | A Cave fixes | M5 | todo | S | P1 | main | yes | features.py | - |
+| [LG-057](tickets/LG-057-lip-minimum.md) | Lip minimum 0.3, range to 0.5, and fix pinches | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; caves.py; run_tests.py | - |
+| [LG-058](tickets/LG-058-no-puddles-at-lip.md) | No puddles at the lip | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |
 | [LG-059](tickets/LG-059-outside-hull-lumps.md) | Lumps and dimples on the outside of the cave | A Cave fixes | M5 | todo | S | P2 | main | yes | features.py | - |
 | [LG-060](tickets/LG-060-high-wall-facets.md) | Faceted patches on the inside wall at High | A Cave fixes | M5 | todo | S-M | P2 | main | yes | features.py | - |
 | [LG-061](tickets/LG-061-rubble-heaps-rethink.md) | Rethink the rubble heaps and rubble scatter | A Cave fixes | M5 | todo | M-L | P1 | main | yes | features.py; rocks.py | - |
-| [LG-062](tickets/LG-062-puddles-on-jointed.md) | Puddles slider greyed out on Jointed | A Cave fixes | M5 | todo | S | P1 | main | yes | features.py; caves.py | - |
-| [LG-063](tickets/LG-063-flooded-water-holes.md) | Holes in the flooded chamber water next to pieces | A Cave fixes | M5 | todo | S-M | P1 | main | yes | features.py; run_tests.py | - |
+| [LG-062](tickets/LG-062-puddles-on-jointed.md) | Puddles slider greyed out on Jointed | A Cave fixes | M5 | review | S | P1 | main | yes | features.py; caves.py | - |
+| [LG-063](tickets/LG-063-flooded-water-holes.md) | Holes in the flooded chamber water next to pieces | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
 | [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | todo | L | P1 | main | yes | features.py | - |
 | [LG-065](tickets/LG-065-limestone-wall-shape-stronger.md) | Limestone Wall Shape: make 1.0 much stronger | A Cave fixes | M5 | todo | S | P1 | main | yes | features.py | - |
-| [LG-066](tickets/LG-066-flooded-water-outside.md) | Flooded chamber water pokes out of the cave | A Cave fixes | M5 | todo | S-M | P1 | main | yes | features.py; run_tests.py | - |
+| [LG-066](tickets/LG-066-flooded-water-outside.md) | Flooded chamber water pokes out of the cave | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
 | [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | todo | S | P2 | main | yes | features.py | - |
 | [LG-068](tickets/LG-068-lip-extension.md) | Extend the lip outward (all three rocks) | A Cave fixes | M5 | todo | M | P3 | main | yes | features.py; caves.py; run_tests.py | - |
 | [LG-069](tickets/LG-069-lava-roughness-stronger.md) | Lava Roughness: fix 0 and push 1.0 harder | A Cave fixes | M5 | todo | S-M | P1 | main | yes | features.py | - |

@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 143  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 144  # bump when the tree changes so old files rebuild it
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -1330,14 +1330,19 @@ def _build(ng, recipe):
     L.new(shade.outputs[0], b_ext.inputs["Mesh"])
     L.new(math('LESS_THAN', b_open.outputs["Face Count"], 1.5), b_ext.inputs["Selection"])
     L.new(vec(0.0, 0.0, math('SUBTRACT', b_bottom, m_pos.outputs["Z"])), b_ext.inputs["Offset"])
+    # Extrude's offset is averaged along each edge, so the new points land a little off level: set them exactly.
+    b_flat = N.new('GeometryNodeSetPosition')
+    L.new(b_ext.outputs["Mesh"], b_flat.inputs["Geometry"])
+    L.new(b_ext.outputs["Top"], b_flat.inputs["Selection"])
+    L.new(vec(m_pos.outputs["X"], m_pos.outputs["Y"], b_bottom), b_flat.inputs["Position"])
     b_side = N.new('GeometryNodeStoreNamedAttribute')
     b_side.data_type = 'BOOLEAN'
     b_side.domain = 'FACE'
     b_side.inputs["Name"].default_value = "lg_base"  # side points copy the border's masks; lg_base is how materials and exports skip them
-    L.new(b_ext.outputs["Mesh"], b_side.inputs["Geometry"])
+    L.new(b_flat.outputs[0], b_side.inputs["Geometry"])
     L.new(b_ext.outputs["Side"], b_side.inputs["Value"])
     b_loop = N.new('GeometryNodeMeshToCurve')
-    L.new(b_ext.outputs["Mesh"], b_loop.inputs["Mesh"])
+    L.new(b_flat.outputs[0], b_loop.inputs["Mesh"])
     L.new(b_ext.outputs["Top"], b_loop.inputs["Selection"])
     b_fill = N.new('GeometryNodeFillCurve')  # fills in the XY plane: put it back at the bottom
     L.new(b_loop.outputs[0], b_fill.inputs["Curve"])

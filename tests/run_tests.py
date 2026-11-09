@@ -1224,7 +1224,7 @@ def _t34():
     check(moved == 0, f"the base moved or re-masked {moved} top points")
     low = np.abs(co[:, 2] - bottom) < 1e-3
     check(np.array_equal(low, ~top), f"base points should all sit flat at lowest - depth ({bottom:.2f} m)")
-    half = np.array([ob.lg.size_x, ob.lg.size_y]) / 2 + 1e-3
+    half = np.abs(co[top, :2]).max(0) + 1e-3  # the top's own footprint (it can sit a hair past Size / 2)
     check((np.abs(co[:, :2]) <= half).all(), "the base reaches past the landscape edge")
     side = cap = 0
     for (vs, nrm, mid), on in zip(faces, flag):

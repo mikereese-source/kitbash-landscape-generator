@@ -9,6 +9,7 @@ The hollow rock body doubles faces and build time (194k Preview, 5.8M High, Ultr
 ## Done when
 - Faster with no visible loss at every Detail Level (board side by side)
 - Options tried: coarser outside, fewer cut grids, Bake node cache, render-time displacement for Ultra
+- The first build of a new cave is much faster (Mike, review 2026-11-09: "it takes a long time for the initial cave to build"); time it before and after
 
 ## Files
 - `kitbash_landscape_generator/features.py`
@@ -19,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-09 Mike: initial cave build is slow; added to Done when. See also LG-054 (separate Detail Levels), LG-056 (Ultra at render time)

@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-09 Mike's review: the lip roughness "feels really great"; the lumpiness is no longer an issue. Left: the hollow at the front-left foot (recheck), plus LG-057 (lip minimum and pinches)

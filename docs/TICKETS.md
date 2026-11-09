@@ -63,6 +63,19 @@ LG-007 preset save location (side) also fits. LG-051 CODING.md (research) also f
 | [LG-049](tickets/LG-049-project2-plan.md) | Project 2 plan | H Final | Project 2 | todo | M | P2 | main | no | PLAN-threejs.md | LG-039, LG-040, LG-048 |
 | [LG-050](tickets/LG-050-blender-writeup.md) | Blender milestone write-up | H Final | Final | todo | S-M | P3 | research | no | - | LG-048 |
 
+## From Mike's review 2026-11-09 (prioritize when the review is done)
+
+| ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | todo | M | TBD | main | yes | features.py | - |
+| [LG-054](tickets/LG-054-separate-detail-levels.md) | Separate Detail Levels for shell, rubble and formations | A Cave fixes | M5 | todo | M | TBD | main | yes | features.py; caves.py; rocks.py; formations.py; run_tests.py | - |
+| [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | todo | S | TBD | side | tests only | caves.py | - |
+| [LG-056](tickets/LG-056-ultra-at-render-time.md) | Ultra at render time (and camera-based detail) | A Cave fixes | M5 | todo | M-L | TBD | main | yes | features.py; caves.py | - |
+| [LG-057](tickets/LG-057-lip-minimum.md) | Lip minimum 0.25, default 0.3, and fix pinches | A Cave fixes | M5 | todo | S-M | TBD | main | yes | features.py; caves.py; run_tests.py | - |
+| [LG-058](tickets/LG-058-no-puddles-at-lip.md) | No puddles at the lip | A Cave fixes | M5 | todo | S | TBD | main | yes | features.py | - |
+| [LG-059](tickets/LG-059-outside-hull-lumps.md) | Lumps and dimples on the outside of the cave | A Cave fixes | M5 | todo | S | TBD | main | yes | features.py | - |
+| [LG-060](tickets/LG-060-high-wall-facets.md) | Faceted patches on the inside wall at High | A Cave fixes | M5 | todo | S-M | TBD | main | yes | features.py | - |
+
 ## Code reviews (D202)
 
 When they run (every one is a Done-when line on its ticket, so a ticket or gate can't close without it):

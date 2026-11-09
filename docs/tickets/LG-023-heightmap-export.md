@@ -11,6 +11,7 @@ Cheapest table-stakes gap; needed for every engine handoff (RESEARCH-features.md
 - Masks as splat images
 - Recipe JSON
 - New test T34; all pass
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `kitbash_landscape_generator/export.py (new)`
@@ -23,3 +24,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

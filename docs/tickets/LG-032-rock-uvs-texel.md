@@ -8,6 +8,7 @@ Rock kits and cave shell need UVs at a chosen texel density with 1K/2K/4K maps f
 
 ## Done when
 - Texel density option; baked maps export
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `kitbash_landscape_generator/rocks.py`
@@ -18,3 +19,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

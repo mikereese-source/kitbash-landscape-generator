@@ -8,6 +8,7 @@ Bad input, tiny/huge sizes, too many vertices, missing JSON, undo, save/reopen, 
 
 ## Done when
 - All handled and tested; gate passed
+- Code review: `ponytail:ponytail-review` on the M8 diff (last gate tag to HEAD); findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `kitbash_landscape_generator/__init__.py`
@@ -19,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

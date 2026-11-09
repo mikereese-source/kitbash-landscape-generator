@@ -6,7 +6,7 @@ G M8, H Final. Phase E (M6) may move before C or D; Mike decides.
 
 **Can run now in parallel with main-lane LG-001:** LG-022 package spec (research), LG-018 cave realism refs (research),
 LG-043 checker-note fixes and LG-044 realism output folder (side, Blender for tests only, so not while main is testing).
-LG-007 preset save location (side) also fits. **Blocked on Mike:** LG-003 (which render shows floating piles),
+LG-007 preset save location (side) also fits. LG-051 CODING.md (research) also fits. **Blocked on Mike:** LG-003 (which render shows floating piles),
 LG-036 (Orbit team contact).
 
 | ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
@@ -26,8 +26,10 @@ LG-036 (Orbit team contact).
 | [LG-013](tickets/LG-013-path-tests.md) | 5.2b Cave path: single-path fixes and tests | B M5 finish | M5 5.2b | todo | S-M | P2 | main | yes | run_tests.py; features.py | LG-012 |
 | [LG-014](tickets/LG-014-cave-outside-surface.md) | Cave outside surface | B M5 finish | M5 / M7 | todo | S | P3 | main | yes | features.py | LG-009 |
 | [LG-015](tickets/LG-015-drapes-tuning.md) | Drapes tuning | B M5 finish | M5 | todo | M | P3 | main | yes | formations.py; features.py | LG-013 |
-| [LG-016](tickets/LG-016-cave-speed-pass.md) | Cave speed pass | B M5 finish | M5 | todo | M | P2 | main | yes | features.py | LG-001, LG-002, LG-003, LG-004, LG-005, LG-008, LG-009, LG-013 |
-| [LG-017](tickets/LG-017-m5-gate.md) | 5.5 Cave creator gate | B M5 finish | M5 5.5 | todo | S-M | P1 | main | yes | run_tests.py; PROJECT.md | LG-005, LG-006, LG-010, LG-014, LG-015, LG-016 |
+| [LG-016](tickets/LG-016-cave-speed-pass.md) | Cave speed pass | B M5 finish | M5 | todo | M | P2 | main | yes | features.py | LG-001, LG-002, LG-003, LG-004, LG-005, LG-008, LG-009, LG-013, LG-052 |
+| [LG-017](tickets/LG-017-m5-gate.md) | 5.5 Cave creator gate | B M5 finish | M5 5.5 | todo | S-M | P1 | main | yes | run_tests.py; PROJECT.md | LG-005, LG-006, LG-010, LG-014, LG-015, LG-016, LG-052 |
+| [LG-051](tickets/LG-051-coding-standards.md) | CODING.md: written coding standards | B M5 finish | M5 | ready | S | P2 | research | no | CODING.md | - |
+| [LG-052](tickets/LG-052-baseline-audit.md) | Baseline code audit (ponytail-audit) | B M5 finish | M5 | todo | M | P1 | research | no | reviews/ | LG-051 |
 | [LG-018](tickets/LG-018-cave-realism-refs.md) | Cave realism reference research | B M5 finish | M6 prep | ready | S | P3 | research | no | RESEARCH-caves.md | - |
 | [LG-019](tickets/LG-019-cave-landscape-type.md) | 6.1 Cave landscape type | E M6 | M6 6.1 | todo | L | P2 | main | yes | features.py; types.json; __init__.py | LG-017, LG-018 |
 | [LG-020](tickets/LG-020-cliff-features.md) | 6.2 Cliff features | E M6 | M6 6.2 | todo | M-L | P2 | main | yes | features.py | LG-019 |
@@ -61,3 +63,15 @@ LG-036 (Orbit team contact).
 | [LG-048](tickets/LG-048-final-alpha.md) | Final check and Alpha package | H Final | Final | todo | M | P1 | main | yes | PROJECT.md | LG-026, LG-045, LG-046, LG-047 |
 | [LG-049](tickets/LG-049-project2-plan.md) | Project 2 plan | H Final | Project 2 | todo | M | P2 | main | no | PLAN-threejs.md | LG-039, LG-040, LG-048 |
 | [LG-050](tickets/LG-050-blender-writeup.md) | Blender milestone write-up | H Final | Final | todo | S-M | P3 | research | no | - | LG-048 |
+
+## Code reviews (D202)
+
+When they run (every one is a Done-when line on its ticket, so a ticket or gate can't close without it):
+- **Every side-lane ticket:** `mattpocock-skills:code-review` against the ticket file (spec) and docs/CODING.md (standards), before merge.
+- **Every milestone gate (LG-017, 026, 035, 045, 048):** `ponytail:ponytail-review` on the milestone's diff.
+- **Whole repo:** `ponytail:ponytail-audit` at LG-052 (before the cave speed pass) and again at Final (LG-048).
+- Findings: fix now, make a ticket, or mark won't-fix with a reason. Reports go in docs/reviews/.
+- At every session start, check this log against tickets marked done; a done ticket with a missing review is reopened.
+
+| Date | Ticket | Skill | Scope | Findings | Tickets made | Report |
+|---|---|---|---|---|---|---|

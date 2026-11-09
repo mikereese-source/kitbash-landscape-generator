@@ -8,6 +8,7 @@ Build a preset to a mesh plus maps from the command line (D198).
 
 ## Done when
 - Script + README usage; test
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `tools/batch_build.py (new)`
@@ -18,3 +19,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

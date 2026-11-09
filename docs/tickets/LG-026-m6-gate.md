@@ -8,6 +8,7 @@ Close M6: tests, checker, rollback, sign-off, AI-world check.
 
 ## Done when
 - All pass; Mike signs off
+- Code review: `ponytail:ponytail-review` on the M6 diff (last gate tag to HEAD); findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `tests/run_tests.py`
@@ -18,3 +19,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

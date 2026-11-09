@@ -8,6 +8,7 @@ SDF caves have no browser match; test one cave (e.g. compute marching cubes or a
 
 ## Done when
 - One cave shown; method and cost recorded
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `apps/landscape-spike-threejs/`
@@ -18,3 +19,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

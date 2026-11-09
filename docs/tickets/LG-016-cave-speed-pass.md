@@ -1,7 +1,7 @@
 # LG-016 Cave speed pass
 Type: perf | Milestone: M5 | Phase: B M5 finish | Size: M | Priority: P2
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
-Depends on: LG-001, LG-002, LG-003, LG-004, LG-005, LG-008, LG-009, LG-013 | Blocks: LG-017
+Depends on: LG-001, LG-002, LG-003, LG-004, LG-005, LG-008, LG-009, LG-013, LG-052 | Blocks: LG-017
 
 ## Why
 The hollow rock body doubles faces and build time (194k Preview, 5.8M High, Ultra ~25-28M). Quality first, then speed (D196, D197).

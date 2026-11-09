@@ -12,6 +12,7 @@ Artists need to see and pick where presets save (Mike, 2026-11-06, PARKING).
 - Folder remembered per .blend file
 - Preset list shows the 5 most recently saved
 - T25 extended; 30/30
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `kitbash_landscape_generator/presets.py`
@@ -25,3 +26,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

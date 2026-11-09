@@ -8,6 +8,7 @@ realism/lidar checks overwrite their reports in the repo (M2 checker note).
 
 ## Done when
 - --out option; default outside the repo
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `tests/realism.py`
@@ -19,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

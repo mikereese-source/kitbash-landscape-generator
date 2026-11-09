@@ -9,6 +9,7 @@ Python GizmoGroup: Width/Depth (grabbed edge moves, opposite stays), Height, per
 ## Done when
 - Handles on every type and the cave
 - Undo works
+- Code review: `mattpocock-skills:code-review` against this ticket before merge; findings fixed or made tickets; logged in TICKETS.md Code reviews (D202)
 
 ## Files
 - `kitbash_landscape_generator/gizmos.py (new)`
@@ -20,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-08 code review step added (D202)

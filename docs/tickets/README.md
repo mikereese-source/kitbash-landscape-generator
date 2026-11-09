@@ -42,4 +42,6 @@ What to read first, gotchas, where it starts.
   (Blender runs headless, one process at a time, never in Mike's open Blender).
 - **Every code ticket:** bump CAVE_VERSION / GROUP_VERSION after node edits, rebuild node_groups.blend, all tests pass,
   every shape traced to a reference, new ideas to PARKING.md not into the ticket.
-- **Done** = the Done-when list is met, tests pass, the commit is in the Log, and Mike signed off where review is yes.
+- **Code reviews (D202):** side-lane tickets get `mattpocock-skills:code-review` before merge; gates get `ponytail:ponytail-review`;
+  whole-repo `ponytail:ponytail-audit` at LG-052 and Final. Each run gets a row in the board's Code reviews log.
+- **Done** = the Done-when list is met (including its code review), tests pass, the commit is in the Log, and Mike signed off where review is yes.

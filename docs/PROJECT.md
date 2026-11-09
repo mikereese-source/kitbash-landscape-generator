@@ -22,6 +22,7 @@ A Blender add-on that replaces A.N.T. Landscape: pick a real landscape type, sca
 Blender 5.2 add-on. Geometry Nodes node groups do the terrain (live, non-destructive); a thin Python layer adds the menu entry, panel and presets. Details to be settled in DESIGN.md.
 
 ## Where things live
+- Tickets: [TICKETS.md](TICKETS.md) board, one file per ticket in `docs/tickets/` (D201); PARKING.md stays for raw ideas
 - Code: `apps/landscape-generator/kitbash_landscape_generator/` (Blender extension, junction-linked into Blender 5.2 `extensions/user_default/`, D13)
 - Prototype: https://claude.ai/artifact/3q2sd89zXBpTX2LemT8Bd1
 - Real app / build: <artifact link or path>

@@ -1,6 +1,6 @@
 # KitBash Landscape Generator — Parking List
 
-Ideas that come up mid-build land here, not in the current milestone. Review at every gate.
+Ideas that come up mid-build land here, not in the current milestone. Review at every gate. Once Mike puts an idea in the plan, or a bug is parked for later, it becomes a ticket in [TICKETS.md](TICKETS.md) (D201).
 
 | Idea | Raised | Raised during | Gate decision |
 |------|--------|---------------|---------------|

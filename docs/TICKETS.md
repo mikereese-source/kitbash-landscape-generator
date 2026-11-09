@@ -114,3 +114,4 @@ When they run (every one is a Done-when line on its ticket, so a ticket or gate 
 
 | Date | Ticket | Skill | Scope | Findings | Tickets made | Report |
 |---|---|---|---|---|---|---|
+| 2026-11-09 | LG-070 | mattpocock-skills:code-review | main...a210071 (standards + spec) | Standards: no library rebuild/tests yet, Log lines without refs, presets.py missing from Files, wrong lane, missing why-comments, Base Depth hard max. Spec: T34 relied on point order, no bake/water check, border selection, side points copy masks | None: all fixed in a5273aa before merge; tests then found the bottom not flat (fixed 1db679d) | in chat (reports not saved) |

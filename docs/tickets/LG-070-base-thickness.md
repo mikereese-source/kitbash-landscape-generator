@@ -28,3 +28,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created (D203)
 - 2026-11-09 a210071 built in worktree lg-070-base-thickness: Base + Base Depth (20 m), T34; library rebuild and tests still to run (no Blender) -> review
 - 2026-11-09 a5273aa code-review fixes: T34 order-free, bake + water checks, why-comments, Base Depth max; lane side
+- 2026-11-09 code review done (logged in TICKETS.md), fixes a5273aa; tests found the bottom points off level, snapped flat (1db679d, GROUP_VERSION 144); merged into main (1d3f8c0); full suite 31/31; board docs/m5/c175_base_thickness.png. Waiting on Mike's review

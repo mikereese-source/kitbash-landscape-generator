@@ -24,3 +24,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (jointed)
 - 2026-11-09 Mike (lava review): the lava rubble also overlaps oddly at times (lava shot 1). Use the same new scatter for all rubble, not only the Jointed heaps
 - 2026-11-09 prioritized P1, step 15 of the review order (TICKETS.md)
+- 2026-11-09 options note written: docs/RESEARCH-rubble.md (Spread is never read by the Jointed heaps; recommends a layered drop big-medium-small with culling and raycast stacking). Waiting on Mike's pick

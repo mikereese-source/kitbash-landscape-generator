@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 206
+CAVE_VERSION = 207
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1588,7 +1588,9 @@ def cave_group():
     lime_secondary = t.math('MULTIPLY', lime_secondary, 1.15)
     s_roof = t.math('MULTIPLY', s_roof, 1.15)
     lime_off = t.math('MULTIPLY', lime_off, t.math('SUBTRACT', 1.0, t.smooth(t.named("lg_sharp"), 0.02, 0.25)))
-    limestone = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off),
+    # Limestone's Wall Shape eased up (Mike, LG-065: 0 fine, 1 should read 2-3x): F + 1.5 F^2, 0.5 -> 0.875, 1 -> 2.5.
+    F_lime = t.math('ADD', F, t.math('MULTIPLY', t.math('MULTIPLY', F, F), 1.5))
+    limestone = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F_lime), t.math('MULTIPLY', lime_secondary, R)), lime_off),
                        t.math('MULTIPLY', s_roof, R))  # the roof's patches past the flat-roof damping
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
@@ -1630,7 +1632,9 @@ def cave_group():
     # High on the walls by height over the floor too: by the face's slope alone it still pushed the low wall in
     # over the bench's top, an overhanging lip with a dark slot and teeth under it (Mike's shot).
     lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.math('MULTIPLY', t.smooth(nz, -0.1, 0.5), t.smooth(t_hn, 0.3, 0.6)))
-    lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R))
+    # Lava's Roughness pushed (Mike, LG-069: 0.5 should look like 1 did, 1 about 30-50% more): R (2.6 - 1.2 R), 0.5 -> 1, 1 -> 1.4.
+    R_lava = t.math('MULTIPLY', R, t.math('SUBTRACT', 2.6, t.math('MULTIPLY', R, 1.2)))
+    lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R_lava))
 
     # Lava floor flow lobes (5.4b, D175; the Stefanshellir floor on docs/m5/c131): the floor rises in rounded
     # pahoehoe tongues drawn out along the tube, flat-topped with rounded edges, overlapping, 4-10% of the

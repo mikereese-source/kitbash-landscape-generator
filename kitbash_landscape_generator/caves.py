@@ -31,7 +31,7 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "water_level": "Water Level", "lip": "Lip", "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
 
 
-LIP_MIN, LIP_MAX = 0.3, 0.8  # the rim's thickness against the entrance width at the slider's ends
+LIP_MIN, LIP_MAX = 0.3, 0.7  # the rim's thickness against the entrance width at the slider's ends
 
 def lip_thickness(slider):
     """Lip slider (0.1-1) to the rim's thickness against the entrance width (Mike, LG-057): 0.1 is 0.3, the thinnest

@@ -26,3 +26,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 prioritized P1, step 1 of the review order (TICKETS.md)
 - 2026-11-09 built (CAVE_VERSION 206, board docs/m5/c174_step1_fixes.png, tests 30/30): Lip range 0.3-0.5, default 0.3, old caves open at 0.3; T14 checks 0.3 < 0.4 < 0.5. Pinches: the dark grooves stay with the lip surface off, so they come from the base shape's roof ledges/cut lines; need Mike to circle the pinches he means on c174. Waiting on Mike's review
 - 2026-11-10 Mike: the lip is good. Slider now reads 0.1-1 and maps to 0.3-0.8 of the entrance width (caves.lip_thickness; 0.1 = the old 0.3 minimum, 1 = a heavy hood); default 0.1. T14 checks 0.1 < 0.55 < 1. Board docs/m5/c176_lip_range.png. Caves saved with the old 0.3-0.5 values now read a little thicker
+- 2026-11-10 Mike: maximum 0.7 (was 0.8); T14 passes

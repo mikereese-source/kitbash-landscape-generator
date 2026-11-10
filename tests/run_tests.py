@@ -1135,6 +1135,7 @@ def _t36():
         dg.update()
         got[lvl] = (lg.caves.face_estimates(ob, bpy.context, lg.caves.DETAIL_INDEX[lvl]), len(ob.evaluated_get(dg).data.polygons))
     (est_p, real_p), (est_h, real_h) = got["PREVIEW"], got["HIGH"]
+    check(est_p is not None and est_h is not None, "the cave should carry lg_basis so the panel can estimate")
     check(est_p is not None and abs(est_p[1] / real_h - 1) < 0.2 and abs(est_h[0] / real_p - 1) < 0.2,
           f"estimates should be within 20%: High from Preview {est_p[1]:,.0f} vs {real_h:,}; Preview from High {est_h[0]:,.0f} vs {real_p:,}")
     return f"High from Preview {est_p[1] / 1e6:.2f}M (real {real_h / 1e6:.2f}M), Preview from High {est_h[0] / 1e6:.2f}M (real {real_p / 1e6:.2f}M), Ultra about {est_p[2] / 1e6:.1f}M"

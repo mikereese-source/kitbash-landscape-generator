@@ -26,6 +26,15 @@ def path():
     return os.path.join(folder, "presets.json")
 
 
+def adopt_folder(folder):
+    """Point this .blend at a preset folder. The first time a folder is used, the presets saved so far (Blender's
+    settings, or the folder picked before) are copied in, so none drop out of the list (code review, LG-007)."""
+    old = load_all()
+    bpy.context.scene.lg_preset_dir = folder
+    if old and not os.path.exists(path()):
+        _write(old)
+
+
 def load_all():
     """{name: preset}. A missing or unreadable file is no presets, never an error."""
     try:
@@ -37,10 +46,12 @@ def load_all():
 
 
 def _write(presets):
-    tmp = path() + ".tmp"
+    target = path()
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    tmp = target + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump({"version": VERSION, "presets": presets}, fh, indent=1, sort_keys=True)
-    os.replace(tmp, path())  # never leave a half-written file
+    os.replace(tmp, target)  # never leave a half-written file
 
 
 def capture(props, control_props):

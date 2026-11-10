@@ -862,7 +862,7 @@ def _preset_enum(_self, _context):
     _preset_items.clear()
     all_presets = presets.load_all()
     # The 5 most recently saved (Mike, LG-007).
-    for i, name in enumerate(sorted(all_presets, key=lambda n: -all_presets[n].get("saved", 0))[:5]):
+    for i, name in enumerate(sorted(all_presets, key=lambda n: (-all_presets[n].get("saved", 0), n.lower()))[:5]):
         _preset_items.append((name, name, f"Load the look saved as {name}", 'MESH_UVSPHERE' if all_presets[name].get("kind") == "cave" else 'NONE', i))
     if not _preset_items:
         _preset_items.append(("", "No saved presets yet", "Save a look you like with Save Preset", 'NONE', 0))
@@ -899,8 +899,15 @@ class LG_OT_preset_save(Operator):
         if not name:
             self.report({'WARNING'}, "Give the preset a name")
             return {'CANCELLED'}
+        try:
+            return self._save(context, name)
+        except OSError as err:  # an unwritable folder: say so, keep the artist's work
+            self.report({'ERROR'}, f"Couldn't save the preset: {err}")
+            return {'CANCELLED'}
+
+    def _save(self, context, name):
         if self.directory:
-            context.scene.lg_preset_dir = self.directory
+            presets.adopt_folder(self.directory)
         cave = _active_cave(context)
         if cave:  # same list as the landscapes, marked as a cave (Mike: no separate cave presets)
             all_presets = presets.load_all()
@@ -926,7 +933,7 @@ class LG_OT_preset_folder(Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        context.scene.lg_preset_dir = self.directory
+        presets.adopt_folder(self.directory)
         return {'FINISHED'}
 
 

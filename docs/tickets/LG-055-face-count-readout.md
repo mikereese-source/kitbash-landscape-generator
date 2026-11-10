@@ -23,3 +23,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (limestone)
 - 2026-11-09 prioritized P2, step 17 of the review order (TICKETS.md)
 - 2026-11-10 built by Opus 5.5 in main (small enough; no worktree): panel shows the rock shell's faces at Preview / High / Ultra, red over 5M; estimated from the current build (lg_basis stored by the node tree, steps and voxel scaling as the cave picks them), within 2-4% of real (T36). Mike's review cave: Preview 0.47M, High 13.3M, Ultra about 53M. Rocks and formations not counted (labelled). CAVE_VERSION 209. Code review still to run before closing
+- 2026-11-10 code review done (logged); guard for a cave mesh without lg_basis; T36 says why when it can't estimate. Counts the rock shell only: rocks and formations are labelled as extra. features.py was touched (stores lg_basis)

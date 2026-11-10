@@ -335,7 +335,7 @@ def face_estimates(ob, context, level):
         return None
     me = ob.evaluated_get(context.evaluated_depsgraph_get()).data
     basis = me.attributes.get("lg_basis")
-    if basis is None or not len(me.polygons):
+    if basis is None or not len(basis.data) or not len(me.polygons):
         return None
     d = features.CAVE_DETAIL
     bases = [max(basis.data[0].value, 1.0) * (v / d[level]) ** 2 for v in d]

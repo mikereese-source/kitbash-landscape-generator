@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 207
+CAVE_VERSION = 208
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1696,8 +1696,10 @@ def cave_group():
     # at every Detail Level; one lip shape, each rock its own surface (Mike, PLAN-5.3): limestone lumpy, jointed in
     # blocky steps, lava smooth and slumped. It covers the mouth's rock out to a little past the wall's thickness.
     l_pos = t.xyz(t.position())
+    # Down on the floor too, at a third (Mike, LG-053: the lip's roughness carried onto the floor so the two read as
+    # one rock; a third keeps the floor walkable).
     at_mouth = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(l_pos["Y"], t.math('MULTIPLY', W, 0.45), t.math('MULTIPLY', W, 0.75))),
-                      t.smooth(l_pos["Z"], t.math('MULTIPLY', H, 0.06), t.math('MULTIPLY', H, 0.2)))
+                      t.math('MAXIMUM', t.smooth(l_pos["Z"], t.math('MULTIPLY', H, 0.06), t.math('MULTIPLY', H, 0.2)), 0.33))
     in_w = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.named("lg_out_w")), t.math('SUBTRACT', 1.0, at_mouth))
     lip_w = t.math('MULTIPLY', at_mouth, t.math('SUBTRACT', 1.0, t.smooth(t.named("lg_odist"), t.math('MULTIPLY', wall_t, 1.5), t.math('MULTIPLY', wall_t, 3.0))))
     l_n = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25))), Scale=1.0, Detail=3.0)
@@ -1714,7 +1716,7 @@ def cave_group():
     t._set(l_surf.inputs["Index"], gin["Rock"])
     for i, val in enumerate((t.math('MULTIPLY', l_lump, 0.5),
                              t.math('MULTIPLY', l_step, 0.7),  # jointed: blocky steps
-                             t.math('MULTIPLY', l_lump, 0.12))):
+                             t.math('MULTIPLY', l_lump, 0.32))):  # lava: rougher, nearer limestone's (Mike, LG-067; was 0.12)
         t._set(l_surf.inputs[i + 1], val)
     # Sized to the wall, and the outside half moved the same way as the inside (its normals face the other way):
     # pushed each along its own normal, the two faces of a thin wall met and crossed as slivers (Jointed, c172).

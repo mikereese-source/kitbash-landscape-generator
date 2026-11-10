@@ -85,7 +85,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 
 | ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
 |---|---|---|---|---|---|---|---|---|---|---|
-| [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | todo | M | P2 | main | yes | features.py | - |
+| [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | review | M | P2 | main | yes | features.py | - |
 | [LG-054](tickets/LG-054-separate-detail-levels.md) | Separate Detail Levels for shell, rubble and formations | A Cave fixes | M5 | todo | M | P1 | main | yes | features.py; caves.py; rocks.py; formations.py; run_tests.py | - |
 | [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | todo | S | P2 | side | tests only | caves.py | - |
 | [LG-056](tickets/LG-056-ultra-at-render-time.md) | Ultra at render time (and camera-based detail) | A Cave fixes | M5 | todo | M-L | P2 | main | yes | features.py; caves.py | - |
@@ -99,7 +99,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | todo | L | P1 | main | yes | features.py | - |
 | [LG-065](tickets/LG-065-limestone-wall-shape-stronger.md) | Limestone Wall Shape: make 1.0 much stronger | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |
 | [LG-066](tickets/LG-066-flooded-water-outside.md) | Flooded chamber water pokes out of the cave | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
-| [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | todo | S | P2 | main | yes | features.py | - |
+| [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | review | S | P2 | main | yes | features.py | - |
 | [LG-068](tickets/LG-068-lip-extension.md) | Extend the lip outward (all three rocks) | A Cave fixes | M5 | todo | M | P3 | main | yes | features.py; caves.py; run_tests.py | - |
 | [LG-069](tickets/LG-069-lava-roughness-stronger.md) | Lava Roughness: fix 0 and push 1.0 harder | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py | - |
 

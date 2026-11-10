@@ -1,6 +1,6 @@
 # LG-067 More roughness on the lava lip
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P2
-Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
+Status: review | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-09 created from Mike's review (lava)
 - 2026-11-09 prioritized P2, step 9 of the review order (TICKETS.md)
+- 2026-11-10 built by Opus 5.5 (CAVE_VERSION 208, board docs/m5/c180_lip_roughness.png, T14/T31/T33 pass): lava lip surface lump x 0.32 (was 0.12). Waiting on Mike's review

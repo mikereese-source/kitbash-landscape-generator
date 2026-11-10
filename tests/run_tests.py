@@ -694,14 +694,14 @@ def _t14():
         # Sideways through the wall just behind the face cut, under the roof's ledges: the mouth's rock, the only
         # wall Lip thins (behind the mouth it stays at least 3 Preview voxels, D197).
         up = cave_hits(ob, (0.0, c.width * 0.4, c.height * 0.3), (1.0, 0.0, 0.0))
-        return (up[1] - up[0]) if len(up) >= 2 else 0.0, max(c.width * lip, 1.5 * min(c.width * 0.5, c.height) / 6.0)
-    thin, want_thin = wall(0.3)
-    mid, want_mid = wall(0.4)
-    thick, want_thick = wall(0.5)
+        return (up[1] - up[0]) if len(up) >= 2 else 0.0, max(c.width * lg.caves.lip_thickness(lip), 1.5 * min(c.width * 0.5, c.height) / 6.0)
+    thin, want_thin = wall(0.1)
+    mid, want_mid = wall(0.55)
+    thick, want_thick = wall(1.0)
     # Every step of the slider counts, the default included (first-pass review: under 0.25 it did nothing).
     check(all(0.6 < a / b < 1.6 for a, b in ((thin, want_thin), (mid, want_mid), (thick, want_thick))) and thin < mid < thick,
-          f"the rock over the mouth should be as thick as Lip sets: {thin:.1f} / {mid:.1f} / {thick:.1f} m at 0.3 / 0.4 / 0.5 (want {want_thin:.1f} / {want_mid:.1f} / {want_thick:.1f})")
-    c.lip = 0.3
+          f"the rock over the mouth should be as thick as Lip sets: {thin:.1f} / {mid:.1f} / {thick:.1f} m at Lip 0.1 / 0.55 / 1 (want {want_thin:.1f} / {want_mid:.1f} / {want_thick:.1f})")
+    c.lip = 0.1
     c.chamber, c.ceiling = 30.0, 15.0
     pc, closed2, _f, _n = cave_mesh(ob)
     back = pc[pc[:, 1] > c.depth * 0.8]

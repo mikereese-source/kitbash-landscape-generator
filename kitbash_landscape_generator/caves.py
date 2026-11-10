@@ -31,6 +31,14 @@ CAVE_SOCKETS = {"width": "Entrance Width", "height": "Entrance Height", "depth":
                 "water_level": "Water Level", "lip": "Lip", "stalactite_amount": "Stalactite Amount", "stalagmite_amount": "Stalagmite Amount", "column_amount": "Column Amount"}
 
 
+LIP_MIN, LIP_MAX = 0.3, 0.8  # the rim's thickness against the entrance width at the slider's ends
+
+def lip_thickness(slider):
+    """Lip slider (0.1-1) to the rim's thickness against the entrance width (Mike, LG-057): 0.1 is 0.3, the thinnest
+    that reads as solid rock (thinner tore into flaps), 1 a heavy hood."""
+    return LIP_MIN + (min(max(slider, 0.1), 1.0) - 0.1) / 0.9 * (LIP_MAX - LIP_MIN)
+
+
 def sync_cave(ob):
     mod = cave_modifier(ob)
     if mod is None:
@@ -41,8 +49,7 @@ def sync_cave(ob):
         mod.node_group = features.cave_group()
     fill_kits(ob.lg_cave)
     for prop, sock in CAVE_SOCKETS.items():
-        # Lip under 0.3 tore into thin flaps (Mike, LG-057); caves saved before then open at 0.3.
-        nodes.input_socket(mod, sock).value = max(ob.lg_cave.lip, 0.3) if prop == "lip" else getattr(ob.lg_cave, prop)
+        nodes.input_socket(mod, sock).value = lip_thickness(ob.lg_cave.lip) if prop == "lip" else getattr(ob.lg_cave, prop)
     nodes.input_socket(mod, "Detail").value = DETAIL_INDEX[ob.lg_cave.detail]
     nodes.input_socket(mod, "Rock").value = ROCK_INDEX[ob.lg_cave.rock]
     nodes.input_socket(mod, "Show Mask").value = MASK_INDEX[ob.lg_cave.show_mask]
@@ -186,8 +193,8 @@ class LG_CaveProps(PropertyGroup):
     formations: FloatProperty(name="Formations", description="How many stalactites, stalagmites and columns grow along the roof's cracks and ledges in limestone: none (0) to a lot (1). Lava and jointed rock grow none",
                               default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     # As the rocks' controls (Mike): how big, how drawn out, how many grow as clusters, and which kits.
-    lip: FloatProperty(name="Lip", description="How thick the rock rim round the open mouth is, against the entrance width: 0.3 (thinnest that reads as solid rock) to 0.5 (a heavy hood)",
-                       default=0.3, min=0.3, max=0.5, subtype='FACTOR', update=_sync)
+    lip: FloatProperty(name="Lip", description="How thick the rock rim round the open mouth is: 0.1 the thinnest that reads as solid rock, 1 a heavy hood",
+                       default=0.1, min=0.1, max=1.0, subtype='FACTOR', update=_sync)
     water: EnumProperty(name="Water", description="What water the cave holds", items=WATER_ITEMS, default='PUDDLES', update=_sync)
     water_level: FloatProperty(name="Water Level", description="How high the flood stands: the chamber floor (0) up to the passage floor where it opens into the chamber (1)",
                                default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)

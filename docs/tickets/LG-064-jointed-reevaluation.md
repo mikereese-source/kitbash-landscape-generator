@@ -1,15 +1,20 @@
 # LG-064 Jointed: full re-evaluation against the earlier version
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: L | Priority: P1
-Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
+Status: ready | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
 Mike: Jointed needs the most work. The noise around the mouth and chamber looks very bad (spiky rim, jointed shot 3), odd hanging masses near the chamber (shot 4), and it makes less sense than the Jointed we had before the mouth rebuild (review 2026-11-09).
 
 ## Done when
-- Side-by-side board: Jointed at 187 (before the mouth rebuild) vs now vs the jointed references and the target (docs/m5/target_jointed_passage.png)
-- List what changed and why it reads worse; Mike picks what to keep
-- Rebuild to the agreed look; no spiky rim, no hanging masses
+Mike's pick (2026-11-10, D205): the recommendation in docs/REVIEW-jointed-2026-11-10.md, option B in two steps, plus:
+- **Plain ledges** at the mouth: the jointed lip reads as plain stepped rock ledges, not the blocky noise (no spikes at any Lip value)
+- **No hanging pieces**: every jointed piece rests on rock (floor, wall or roof it grows from); nothing free-hanging in the passage or over the chamber drop
+- **The chamber looks good**: Mike's review cave (width 60, height 40, depth 100, chamber 120, ceiling 60, chamber drop 60) is a common one, so its chamber and the passage into it are the look to get right; boards at Preview and High against the jointed references and the target
+- Step 1 (S): tame/cap the jointed lip surface, limit the mouth zone's length, calmer cut
+- Step 2 (M): pieces back in the passage, placed by its real length, nothing hanging
+- All tests pass; a test that no jointed piece hangs free; code review before merge
+- Full rebuild (option C) stays parked
 
 ## Files
 - `kitbash_landscape_generator/features.py`
@@ -22,3 +27,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (jointed)
 - 2026-11-09 prioritized P1, step 14 of the review order (TICKETS.md)
 - 2026-11-10 re-evaluation done, analysis only, no code (model: Claude Fable 5.2, claude-fable-5-2). Boards docs/m5/c177_jointed_then_now_1_review_settings.png and c177_jointed_then_now_2_causes_refs.png; write-up docs/REVIEW-jointed-2026-11-10.md. Found: spiky rim and rim noise are the jointed lip surface (tested: off, they go); the mouth cut strips the passage pieces; the hanging masses are also in 187 (masses placed by path fraction land over the chamber drop). Recommends option B in two steps. Waiting on Mike's pick; status stays todo.
+- 2026-11-10 Mike picked the recommendation + plain ledges, remove hanging pieces, make the common review chamber look good (D205). To Fable 5.2 after the weekly usage reset

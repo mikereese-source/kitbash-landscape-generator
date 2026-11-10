@@ -96,7 +96,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-061](tickets/LG-061-rubble-heaps-rethink.md) | Rethink the rubble heaps and rubble scatter | A Cave fixes | M5 | ready | M-L | P1 | main | yes | features.py; rocks.py | - |
 | [LG-062](tickets/LG-062-puddles-on-jointed.md) | Puddles slider greyed out on Jointed | A Cave fixes | M5 | review | S | P1 | main | yes | features.py; caves.py | - |
 | [LG-063](tickets/LG-063-flooded-water-holes.md) | Holes in the flooded chamber water next to pieces | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
-| [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | todo | L | P1 | main | yes | features.py | - |
+| [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | ready | L | P1 | main | yes | features.py | - |
 | [LG-065](tickets/LG-065-limestone-wall-shape-stronger.md) | Limestone Wall Shape: make 1.0 much stronger | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |
 | [LG-066](tickets/LG-066-flooded-water-outside.md) | Flooded chamber water pokes out of the cave | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
 | [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | review | S | P2 | main | yes | features.py | - |

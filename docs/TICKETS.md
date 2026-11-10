@@ -87,7 +87,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 |---|---|---|---|---|---|---|---|---|---|---|
 | [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | review | M | P2 | main | yes | features.py | - |
 | [LG-054](tickets/LG-054-separate-detail-levels.md) | Separate Detail Levels for shell, rubble and formations | A Cave fixes | M5 | todo | M | P1 | main | yes | features.py; caves.py; rocks.py; formations.py; run_tests.py | - |
-| [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | todo | S | P2 | side | tests only | caves.py | - |
+| [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | review | S | P2 | side | tests only | caves.py | - |
 | [LG-056](tickets/LG-056-ultra-at-render-time.md) | Ultra at render time (and camera-based detail) | A Cave fixes | M5 | todo | M-L | P2 | main | yes | features.py; caves.py | - |
 | [LG-057](tickets/LG-057-lip-minimum.md) | Lip minimum 0.3, range to 0.5, and fix pinches | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; caves.py; run_tests.py | - |
 | [LG-058](tickets/LG-058-no-puddles-at-lip.md) | No puddles at the lip | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |

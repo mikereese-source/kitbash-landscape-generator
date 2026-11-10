@@ -2,6 +2,7 @@
 """The cave object (M5 step 5.2, D93): a standalone cave you place in the scene like the butte, sized in real
 meters, then carve into a landscape or use as a Boolean cutter on any mesh."""
 
+import math
 import random
 
 import bpy
@@ -326,6 +327,22 @@ class LG_OT_add_cave(Operator):
         return {'FINISHED'}
 
 
+def face_estimates(ob, context, level):
+    """The rock shell's faces at each Detail Level (LG-055): the current count, scaled by 4 per smoothing step,
+    the steps worked out the way the cave picks them (features: aim from lg_basis, at least CAVE_SUBDIV, at most 6),
+    and the coarse shape's faces growing with the voxels across (CAVE_DETAIL) squared."""
+    if ob is None or ob.type != 'MESH':
+        return None
+    me = ob.evaluated_get(context.evaluated_depsgraph_get()).data
+    basis = me.attributes.get("lg_basis")
+    if basis is None or not len(me.polygons):
+        return None
+    d = features.CAVE_DETAIL
+    bases = [max(basis.data[0].value, 1.0) * (v / d[level]) ** 2 for v in d]
+    steps = [min(max(round(math.log(t / b, 4)), s), 6) for t, s, b in zip(features.CAVE_FACES, features.CAVE_SUBDIV, bases)]
+    return [len(me.polygons) * b / bases[level] * 4 ** (s - steps[level]) for b, s in zip(bases, steps)]
+
+
 def draw_section(layout, context):
     """The selected cave's controls, as a section of the main panel (a separate panel sat above the main one,
     folded shut, and Mike couldn't find it). Add Cave is in the type list, under Caves."""
@@ -419,7 +436,16 @@ def draw_section(layout, context):
     header.label(text="Detail Level")
     if sub:
         sub.row(align=True).prop(props, "detail", expand=True)
-        sub.label(text=f"Shell about {features.CAVE_FACES[DETAIL_INDEX[props.detail]] / 1e6:g}M faces or more for a big cave")
+        est = face_estimates(context.active_object, context, DETAIL_INDEX[props.detail])
+        if est is None:
+            sub.label(text=f"Shell about {features.CAVE_FACES[DETAIL_INDEX[props.detail]] / 1e6:g}M faces or more for a big cave")
+        else:
+            row = sub.row(align=True)
+            for (_k, name, _d), n in zip(DETAIL_ITEMS, est):
+                cell = row.row()
+                cell.alert = n > 5e6  # heavy for the viewport (Mike, LG-055: 15M at High came with no warning)
+                cell.label(text=f"{name} {n / 1e6:.1f}M")
+            sub.label(text="Rock faces per Detail Level; rocks and formations add more")
 
 
 classes = (LG_CaveProps, LG_OT_add_cave, LG_OT_randomize_cave, LG_OT_reset_cave)

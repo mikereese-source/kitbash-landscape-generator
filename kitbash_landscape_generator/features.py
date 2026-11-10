@@ -427,7 +427,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 208
+CAVE_VERSION = 209
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1774,7 +1774,8 @@ def cave_group():
     rough = t.node('GeometryNodeSetPosition', Geometry=rough,
                    Selection=t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), jointed_on), t.math('GREATER_THAN', p_out, p_margin)),
                    Position=t.vmath('ADD', p_near.outputs["Position"], t.vmath('SCALE', t.vmath('NORMALIZE', p_n.outputs["Value"]), scale=p_margin))).outputs[0]
-    marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
+    # The face count the smoothing steps are picked from, so the panel can say what each Detail Level will cost (LG-055).
+    marked = t.store(t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE'), "lg_basis", faces, 'FLOAT', 'POINT')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not
     # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.

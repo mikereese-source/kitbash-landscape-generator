@@ -1109,6 +1109,25 @@ def _t32():
     return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; amount sliders each take only their own family; old caves upgrade; pickers filled"
 
 
+@test("T36", "Face counts per Detail Level shown before switching")
+def _t36():
+    # Mike (LG-055): High gave 15M faces with no warning. The panel estimates every level from the current one.
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    got = {}
+    for lvl in ("PREVIEW", "HIGH"):
+        c.detail = lvl
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        got[lvl] = (lg.caves.face_estimates(ob, bpy.context, lg.caves.DETAIL_INDEX[lvl]), len(ob.evaluated_get(dg).data.polygons))
+    (est_p, real_p), (est_h, real_h) = got["PREVIEW"], got["HIGH"]
+    check(est_p is not None and abs(est_p[1] / real_h - 1) < 0.2 and abs(est_h[0] / real_p - 1) < 0.2,
+          f"estimates should be within 20%: High from Preview {est_p[1]:,.0f} vs {real_h:,}; Preview from High {est_h[0]:,.0f} vs {real_p:,}")
+    return f"High from Preview {est_p[1] / 1e6:.2f}M (real {real_h / 1e6:.2f}M), Preview from High {est_h[0] / 1e6:.2f}M (real {real_p / 1e6:.2f}M), Ultra about {est_p[2] / 1e6:.1f}M"
+
+
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
 def _t33():
     # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the

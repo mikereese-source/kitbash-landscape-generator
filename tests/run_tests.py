@@ -363,6 +363,10 @@ def _t25():
         check(os.path.exists(os.path.join(folder, "kitbash_landscape_presets.json")), "presets were not saved in the picked folder")
         shown = [it[0] for it in lg._preset_enum(None, bpy.context)]
         check(shown == ["P5", "P4", "P3", "P2", "P1"], f"the list should show the 5 most recent, newest first: {shown}")
+        bpy.context.scene.lg_preset_all = True
+        shown = [it[0] for it in lg._preset_enum(None, bpy.context)]
+        bpy.context.scene.lg_preset_all = False
+        check(len(shown) == 6 and shown[-1] == "P0", f"Show All should list all 6: {shown}")
     finally:
         presets.path = real
         bpy.context.scene.lg_preset_dir = ""

@@ -858,11 +858,11 @@ CONTROL_PROPS = sorted({c["prop"] for t in TYPES.values() for c in t.get("contro
 _preset_items = []
 
 
-def _preset_enum(_self, _context):
+def _preset_enum(_self, context):
     _preset_items.clear()
     all_presets = presets.load_all()
     # The 5 most recently saved (Mike, LG-007).
-    for i, name in enumerate(sorted(all_presets, key=lambda n: (-all_presets[n].get("saved", 0), n.lower()))[:5]):
+    for i, name in enumerate(sorted(all_presets, key=lambda n: (-all_presets[n].get("saved", 0), n.lower()))[:None if context.scene.lg_preset_all else 5]):  # Show All lists the rest (Mike)
         _preset_items.append((name, name, f"Load the look saved as {name}", 'MESH_UVSPHERE' if all_presets[name].get("kind") == "cave" else 'NONE', i))
     if not _preset_items:
         _preset_items.append(("", "No saved presets yet", "Save a look you like with Save Preset", 'NONE', 0))
@@ -1253,6 +1253,7 @@ class LG_PT_main(Panel):
             row = box.row(align=True)
             row.prop(scene, "lg_preset", text="")
             row.operator(LG_OT_preset_load.bl_idname, icon='IMPORT')
+            row.prop(scene, "lg_preset_all", text="", icon='COLLAPSEMENU')
             row = box.row(align=True)
             row.operator(LG_OT_preset_save.bl_idname, icon='FILE_TICK')
             row.operator(LG_OT_preset_rename.bl_idname, text="", icon='GREASEPENCIL')
@@ -1385,6 +1386,7 @@ def register():
     bpy.types.Scene.lg_index = IntProperty(default=-1, update=_select_listed)
     bpy.types.Scene.lg_type_key = StringProperty(name="Picked Type", default="")
     bpy.types.Scene.lg_preset = EnumProperty(name="Preset", description="Saved looks, the 5 most recent: pick one, then Load", items=_preset_enum)
+    bpy.types.Scene.lg_preset_all = BoolProperty(name="Show All", description="List every saved preset, not only the 5 most recent", default=False)
     bpy.types.Scene.lg_preset_dir = StringProperty(name="Preset Folder", subtype='DIR_PATH', description="Where this .blend saves its presets")
     bpy.types.Scene.lg_type = EnumProperty(name="Landscape Type", description="What kind of landscape Add Landscape makes", items=_type_enum,
                                            get=_get_scene_type, set=_set_scene_type)
@@ -1403,6 +1405,7 @@ def unregister():
     del bpy.types.Scene.lg_types_view
     del bpy.types.Scene.lg_preset
     del bpy.types.Scene.lg_preset_dir
+    del bpy.types.Scene.lg_preset_all
     del bpy.types.Scene.lg_type
     del bpy.types.Scene.lg_type_key
     del bpy.types.Scene.lg_index

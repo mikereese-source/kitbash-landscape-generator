@@ -1,4 +1,4 @@
-# Landscape package spec (draft for Mike's OK)
+# Landscape package spec
 
 One folder layout that every version writes and reads: Blender (6.3b export, M8 import), three.js / Cargo, Unreal (Project 3), and maybe Cinema 4D. Written once so no app needs a format change later (D198, D203; LG-022). Builds on the package in PLAN-unreal.md.
 
@@ -69,8 +69,8 @@ One folder layout that every version writes and reads: Blender (6.3b export, M8 
 - **Exporters write every file, importers read what they need.** Blender rebuilds from `recipe.json` and uses `height.png` only when the recipe can't be rebuilt (an unknown type, or a hand-sculpted landscape later). Unreal uses both, the recipe for shape and the maps for erosion and layers.
 - **One test per app:** export, import, compare. The heights match within one 16-bit step, and the masks within 1%.
 
-## Open questions for Mike
+## Decided (Mike, 2026-11-10, D206)
 
-1. **Contradiction:** PLAN-unreal.md says "there's no Blender-to-Unreal path; the Blender add-on receives, it doesn't hand on", but D198 / 6.3b gives Blender a heightmap export for engine handoff. The newer one is D198 (2026-11-08). OK to treat Blender export as allowed, with Cargo still the main hub?
-2. **Folder name:** `.kblandscape` or plain `<name>/`?
-3. **Default size:** 2017?
+1. **Blender gets the full export.** Blender is the test bed for the package: the heightmap and every other export are built there first to work the format out, then three.js and Unreal follow the same spec. This replaces PLAN-unreal.md's "the Blender add-on receives, it doesn't hand on".
+2. **Folder name:** the landscape's own name plus `.kblandscape`, e.g. `Volcano Caldera.kblandscape/`.
+3. **Default size:** 2017, the Unreal-friendly size; revisit if better data on a default turns up.

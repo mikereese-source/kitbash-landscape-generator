@@ -1,6 +1,6 @@
 # LG-022 Export package spec (PACKAGE.md)
 Type: docs | Milestone: M6 6.3b | Phase: E M6 | Size: S | Priority: P2
-Status: review | Lane: research | Needs Blender: no | Mike review: yes
+Status: done | Lane: research | Needs Blender: no | Mike review: yes
 Depends on: none | Blocks: LG-023, LG-041, LG-071
 
 ## Why
@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-08 created (D201)
 - 2026-11-09 recipe must allow multiple tiles (D203)
 - 2026-11-10 drafted by Opus 5.5: docs/PACKAGE.md (folder layout, recipe.json with a tiles list, heightmap/mask/splat rules, caves as .glb). Flags a contradiction (PLAN-unreal 'no Blender-to-Unreal path' vs D198 Blender export) and 2 small questions. Waiting on Mike's OK
+- 2026-11-10 Mike answered (D206): Blender gets the full export as the test bed; folder <name>.kblandscape; default 2017. PACKAGE.md updated; approved

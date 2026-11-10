@@ -176,7 +176,8 @@ for name, row in report.items():
     print(f"T6 {name}: {row['t6']}")
     failed += bad and [name]
 
-with open(os.path.join(HERE, "realism_report.json"), "w", encoding="utf-8") as fh:
+# LG_REPORT_DIR keeps a trial run's report out of the repo (LG-044); unset, it updates the committed one.
+with open(os.path.join(os.environ.get("LG_REPORT_DIR") or HERE, "realism_report.json"), "w", encoding="utf-8") as fh:
     json.dump(report, fh, indent=1)
 print("wrote realism_report.json")
 print(f"T6: {len([r for r in report if r not in SKIP]) - len(failed)}/{len([r for r in report if r not in SKIP])} types within bands")

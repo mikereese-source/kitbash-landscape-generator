@@ -42,7 +42,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-017](tickets/LG-017-m5-gate.md) | 5.5 Cave creator gate | B M5 finish | M5 5.5 | todo | S-M | P1 | main | yes | run_tests.py; PROJECT.md | LG-005, LG-006, LG-010, LG-014, LG-015, LG-016, LG-052 |
 | [LG-051](tickets/LG-051-coding-standards.md) | CODING.md: written coding standards | B M5 finish | M5 | review | S | P2 | research | no | CODING.md | - |
 | [LG-052](tickets/LG-052-baseline-audit.md) | Baseline code audit (ponytail-audit) | B M5 finish | M5 | todo | M | P1 | research | no | reviews/ | LG-051 |
-| [LG-018](tickets/LG-018-cave-realism-refs.md) | Cave realism reference research | B M5 finish | M6 prep | ready | S | P3 | research | no | RESEARCH-caves.md | - |
+| [LG-018](tickets/LG-018-cave-realism-refs.md) | Cave realism reference research | B M5 finish | M6 prep | review | S | P3 | research | no | RESEARCH-caves.md | - |
 | [LG-019](tickets/LG-019-cave-landscape-type.md) | 6.1 Cave landscape type | E M6 | M6 6.1 | todo | L | P2 | main | yes | features.py; types.json; __init__.py | LG-017, LG-018 |
 | [LG-020](tickets/LG-020-cliff-features.md) | 6.2 Cliff features | E M6 | M6 6.2 | todo | M-L | P2 | main | yes | features.py | LG-019 |
 | [LG-021](tickets/LG-021-bake-with-caves.md) | 6.3 Bake and Restore with caves | E M6 | M6 6.3 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-019 |

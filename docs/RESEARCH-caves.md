@@ -197,3 +197,75 @@ References in `Terrain References\cave-landscapes\` (23 new, sources.json) plus 
 | Rock Shelter | 8: Cliff Palace (x3), Spruce Tree House, Betatakin, Navajo NM (high), Weeping Rock, Gorges de la Nesque | A horizontal recess in the upper or middle of a canyon wall, right under a flat, lightly treed mesa cap; 3-6x wider than tall, shallow; the roof a thick flat-bottomed slab, the back wall curving up into it; a talus or slickrock slope below to a wooded canyon floor. Extreme case: an arched alcove nearly the cliff's full height (Betatakin). |
 | Sea Cave | 8: Fingal's (x2), Staffa, Benagil (x2, one high), Carvoeiro, Rikoriko, Painted Cave | The opening always starts at the waterline, 1/3 to 2/3 of the cliff's height, rock always left above; near-vertical cliffs, no talus, at most a narrow wave-cut bench; a flat or gently domed top with grass or scrub to the edge (bush down the face on volcanic islands); caves in headlands, often in pairs or rows along one bed. |
 | Lava Tube | 7: Skull Cave, USGS collapse-line aerial, Lava Beds trench, Craters of the Moon (x2), Jameos (Lanzarote), Hualalai | Flat or gently sloping ground right to the edge, no hill or cliff: the opening is a hole below grade; steep-sided pits about 3-10 m deep, as wide as deep or wider, rims slightly overhanging; a rubble cone floor sloping down to the dark tube mouth at one or both ends; pits in chains along the tube; plants gather inside the pits, the field around sparse. |
+
+## M6 reference sources (2026-11-10, LG-018)
+
+Web research only. Nothing downloaded. Facts come from search results and page fetches on 2026-11-10. Where a figure is not confirmed, it says so. Check each licence on the page before download.
+
+### 1. Cave and cave-mouth scans (lidar, photogrammetry)
+
+| Source | What it gives | Licence | URL |
+|---|---|---|---|
+| TUBEX Skull Cave lidar (Univ. of Maryland DRUM) | Terrestrial laser scan in and around a lava tube at Lava Beds NM, 2017-18, point spacing under 1 cm. LAS, 4 tiles, about 34.7 GB total. | Not stated (Rights field blank). Ask UMD or NASA TUBEX before use. | https://drum.lib.umd.edu/handle/1903/27004 (DOI 10.13016/oxyt-vg4c) |
+| OpenTopography "Lidar Survey of Lava Tubes, CA 2023" | Airborne lidar over Lava Beds, about 57 km2. Collapse trenches, skylights, pits in chains. Point cloud plus DEM products. | CC BY 4.0 | https://opentopography.org/node/3564 (DOI 10.5069/G9ST7N19) |
+| Grotta di Monte Intraleo (4TU) | Robot lidar of a Sicilian lava tube. PCD, OBJ, 3DM and more. One ZIP, about 1.48 GB. | CC BY 4.0 | https://data.4tu.nl/datasets/778253cc-3193-4f66-bc13-03b80380424e |
+| KarstConduitCatalogue (Racine et al., ESSD 2025) | Classified point clouds and wall surface models of 16 to 20+ limestone caves (Jura, Alps, Massif Central, Slovenia). Good for passage cross-sections. Sizes and formats not checked. | Paper is CC BY 4.0. Data licence not confirmed: check landing page. | https://doi.org/10.60544/sbjr-z851 (paper: https://essd.copernicus.org/articles/17/4671/2025/) |
+| Speleo LiDARium, Wombeyan Caves | CSIRO Zebedee scans. Victoria Arch is a natural arch and mouth: PLY, 93 MB reduced. | Not stated on page; a data text file inside has the terms. Cliefden Main Cave is CC-BY-NC-SA 4.0. Wombeyan: licence uncertain. | https://speleo-lidarium.caves.org.au/data/ |
+| Bahia, Brazil cave lidar (4TU) | Lidar of hypogenic and epigenic caves. | CC BY-NC-SA 4.0 (non-commercial). Reference only. | https://data.4tu.nl/datasets/d8a96b73-c21f-4338-a6d1-d8c550fc34e2 |
+| Elaphes cave (LIRIS) | Scan of a French cave. | ETALAB v2.0 open licence. | https://dataset-dl.liris.cnrs.fr/elaphes-cave/ |
+| Sketchfab scans (Lava Beds cave scan, Maguez Lanzarote lava tube, Pines Cave, Gruta dos Palhares) | Photogrammetry meshes, 130k to 620k triangles. | Per model. Only Gruta dos Palhares seen as CC-BY. Others not seen: uncertain. Filter Sketchfab by CC0/CC-BY. | https://www.sketchfab.com/3d-models/lava-beds-national-monument-cave-scan-d3595bd7ab974e4e8eb2efa3ceeec04d |
+
+Gap: I found no open scan of a rock shelter or a sea cave. Use photos for those.
+
+### 2. Cave survey data and statistics
+
+| Source | What it gives | Licence | URL |
+|---|---|---|---|
+| BCA Cave Registry Data Archive | Survex/Therion surveys of UK caves. Station LRUD (left, right, up, down) gives passage width and height. | Mostly Creative Commons, per project. Check each. | https://cave-registry.org.uk/overview-of-projects |
+| UBSS Cave Survey Archive (Cheddar, Burren/Clare) | Survex and Therion 3D files for limestone caves. | Creative Commons (version not checked). | https://ubss.org.uk/cave_survey_archive.php |
+| Migovec (Slovenia) Therion data | Large alpine cave system, with DOI. | CC BY-NC-SA 4.0 | https://doi.org/10.5281/zenodo.10813021 |
+| SUSS CAVE archive (Australia) | Survex/Compass/Therion data, includes Cliefden. | Club says raw survey numbers carry no copyright. Not a legal ruling: uncertain. | https://suss.caves.org.au/cave/help.html |
+| Coombs and Hawke, Hawaiian lava tubes (NASA NTRS 1992) | Field measures of width, height, depth, roof thickness for many tubes on Hawaii, Oahu, Molokai. Height-vs-width plot, R2 = 0.74 (N = 423 per OCR, unconfirmed). | US gov document, public. | https://ntrs.nasa.gov/api/citations/19920001578/downloads/19920001578.pdf |
+| USGS, Kilauea lava streams in tubes | Typical tube size from direct observation. | US gov, public. | https://pubs.usgs.gov/publication/70020452 |
+| Bahamas sea cave vs flank-margin cave morphometrics (J. Cave Karst Studies, 2010) | Three map ratios: area/perimeter, entrance width / max width, short/long axis. Method for telling sea caves from solution caves. | Journal paper, read only. | https://legacy.caves.org/pub/journal/PDF/v72/cave-72-02-61.pdf (confirm it is the right paper) |
+| Piccini 2011, "Recent developments on morphometric analysis of karst caves" (Acta Carsologica) | Review of cave shape measures. Not fetched. | Not checked. | search the title |
+
+Gap: no published population statistics for entrance width:height. To get them, measure LRUD data from the archives above, or the KarstConduitCatalogue clouds.
+
+### 3. Reference photo sets
+
+| Source | What it gives | Licence | URL |
+|---|---|---|---|
+| Commons: Category:Rock shelters | 5 subcategories of shelters worldwide. | Per file (CC / public domain). Read each. | https://commons.wikimedia.org/wiki/Category:Rock_shelters |
+| Commons: Category:Sea caves | 50 files plus "Sea caves by country" (22 subcats). Blue holes subcat is a loose fit. | Per file. | https://commons.wikimedia.org/wiki/Category:Sea_caves |
+| Commons: Category:Lava tubes | Lava tube interiors and entrances. | Per file. | https://commons.wikimedia.org/wiki/Category:Lava_tubes |
+| NPS galleries (Lava Beds, Craters of the Moon, Mesa Verde, Channel Islands Painted Cave) | Entrances, skylights, alcoves. | NPS photos are public domain unless credited otherwise. Check the credit line. | https://www.nps.gov/labe, /crmo, /meve, /chis |
+| USGS image gallery | Skylight and collapse-line aerials. | Public domain unless credited. | https://www.usgs.gov/products/data-and-tools/image-gallery |
+
+Skylights: no Commons category found. Search "skylight" inside Category:Lava tubes.
+
+### 4. Rules of thumb (with sources and confidence)
+
+| Rule | Value | Source | Confidence |
+|---|---|---|---|
+| Kilauea lava tube cross-section | About 5 m high, 3 m wide in the observed tubes (taller than wide) | USGS pubs.usgs.gov/publication/70020452 | From the abstract. |
+| Lava Beds tubes cross-section | Height : width near 1 : 3 (wide and low) | Secondary mention of a Lava Beds study in search results. Paper not identified. | Low. Confirm in the Skull Cave scan. |
+| Hawaiian tube size range | 0.5 m up to 30 m, width and height. Height tracks width (R2 0.74). | Thesis summary (thesis.unipd.it, Marraffa); Coombs and Hawke | Medium. |
+| Lava tube skylight | Pits as wide as deep or wider, 3-10 m deep | Own refs, 2026-11-05 board | Measure on the OpenTopography DEM. |
+| Sea cave notch size | A Mediterranean notch up to 1.2 m deep, about 0.6 m high. Notches sit near mid-tide. Low tide range plus steep cliff favours notches. | Notch studies (MDPI Geosciences 14/6/157; sapientia.ualg.pt) | Medium. The notch is the seed; real caves are far bigger. |
+| Sea cave entrance | Cape Point cave about 16 m high x 15 m wide (ratio near 1). Painted Cave entrance almost 40 m high. | Wikipedia Sea cave; darklife.co.za | Single examples, not a distribution. |
+| Rock shelter vs cave | A shelter is shallower than its mouth is wide. A cave goes deeper than the opening is wide. | Standard definition (Wikipedia, Rock shelter / Alcove). | Medium. Our board says 3-6x wider than tall. No depth:height statistic found. |
+| Rock shelter formation | Resistant sandstone cap over a softer bed that is undermined. | Gleadow et al. 2025 (Warton Sandstone), via search summary | Medium. |
+
+Not found: a published rock shelter depth:height ratio, and sea cave height vs tide range. For both, measure on our reference photos and the Commons shelter sets rather than invent a number.
+
+### 5. Download first (needs Mike's OK)
+
+Target folder: `E:\Projects\3D\Terrain Generator_Build\Terrain References\<topic>\` with sources.json.
+
+1. Coombs and Hawke PDF (small, public). Extract the width/height plot and ratio. Folder `lava-tube-stats`.
+2. OpenTopography Lava Beds 2023: a small DEM clip of the collapse trenches only, not the whole 57 km2. CC BY 4.0. Measure pit width, depth, spacing. Folder `lava-tube-lidar`.
+3. One or two KarstConduitCatalogue passages, after confirming the data licence. Folder `karst-conduit-scans`.
+4. One UBSS/BCA Survex file (Cheddar or Clare) to read LRUD stats. A few MB. Folder `cave-survey-data`.
+5. Reference photos only: 6 to 8 per style from Commons Rock shelters and Sea caves, and NPS Painted Cave and Lava Beds skylights. Folder `m6-style-refs`.
+6. Hold: Skull Cave 34.7 GB (licence blank, too big). Hold Wombeyan Victoria Arch (93 MB) until the licence is known.

@@ -1,7 +1,7 @@
 """One headless shot of the cave object (one render per process). Args: out.png view [chamber]"""
 import sys, math, os
 import bpy
-sys.path.insert(0, r"E:\Projects\Cowork\apps\landscape-generator")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # this checkout (a worktree renders its own code)
 import kitbash_landscape_generator as lg
 args = sys.argv[sys.argv.index("--") + 1:]
 OUT, VIEW = args[0], args[1]

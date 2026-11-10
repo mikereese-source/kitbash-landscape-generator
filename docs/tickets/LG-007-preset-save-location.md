@@ -1,6 +1,6 @@
 # LG-007 Preset save location
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P2
-Status: ready | Lane: side | Needs Blender: tests only | Mike review: yes
+Status: review | Lane: side | Needs Blender: tests only | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -27,3 +27,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-08 created (D201)
 - 2026-11-08 code review step added (D202)
+- 2026-11-10 built by Opus 5.5 in main: first Save Preset in a .blend opens a folder browser (starts next to the .blend, or home if unsaved) with the name field; later saves go straight there; folder icon in the Presets panel changes it; folder stored on the scene, so per .blend; file kitbash_landscape_presets.json in that folder; list shows the 5 most recently saved (each preset stamped 'saved'). Before a folder is picked, presets stay in Blender's user config as before. T25 extended; T8/T18/T19 pass. Code review still to run

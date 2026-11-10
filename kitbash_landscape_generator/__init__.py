@@ -861,7 +861,8 @@ _preset_items = []
 def _preset_enum(_self, _context):
     _preset_items.clear()
     all_presets = presets.load_all()
-    for i, name in enumerate(sorted(all_presets, key=str.lower)):
+    # The 5 most recently saved (Mike, LG-007).
+    for i, name in enumerate(sorted(all_presets, key=lambda n: -all_presets[n].get("saved", 0))[:5]):
         _preset_items.append((name, name, f"Load the look saved as {name}", 'MESH_UVSPHERE' if all_presets[name].get("kind") == "cave" else 'NONE', i))
     if not _preset_items:
         _preset_items.append(("", "No saved presets yet", "Save a look you like with Save Preset", 'NONE', 0))
@@ -874,6 +875,8 @@ class LG_OT_preset_save(Operator):
     bl_description = "Save the selected cave's or this landscape's whole look (every slider, seed, size) under a name, for any project"
     bl_options = {'REGISTER'}
     name: StringProperty(name="Name", default="My Landscape")
+    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
 
     @classmethod
     def poll(cls, context):
@@ -885,6 +888,10 @@ class LG_OT_preset_save(Operator):
         else:
             ob = current_landscape(context)
             self.name = f"My {TYPES.get(_object_type_key(ob.lg), {}).get('name', 'Landscape')}"
+        if not context.scene.lg_preset_dir:  # first save in this .blend: pick the folder, starting next to the file (LG-007)
+            self.directory = bpy.path.abspath("//") if bpy.data.filepath else os.path.expanduser("~")
+            context.window_manager.fileselect_add(self)
+            return {'RUNNING_MODAL'}
         return context.window_manager.invoke_props_dialog(self)
 
     def execute(self, context):
@@ -892,15 +899,34 @@ class LG_OT_preset_save(Operator):
         if not name:
             self.report({'WARNING'}, "Give the preset a name")
             return {'CANCELLED'}
+        if self.directory:
+            context.scene.lg_preset_dir = self.directory
         cave = _active_cave(context)
         if cave:  # same list as the landscapes, marked as a cave (Mike: no separate cave presets)
             all_presets = presets.load_all()
-            all_presets[name] = caves.capture(cave.lg_cave)
+            all_presets[name] = dict(caves.capture(cave.lg_cave), saved=time.time())
             presets._write(all_presets)
         else:
             presets.save(name, current_landscape(context).lg, CONTROL_PROPS)
         context.scene.lg_preset = name
         self.report({'INFO'}, f"Saved preset {name}")
+        return {'FINISHED'}
+
+
+class LG_OT_preset_folder(Operator):
+    bl_idname = "landscape.preset_folder"
+    bl_label = "Preset Folder"
+    bl_description = "Pick the folder this .blend saves and loads presets in"
+    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+
+    def invoke(self, context, _event):
+        self.directory = bpy.path.abspath(context.scene.lg_preset_dir or "//") if (context.scene.lg_preset_dir or bpy.data.filepath) else os.path.expanduser("~")
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        context.scene.lg_preset_dir = self.directory
         return {'FINISHED'}
 
 
@@ -1224,6 +1250,9 @@ class LG_PT_main(Panel):
             row.operator(LG_OT_preset_save.bl_idname, icon='FILE_TICK')
             row.operator(LG_OT_preset_rename.bl_idname, text="", icon='GREASEPENCIL')
             row.operator(LG_OT_preset_delete.bl_idname, text="", icon='TRASH')
+            row = box.row(align=True)
+            row.label(text=scene.lg_preset_dir or "Saved in Blender's settings until a folder is picked", icon='FILE_FOLDER')
+            row.operator(LG_OT_preset_folder.bl_idname, text="", icon='FILEBROWSER')
 
         caves.draw_section(layout, context)
 
@@ -1336,7 +1365,7 @@ class LG_PT_main(Panel):
 
 
 classes = (LG_ObjectProps, LG_OT_add_landscape, LG_OT_scale_size, LG_OT_pick_type, LG_OT_randomize, LG_OT_reset_look,
-           LG_OT_fit_selection, LG_OT_preset_save, LG_OT_preset_load, LG_OT_preset_rename, LG_OT_preset_delete,
+           LG_OT_fit_selection, LG_OT_preset_save, LG_OT_preset_folder, LG_OT_preset_load, LG_OT_preset_rename, LG_OT_preset_delete,
            LG_OT_bake, LG_OT_restore,
            LG_UL_landscapes, LG_PT_main)
 
@@ -1348,7 +1377,8 @@ def register():
     bpy.types.Object.lg = PointerProperty(type=LG_ObjectProps)
     bpy.types.Scene.lg_index = IntProperty(default=-1, update=_select_listed)
     bpy.types.Scene.lg_type_key = StringProperty(name="Picked Type", default="")
-    bpy.types.Scene.lg_preset = EnumProperty(name="Preset", description="Saved looks: pick one, then Load", items=_preset_enum)
+    bpy.types.Scene.lg_preset = EnumProperty(name="Preset", description="Saved looks, the 5 most recent: pick one, then Load", items=_preset_enum)
+    bpy.types.Scene.lg_preset_dir = StringProperty(name="Preset Folder", subtype='DIR_PATH', description="Where this .blend saves its presets")
     bpy.types.Scene.lg_type = EnumProperty(name="Landscape Type", description="What kind of landscape Add Landscape makes", items=_type_enum,
                                            get=_get_scene_type, set=_set_scene_type)
     bpy.types.Scene.lg_types_view = EnumProperty(name="View", items=(
@@ -1365,6 +1395,7 @@ def unregister():
     caves.unregister()
     del bpy.types.Scene.lg_types_view
     del bpy.types.Scene.lg_preset
+    del bpy.types.Scene.lg_preset_dir
     del bpy.types.Scene.lg_type
     del bpy.types.Scene.lg_type_key
     del bpy.types.Scene.lg_index

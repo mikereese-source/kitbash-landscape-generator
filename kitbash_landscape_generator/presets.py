@@ -7,6 +7,7 @@ file. The same JSON is meant for the three.js version later (Mike, 2026-10-25).
 
 import json
 import os
+import time
 
 import bpy
 
@@ -17,6 +18,10 @@ LOOK = ("height", "feature_scale", "roughness", "sharpness", "erosion_amount", "
 
 
 def path():
+    # The folder picked for this .blend (Mike, LG-007), else Blender's user config as before.
+    picked = getattr(bpy.context.scene, "lg_preset_dir", "") if bpy.context.scene else ""
+    if picked:
+        return os.path.join(bpy.path.abspath(picked), "kitbash_landscape_presets.json")
     folder = bpy.utils.user_resource('CONFIG', path="kitbash_landscape_generator", create=True)
     return os.path.join(folder, "presets.json")
 
@@ -47,7 +52,7 @@ def capture(props, control_props):
 
 def save(name, props, control_props):
     presets = load_all()
-    presets[name] = capture(props, control_props)
+    presets[name] = dict(capture(props, control_props), saved=time.time())
     _write(presets)
 
 
@@ -71,7 +76,7 @@ def apply(props, data, known_types):
         props.type_key = data["type"]
     props.style_key = data.get("style", "") or ""
     for k, v in data.items():
-        if k in ("type", "style"):
+        if k in ("type", "style", "saved"):
             continue
         if k in props.bl_rna.properties and not props.bl_rna.properties[k].is_readonly:
             try:

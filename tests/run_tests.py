@@ -352,9 +352,21 @@ def _t25():
         check("Renamed" in presets.load_all(), "rename failed")
         presets.delete("Renamed")
         check(not presets.load_all(), "delete failed")
+        # A folder picked per .blend holds the presets; the list shows the 5 most recently saved (Mike, LG-007).
+        import time
+        folder = tempfile.mkdtemp()
+        presets.path = real
+        bpy.context.scene.lg_preset_dir = folder
+        for i in range(6):
+            bpy.ops.landscape.preset_save(name=f"P{i}")
+            time.sleep(0.02)
+        check(os.path.exists(os.path.join(folder, "kitbash_landscape_presets.json")), "presets were not saved in the picked folder")
+        shown = [it[0] for it in lg._preset_enum(None, bpy.context)]
+        check(shown == ["P5", "P4", "P3", "P2", "P1"], f"the list should show the 5 most recent, newest first: {shown}")
     finally:
         presets.path = real
-    return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted"
+        bpy.context.scene.lg_preset_dir = ""
+    return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted; saved in a picked folder, 5 most recent listed"
 
 
 MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_depth")

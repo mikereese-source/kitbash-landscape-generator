@@ -29,7 +29,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-004](tickets/LG-004-floor-apron.md) | Trim floor apron in front of the mouth | A Cave fixes | M5 5.5 | review | S | P2 | main | yes | features.py | - |
 | [LG-005](tickets/LG-005-stalactites-through-ledge.md) | Stalactites hang through rock ledges | A Cave fixes | M5 5.5 | ready | S-M | P2 | main | yes | formations.py; features.py | - |
 | [LG-006](tickets/LG-006-jointed-shards.md) | Jointed shards under the passage join (outside) | A Cave fixes | M5 5.5 | folded into LG-064 | S | P3 | main | yes | features.py | - |
-| [LG-007](tickets/LG-007-preset-save-location.md) | Preset save location | A Cave fixes | M5 | ready | S | P2 | side | tests only | presets.py; __init__.py; caves.py; run_tests.py | - |
+| [LG-007](tickets/LG-007-preset-save-location.md) | Preset save location | A Cave fixes | M5 | review | S | P2 | side | tests only | presets.py; __init__.py; caves.py; run_tests.py | - |
 | [LG-008](tickets/LG-008-floor-detail.md) | 5.4b Cave floor detail | B M5 finish | M5 5.4b | todo | M | P2 | main | yes | features.py; rocks.py | LG-001, LG-002, LG-004 |
 | [LG-009](tickets/LG-009-cutter-and-carve.md) | 5.3b Cutter mesh and carve into landscapes | B M5 finish | M5 5.3b | todo | M-L | P2 | main | yes | features.py; caves.py; run_tests.py | LG-008 |
 | [LG-010](tickets/LG-010-rocks-dress-entrance.md) | Rocks dress the cave entrance | B M5 finish | M5 5.3 | todo | M | P3 | main | yes | features.py; rocks.py | LG-009 |

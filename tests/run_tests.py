@@ -1164,6 +1164,7 @@ def _t38():
     check(abs(a.lg.size_x / a.lg.size_y - 2.0) < 1e-6 and a.lg.size_y >= 1.0, f"quick scale should keep 2:1 at the 1 m limit: {a.lg.size_x:.2f} x {a.lg.size_y:.2f}")
     scaled = (a.lg.size_x, a.lg.size_y)
     a.rotation_euler.z = _m.radians(45)
+    a.scale = (2.0, 2.0, 1.0)  # sizes are in the landscape's own units: half the world reach
     bpy.ops.mesh.primitive_cube_add(size=2.0, location=(30.0, 0.0, 0.0))
     cube = bpy.context.active_object
     for o in bpy.context.view_layer.objects:
@@ -1171,8 +1172,8 @@ def _t38():
     bpy.context.view_layer.objects.active = a
     bpy.context.view_layer.update()
     check(bpy.ops.landscape.fit_selection() == {"FINISHED"}, "Fit to Selection did not run")
-    check(abs(a.lg.size_x - (2 * (31.0 * _m.cos(_m.radians(45)) + 1.0 * _m.sin(_m.radians(45))) * lg.FIT_MARGIN)) < 0.5, f"Fit on a turned landscape: width {a.lg.size_x:.1f}")
-    return f"picked landscape kept by reference; 0.05x gives {scaled[0]:.0f} x {scaled[1]:.0f} m (2:1 kept); fit on a 45 degree landscape {a.lg.size_x:.1f} x {a.lg.size_y:.1f} m"
+    check(abs(a.lg.size_x - (31.0 * _m.cos(_m.radians(45)) + 1.0 * _m.sin(_m.radians(45))) * lg.FIT_MARGIN) < 0.5, f"Fit on a turned, 2x-scaled landscape: width {a.lg.size_x:.1f}")
+    return f"picked landscape kept by reference; 0.05x gives {scaled[0]:.0f} x {scaled[1]:.0f} m (2:1 kept); fit on a 45 degree, 2x landscape {a.lg.size_x:.1f} x {a.lg.size_y:.1f} m"
 
 
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")

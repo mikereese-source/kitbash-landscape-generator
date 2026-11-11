@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-08 created (D201)
 - 2026-11-08 code review step added (D202)
 - 2026-11-11 built by Opus 5.5 in main: the picked landscape is held by reference (scene.lg_picked), Fit to Selection measures in the landscape's own axes and scale, timers unregistered on disable, quick scale clamps one factor so Width:Depth survives the 1 m / 100 km limits. New T38; T3/T18/T19/T26 pass. Code review still to run
+- 2026-11-11 code review done (logged); fixes: old-file fallback, zero-scale guard, scaled-landscape fit tested. Left: no test for the timer guard; the list's highlighted row can still drift after a removal (cosmetic)

@@ -176,8 +176,15 @@ def current_landscape(context):
     if landscape_modifier(ob):
         return ob
     # The landscape last picked, held by reference: a list position drifted when objects were added or removed (LG-043).
-    ob = context.scene.lg_picked
-    return ob if landscape_modifier(ob) else None
+    scene = context.scene
+    ob = scene.lg_picked
+    if landscape_modifier(ob):
+        return ob
+    if 0 <= scene.lg_index < len(scene.objects):  # files saved before lg_picked existed (code review)
+        ob = scene.objects[scene.lg_index]
+        if landscape_modifier(ob):
+            return ob
+    return None
 
 
 def sync_object(ob):
@@ -1026,7 +1033,11 @@ class LG_OT_fit_selection(Operator):
 
     def execute(self, context):
         ob = current_landscape(context)
-        to_local = ob.matrix_world.inverted()  # measured in the landscape's own axes and scale, so a turned or scaled one still covers them (LG-043)
+        try:
+            to_local = ob.matrix_world.inverted()
+        except ValueError:  # a landscape scaled to zero has no axes to measure in
+            self.report({'WARNING'}, "The landscape is scaled to zero; give it a scale first")
+            return {'CANCELLED'}  # measured in the landscape's own axes and scale, so a turned or scaled one still covers them (LG-043)
         reach_x = reach_y = 0.0
         for src in _fit_sources(context):
             for corner in src.bound_box:

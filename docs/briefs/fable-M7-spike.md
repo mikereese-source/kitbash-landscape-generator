@@ -26,6 +26,8 @@ You are building the M7 material spike on the Mountains landscape type in the Ki
 
 **Textures:** Poly Haven CC0 sets, already downloaded, in `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\` (`textures/`, `models/`, `manifest.json`). Use 4K at most (2K where that's the target). Don't download anything new without Mike's OK.
 
+**Lighting (Mike, 2026-11-11):** default lighting is a neutral sky HDRI, Poly Haven `kloofendal_48d_partly_cloudy_puresky` (CC0, 4K), already downloaded to `E:\ProjectsD\Terrain Generator_Build\Materials\polyhaven\hdris\`. Add an HDRI slot to the panel: a file picker that swaps the sky, plus strength and rotation. The default is used when the slot is empty. Set it up as the World only when the artist asks: a "Use Landscape Lighting" button. Never replace an artist's World silently. All review boards use it.
+
 **The masks you drive the look from:** `lg_height`, `lg_slope`, `lg_curvature`, `lg_flow`, `lg_wear`, `lg_deposit`, `lg_depth`, plus `lg_water`. They're on every landscape (test T9). Box or triplanar mapping, since landscapes have no UVs.
 
 **Checkpoint 1, LG-027 layers:**

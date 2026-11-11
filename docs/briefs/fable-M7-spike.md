@@ -38,6 +38,7 @@ You are building the M7 material spike on the Mountains landscape type in the Ki
 
 **Checkpoint 2, LG-028 controls:**
 - Snow Line, Snow on Slopes, Rock Angle, Grass Amount, Wetness and Sediment, each with a blend softness. They remap the masks inside the material; the masks stay raw.
+- **Basic look controls per layer (Mike, 2026-11-11):** the ones artists expect, so they can change the colour of the grass, foliage, rock, soil and snow. At least colour tint, brightness, saturation, roughness and texture scale per layer. Check what Gaea, World Machine and World Creator offer (`RESEARCH-materials.md` section 1, `RESEARCH-features.md`) and match their basic set; keep it simple.
 - A panel section in the same plain style as the Shape controls, with tooltips (T8 checks them). Reset works.
 - A test that each control changes its layer.
 - Board `c184_spike_controls.png`.

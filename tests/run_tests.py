@@ -1189,20 +1189,22 @@ def _t39():
     check(os.path.basename(out) == f"{ob.name}.kblandscape", f"folder should be named after the landscape: {out}")
     with open(os.path.join(out, "recipe.json"), encoding="utf-8") as fh:
         rec = json.load(fh)
-    check(rec["format"] == "kblandscape" and len(rec["tiles"]) == 1 and rec["tiles"][0]["type"] == "hills", "recipe.json should hold one hills tile")
+    check(rec["format"] == "kblandscape" and len(rec["tiles"]) == 1 and rec["tiles"][0]["type"] == "hills" and "controls" in rec["tiles"][0] and rec["base"]["on"], "recipe.json should hold one hills tile with its controls, and the base")
     dg = bpy.context.evaluated_depsgraph_get()
     me = ob.evaluated_get(dg).to_mesh()
     h, masks = export.top_grid(me, ob.lg.size_x, ob.lg.size_y)
     ob.evaluated_get(dg).to_mesh_clear()
     lo, hi = rec["height_range"]
-    check(abs(lo - h.min()) < 1e-3 and lo > h.min() - 1.0, f"the base should be left out: range starts at {lo:.2f}, top lowest {h.min():.2f}")
+    bottom = min(v.co.z for v in ob.evaluated_get(dg).data.vertices)
+    check(lo > bottom + 10.0, f"the base should be left out: heightmap starts at {lo:.2f} m, the base bottom is {bottom:.2f} m")
     img = bpy.data.images.load(os.path.join(out, "height.png"))
     img.colorspace_settings.is_data = True
     px = np.array(img.pixels[:]).reshape(img.size[1], img.size[0], -1)[:, :, 0]
     check(img.size[0] == 1009 and img.size[1] == 1009, f"heightmap should be 1009 px: {tuple(img.size)}")
-    got = lo + px[[0, 0, -1, -1], [0, -1, 0, -1]] * (hi - lo)
-    want = h[[0, 0, -1, -1], [0, -1, 0, -1]]
-    check(np.abs(got - want).max() < (hi - lo) / 65535 * 2 + 1e-3, f"corner heights off: {got} vs {want}")
+    # Every pixel, so a flip or a mid-range shift shows, not only the corners.
+    want = export.resample(np.where(np.isnan(h), lo, h), 1009)
+    err = np.abs(lo + px * (hi - lo) - want).max()
+    check(err < (hi - lo) / 65535 * 2 + 1e-3, f"heightmap off by up to {err:.4f} m")
     with open(os.path.join(out, "height.png"), "rb") as fh:
         ihdr = fh.read(26)
     check(ihdr[24] == 16 and ihdr[25] == 0, f"height.png should be 16-bit grayscale: depth {ihdr[24]}, colour type {ihdr[25]}")
@@ -1210,7 +1212,7 @@ def _t39():
     check(raw.size == 1009 * 1009, f"height.r16 should be 1009 x 1009: {raw.size}")
     missing = [n for n in export.MASKS if n in masks and not os.path.exists(os.path.join(out, f"mask_{n[3:]}.png"))]
     check(masks and not missing, f"mask images missing: {missing}")
-    return f"{os.path.basename(out)}: recipe, height.png 1009 px, height.r16, {len(masks)} masks; corners within one 16-bit step; base left out"
+    return f"{os.path.basename(out)}: recipe, height.png 1009 px, height.r16, {len(masks)} masks; every pixel within two 16-bit steps; base left out"
 
 
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")

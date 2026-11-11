@@ -10,7 +10,7 @@ import numpy as np
 
 from . import presets
 
-SIZES = (1009, 2017, 4033)  # Unreal-friendly; 2017 is the default (D206)
+SIZES = (1009, 1025, 2017, 2049, 4033, 4097)  # Unreal (1009/2017/4033) and Unity (2^n + 1) sizes; 2017 is the default (D206)
 MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_depth")
 
 
@@ -45,11 +45,12 @@ def top_grid(me, size_x, size_y):
         keep &= top | ~low  # border points are shared with the sides: they stay
     idx = np.nonzero(keep)[0]
     xs, ys = co[idx, 0], co[idx, 1]
-    nx = len(np.unique(np.round(xs, 4)))
-    ny = len(np.unique(np.round(ys, 4)))
+    # Counted on positions relative to the size: float noise (1e-8 of it) can't split a column (code review).
+    nx = len(np.unique(np.round(xs / size_x * 1e5)))
+    ny = len(np.unique(np.round(ys / size_y * 1e5)))
     ix = np.clip(np.round((xs + size_x / 2) / size_x * (nx - 1)).astype(int), 0, nx - 1)
     iy = np.clip(np.round((ys + size_y / 2) / size_y * (ny - 1)).astype(int), 0, ny - 1)
-    h = np.zeros((ny, nx))
+    h = np.full((ny, nx), np.nan, np.float32)  # a missing point (e.g. Mesa with Floor off) stays NaN, not 0
     h[iy, ix] = co[idx, 2]
     masks = {}
     for name in MASKS:
@@ -58,7 +59,7 @@ def top_grid(me, size_x, size_y):
             continue
         v = np.zeros(n)
         a.data.foreach_get("value", v)
-        g = np.zeros((ny, nx))
+        g = np.zeros((ny, nx), np.float32)
         g[iy, ix] = v[idx]
         masks[name] = g
     return h, masks
@@ -76,7 +77,7 @@ def resample(g, size):
     b = g[y0][:, x0 + 1]
     c = g[y0 + 1][:, x0]
     d = g[y0 + 1][:, x0 + 1]
-    return a * (1 - fy) * (1 - fx) + b * (1 - fy) * fx + c * fy * (1 - fx) + d * fy * fx
+    return (a * (1 - fy) * (1 - fx) + b * (1 - fy) * fx + c * fy * (1 - fx) + d * fy * fx).astype(np.float32)
 
 
 def save_png16(values01, filepath):
@@ -87,8 +88,6 @@ def save_png16(values01, filepath):
         px = np.repeat(np.clip(values01, 0.0, 1.0).astype(np.float32).reshape(-1, 1), 4, axis=1)
         px[:, 3] = 1.0
         img.pixels.foreach_set(px.ravel())
-        img.filepath_raw = filepath
-        img.file_format = 'PNG'
         scene = bpy.context.scene
         settings = scene.render.image_settings
         old = (settings.file_format, settings.color_mode, settings.color_depth)
@@ -101,9 +100,9 @@ def save_png16(values01, filepath):
         bpy.data.images.remove(img)
 
 
-def write_package(ob, folder, recipe, size=2017, raw16=False, depsgraph=None):
+def write_package(ob, folder, recipe, size=2017, raw16=False):
     """Write <folder>/<object name>.kblandscape/ and return its path."""
-    dg = depsgraph or bpy.context.evaluated_depsgraph_get()
+    dg = bpy.context.evaluated_depsgraph_get()
     ev = ob.evaluated_get(dg)
     me = ev.to_mesh()
     try:
@@ -112,21 +111,29 @@ def write_package(ob, folder, recipe, size=2017, raw16=False, depsgraph=None):
         ev.to_mesh_clear()
     out = os.path.join(folder, f"{ob.name}.kblandscape")
     os.makedirs(out, exist_ok=True)
-    lo, hi = float(h.min()), float(h.max())
-    hs = resample(h, size)
+    lo, hi = float(np.nanmin(h)), float(np.nanmax(h))
+    hs = resample(np.where(np.isnan(h), lo, h), size)  # holes export at the lowest ground
     h01 = (hs - lo) / max(hi - lo, 1e-9)
     save_png16(h01, os.path.join(out, "height.png"))
-    if raw16:  # Unity RAW: top row first, little-endian
-        np.round(h01[::-1] * 65535).astype("<u2").tofile(os.path.join(out, "height.r16"))
+    if raw16:  # Unity RAW, little-endian, row 0 = -Y (Unity's terrain order; if mirrored, tick Flip Vertically on import)
+        np.round(h01 * 65535).astype("<u2").tofile(os.path.join(out, "height.r16"))
     for name, g in masks.items():
         save_png16(resample(g, size), os.path.join(out, f"mask_{name[3:]}.png"))
+    # The recipe in PACKAGE.md's shape: one tile with its controls nested; water and base at the top level.
+    rec = {k: v for k, v in recipe.items() if k not in ("saved",)}
+    tile = {"grid": [0, 0], "type": rec.pop("type"), "style": rec.pop("style"), "seed": rec.pop("seed", 0)}
+    water = {"on": bool(rec.pop("water", False)), "level": rec.pop("water_level", 0.0)}
+    base = {"on": bool(rec.pop("base", False)), "depth": rec.pop("base_depth", 0.0)}
+    for k in ("size_x", "size_y"):
+        rec.pop(k, None)
+    tile["controls"] = rec
     data = {
-        "format": "kblandscape", "version": 1, "app": "blender",
+        "format": "kblandscape", "version": 1, "app": f"blender {bpy.app.version_string}",
         "units": "meters", "size": [ob.lg.size_x, ob.lg.size_y], "height_range": [lo, hi],
         "heightmap": {"file": "height.png", "size": size, "bits": 16},
         "masks": sorted(f"mask_{n[3:]}.png" for n in masks),
-        "tiles": [{"grid": [0, 0], **recipe}],
+        "tiles": [tile], "blend_width": 0.0, "water": water, "base": base, "material": {}, "caves": [],
     }
     with open(os.path.join(out, "recipe.json"), "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=1, sort_keys=True, default=str)
+        json.dump(data, fh, indent=1, sort_keys=True)
     return out

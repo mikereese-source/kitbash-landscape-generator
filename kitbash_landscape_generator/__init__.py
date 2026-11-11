@@ -1089,7 +1089,7 @@ class LG_OT_export_package(Operator):
             return {'CANCELLED'}
         try:
             out = export.write_package(ob, bpy.path.abspath(self.directory), presets.capture(ob.lg, CONTROL_PROPS), int(self.size), self.raw16)
-        except OSError as err:
+        except (OSError, MemoryError, RuntimeError) as err:
             self.report({'ERROR'}, f"Couldn't write the package: {err}")
             return {'CANCELLED'}
         self.report({'INFO'}, f"Exported {out}")

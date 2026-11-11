@@ -1145,6 +1145,36 @@ def _t36():
     return f"High from Preview {est_p[1] / 1e6:.2f}M (real {real_h / 1e6:.2f}M), Preview from High {est_h[0] / 1e6:.2f}M (real {real_p / 1e6:.2f}M), Ultra about {est_p[2] / 1e6:.1f}M"
 
 
+@test("T38", "List keeps its landscape; Fit to Selection on a turned landscape; quick scale keeps the ratio")
+def _t38():
+    # Old checker notes (LG-043).
+    import math as _m
+    fresh_scene()
+    scene = bpy.context.scene
+    bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))
+    spare = bpy.context.active_object
+    a = add("hills")
+    scene.lg_index = list(scene.objects).index(a)
+    bpy.data.objects.remove(spare)  # every list position after it shifts
+    bpy.context.view_layer.objects.active = None
+    check(lg.current_landscape(bpy.context) == a, "the picked landscape should stay picked when another object is removed")
+    bpy.context.view_layer.objects.active = a
+    a.lg.size_x, a.lg.size_y = 10.0, 5.0
+    bpy.ops.landscape.scale_size(factor=0.05)
+    check(abs(a.lg.size_x / a.lg.size_y - 2.0) < 1e-6 and a.lg.size_y >= 1.0, f"quick scale should keep 2:1 at the 1 m limit: {a.lg.size_x:.2f} x {a.lg.size_y:.2f}")
+    scaled = (a.lg.size_x, a.lg.size_y)
+    a.rotation_euler.z = _m.radians(45)
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(30.0, 0.0, 0.0))
+    cube = bpy.context.active_object
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o == cube)
+    bpy.context.view_layer.objects.active = a
+    bpy.context.view_layer.update()
+    check(bpy.ops.landscape.fit_selection() == {"FINISHED"}, "Fit to Selection did not run")
+    check(abs(a.lg.size_x - (2 * (31.0 * _m.cos(_m.radians(45)) + 1.0 * _m.sin(_m.radians(45))) * lg.FIT_MARGIN)) < 0.5, f"Fit on a turned landscape: width {a.lg.size_x:.1f}")
+    return f"picked landscape kept by reference; 0.05x gives {scaled[0]:.0f} x {scaled[1]:.0f} m (2:1 kept); fit on a 45 degree landscape {a.lg.size_x:.1f} x {a.lg.size_y:.1f} m"
+
+
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
 def _t33():
     # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the

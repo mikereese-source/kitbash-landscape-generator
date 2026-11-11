@@ -72,7 +72,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-040](tickets/LG-040-threejs-cave-check.md) | three.js spike: small cave check | D three.js spike | Project 2 spike | todo | M | P2 | side | no | landscape-spike-threejs | LG-037 |
 | [LG-041](tickets/LG-041-heightmap-import.md) | Heightmap and real-elevation import | G M8 | M8 | todo | S-M | P2 | side | tests only | heightmap_import.py; __init__.py; run_tests.py | LG-022 |
 | [LG-042](tickets/LG-042-batch-script.md) | Headless batch build script | G M8 | M8 | todo | S | P3 | side | tests only | batch_build.py | LG-023 |
-| [LG-043](tickets/LG-043-checker-notes.md) | Checker-note fixes | G M8 | M8 | ready | S | P3 | side | tests only | __init__.py; run_tests.py | - |
+| [LG-043](tickets/LG-043-checker-notes.md) | Checker-note fixes | G M8 | M8 | review | S | P3 | side | tests only | __init__.py; run_tests.py | - |
 | [LG-044](tickets/LG-044-realism-output-folder.md) | Realism reports to an output folder | G M8 | M8 | review | S | P3 | side | tests only | realism.py; lidar_check.py | - |
 | [LG-045](tickets/LG-045-m8-edge-cases.md) | M8 edge cases and gate | G M8 | M8 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-041, LG-042, LG-043 |
 | [LG-046](tickets/LG-046-shipped-presets.md) | Shipped KitBash presets | H Final | Final | todo | S-M | P2 | main | yes | presets | LG-035 |

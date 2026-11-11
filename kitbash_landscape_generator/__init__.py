@@ -175,12 +175,9 @@ def current_landscape(context):
     ob = context.active_object
     if landscape_modifier(ob):
         return ob
-    scene = context.scene
-    if 0 <= scene.lg_index < len(scene.objects):
-        ob = scene.objects[scene.lg_index]
-        if landscape_modifier(ob):
-            return ob
-    return None
+    # The landscape last picked, held by reference: a list position drifted when objects were added or removed (LG-043).
+    ob = context.scene.lg_picked
+    return ob if landscape_modifier(ob) else None
 
 
 def sync_object(ob):
@@ -724,6 +721,7 @@ def _select_listed(scene, _context):
     if not 0 <= scene.lg_index < len(scene.objects):
         return
     ob = scene.objects[scene.lg_index]
+    scene.lg_picked = ob
     view_layer = bpy.context.view_layer
     if ob.name not in view_layer.objects:
         return
@@ -774,6 +772,7 @@ class LG_OT_add_landscape(Operator):
         ob.select_set(True)
         context.view_layer.objects.active = ob
         scene.lg_index = list(scene.objects).index(ob)
+        scene.lg_picked = ob
         return {'FINISHED'}
 
 
@@ -791,8 +790,10 @@ class LG_OT_scale_size(Operator):
 
     def execute(self, context):
         props = current_landscape(context).lg
-        props.size_x *= self.factor  # the property's min/max clamp tiny and huge sizes
-        props.size_y *= self.factor
+        # One factor for both sides, held inside 1 m-100 km so the Width:Depth ratio survives the limits (LG-043).
+        f = min(max(self.factor, 1.0 / min(props.size_x, props.size_y)), 100000.0 / max(props.size_x, props.size_y))
+        props.size_x *= f
+        props.size_y *= f
         return {'FINISHED'}
 
 
@@ -1025,12 +1026,12 @@ class LG_OT_fit_selection(Operator):
 
     def execute(self, context):
         ob = current_landscape(context)
-        cx, cy = ob.matrix_world.translation.xy
+        to_local = ob.matrix_world.inverted()  # measured in the landscape's own axes and scale, so a turned or scaled one still covers them (LG-043)
         reach_x = reach_y = 0.0
         for src in _fit_sources(context):
             for corner in src.bound_box:
-                x, y, _z = src.matrix_world @ Vector(corner)
-                reach_x, reach_y = max(reach_x, abs(x - cx)), max(reach_y, abs(y - cy))
+                x, y, _z = to_local @ (src.matrix_world @ Vector(corner))
+                reach_x, reach_y = max(reach_x, abs(x)), max(reach_y, abs(y))
         # Sized around the landscape's own centre, so it covers them without moving.
         ob.lg.size_x = max(2 * reach_x * FIT_MARGIN, 1.0)
         ob.lg.size_y = max(2 * reach_y * FIT_MARGIN, 1.0)
@@ -1384,6 +1385,7 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.Object.lg = PointerProperty(type=LG_ObjectProps)
     bpy.types.Scene.lg_index = IntProperty(default=-1, update=_select_listed)
+    bpy.types.Scene.lg_picked = PointerProperty(type=bpy.types.Object)
     bpy.types.Scene.lg_type_key = StringProperty(name="Picked Type", default="")
     bpy.types.Scene.lg_preset = EnumProperty(name="Preset", description="Saved looks, the 5 most recent: pick one, then Load", items=_preset_enum)
     bpy.types.Scene.lg_preset_all = BoolProperty(name="Show All", description="List every saved preset, not only the 5 most recent", default=False)
@@ -1399,6 +1401,9 @@ def register():
 
 
 def unregister():
+    for timer in (_refresh_all, _erosion_timer):  # disabled right after enabling: no timer left to fire into a removed add-on (LG-043)
+        if bpy.app.timers.is_registered(timer):
+            bpy.app.timers.unregister(timer)
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
     caves.unregister()
@@ -1409,6 +1414,7 @@ def unregister():
     del bpy.types.Scene.lg_type
     del bpy.types.Scene.lg_type_key
     del bpy.types.Scene.lg_index
+    del bpy.types.Scene.lg_picked
     del bpy.types.Object.lg
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

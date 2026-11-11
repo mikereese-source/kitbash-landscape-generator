@@ -44,4 +44,5 @@ What to read first, gotchas, where it starts.
   every shape traced to a reference, new ideas to PARKING.md not into the ticket.
 - **Code reviews (D202):** side-lane tickets get `mattpocock-skills:code-review` before merge; gates get `ponytail:ponytail-review`;
   whole-repo `ponytail:ponytail-audit` at LG-052 and Final. Each run gets a row in the board's Code reviews log.
+- **Lessons after every successful run (Mike, 2026-11-11):** once a ticket merges, ask what worked in the approach that we can reuse, and what didn't. Add a line to the ticket Log. Anything that should become a rule goes into docs/CODING.md (Mike approves new rules).
 - **Done** = the Done-when list is met (including its code review), tests pass, the commit is in the Log, and Mike signed off where review is yes.

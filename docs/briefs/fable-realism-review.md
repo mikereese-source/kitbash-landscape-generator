@@ -14,6 +14,12 @@ You are running a review and research session on the realism gaps in the KitBash
 
 Commit on that branch. Renders and measurements are fine, through `bash tests/blender.sh` (a shared lock, one Blender at a time, one shot per process). Don't change add-on code.
 
+**Scope: every landscape type, not just Mountains (Mike, 2026-11-11). Caves are out of scope.** The materials made it plain: once they're on, the shapes fall apart. So the main job is a holistic analysis of the models (the shapes) across all 13 types: Hills, Mountains, Dunes, Seabed, Cliffs, Canyon, Mesa, Badlands, Volcanic, Volcano, Glacial, Riverbed and Craters, plus their styles.
+- For each type, render it with the spike's material on (the Mountains-tuned material as it is; it's a probe, not the final look) at a wide and a mid shot. Put it beside that type's own references. One board per few types, `c186_realism_<types>.png`.
+- Per type, say where the shape gives itself away once it's textured: rounded or blobby forms, missing crags and cliff bands, wrong scale of detail, smooth or noisy surfaces, missing drainage, repeated or stretched patterns, flat masks. Measure where you can: slope histograms, the T6 / T6b numbers, mask ranges.
+- Look for causes common to every type (the noise base, the detail cutoff, the erosion model, the mask normalisation, the Preview/High detail) and causes per type. Most of the lift should come from fixing shared causes once.
+- The four gaps below are the ones seen on Mountains; check each on every type (for example, flat erosion masks on all of them?).
+
 **Compare against what we already have:**
 - the reference boards `docs/m7/c154-c167`, `docs/m5/`, and the type references in `Terrain References` (`E:\Projects\3D\Terrain Generator_Build\Terrain References\`, with sources.json)
 - the realism work so far: `docs/REALISM.md`, `PASS1-8.md`, `PHOTO_REVIEW.md`, the T6 / T6b checks against real elevation data (`tests/realism.py`, `lidar_check.py`), decisions D52-D73
@@ -33,7 +39,7 @@ Commit on that branch. Renders and measurements are fine, through `bash tests/bl
 - one section per gap: finding, evidence, how to close it, size (S / M / L) and risk;
 - the texture-cost answer, with a read budget;
 - the three.js / WebGPU research with sources;
-- the size of the lift to get close to Gaea, World Machine and World Creator, split into shape, erosion, materials, lighting and atmosphere, and three.js;
+- a per-type table (type, what falls apart, cause, shared or own, fix, size); the size of the lift to get close to Gaea, World Machine and World Creator, split into shape, erosion, materials, lighting and atmosphere, and three.js;
 - your view on the best next steps, and whether to go to checkpoint 2 now, after some fixes, or in a changed form.
 
 Boards (side-by-side with references) where they make a point. Plain short sentences.

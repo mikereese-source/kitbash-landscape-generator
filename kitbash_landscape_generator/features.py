@@ -1959,7 +1959,9 @@ def cave_group():
     h_in_foot = h_pile("h_foot")
 
     # The ground the rocks drop onto: the cave's space, its faces turned to look up like a rock's top.
-    h_ground = t.node('GeometryNodeFlipFaces', Mesh=rock_space).outputs[0]
+    # Every face of it knows where its stack stands on the floor ("h_anchor"): the floor its own spot, a rock
+    # the spot under the rock at the bottom of its stack. A stack then moves onto the finished floor as one.
+    h_ground = t.store(t.node('GeometryNodeFlipFaces', Mesh=rock_space).outputs[0], "h_anchor", t.position(), 'FLOAT_VECTOR')
 
     def h_kit(name):
         """A kit's rocks at Preview detail (the stand-ins every Detail Level stacks on), each with its own
@@ -2032,11 +2034,15 @@ def cave_group():
         roof = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('ADD', p0, (0.0, 0.0, 0.02)), Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=h_drop)
         room = t.math('ADD', t.math('MULTIPLY', roof.outputs["Is Hit"], roof.outputs["Hit Distance"]), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, roof.outputs["Is Hit"]), h_drop))
         up_by = t.math('MULTIPLY', room, 0.9)
-        land = t.node('GeometryNodeRaycast', Target_Geometry=ground, Source_Position=t.vmath('ADD', p0, t.vec(0.0, 0.0, up_by)), Ray_Direction=(0.0, 0.0, -1.0),
-                      Ray_Length=t.math('ADD', up_by, 0.5))
+        land = t.N.new('GeometryNodeRaycast')
+        land.data_type = 'FLOAT_VECTOR'  # before the links: changing it swaps the sockets
+        for key, value in (("Target Geometry", ground), ("Attribute", t.named("h_anchor", 'FLOAT_VECTOR')), ("Source Position", t.vmath('ADD', p0, t.vec(0.0, 0.0, up_by))),
+                           ("Ray Direction", (0.0, 0.0, -1.0)), ("Ray Length", t.math('ADD', up_by, 0.5))):
+            t._set(land.inputs[key], value)
         rests = t.math('MULTIPLY', t.math('MULTIPLY', land.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(land.outputs["Hit Normal"])["Z"], 0.766)),
                        t.math('GREATER_THAN', room, t.math('MULTIPLY', tall, 1.1)))
         born = t.store(t.store(t.store(born, "h_hit", land.outputs["Hit Position"], 'FLOAT_VECTOR'), "h_n", land.outputs["Hit Normal"], 'FLOAT_VECTOR'), "h_rests", rests)
+        born = t.store(born, "h_anchor", land.outputs["Attribute"], 'FLOAT_VECTOR')
         # Tipped most of the way to what it landed on, sunk 18% of its height into it (touching, never hanging).
         lean = t.vmath('NORMALIZE', t.vmath('ADD', t.vmath('SCALE', t.named("h_n", 'FLOAT_VECTOR'), scale=0.85), (0.0, 0.0, 0.15)))
         sink = t.math('MULTIPLY', tall, 0.18)
@@ -2049,6 +2055,14 @@ def cave_group():
             ray = t.node('GeometryNodeRaycast', Target_Geometry=ground, Source_Position=middle, Ray_Direction=(math.cos(i * math.pi / 3.0), math.sin(i * math.pi / 3.0), 0.0),
                          Ray_Length=t.math('MULTIPLY', t.named("h_half"), 0.45))
             pokes = ray.outputs["Is Hit"] if pokes is None else t.math('MAXIMUM', pokes, ray.outputs["Is Hit"])
+        # And it must rest on something across its width, not on one spot: four more spots under it, 0.35 of its
+        # half width out, must lie within 0.3 of that half width of where it landed (a 40 degree slope's worth).
+        # Rocks that landed on a block's bevelled edge hung off its side, 1-2 m over the floor (T35, 38 of 1,850).
+        for dx, dy in ((0.35, 0.35), (-0.35, 0.35), (-0.35, -0.35), (0.35, -0.35)):
+            ray = t.node('GeometryNodeRaycast', Target_Geometry=ground,
+                         Source_Position=t.vmath('ADD', t.named("h_hit", 'FLOAT_VECTOR'), t.vmath('SCALE', (dx, dy, 0.3), scale=t.named("h_half"))),
+                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', t.named("h_half"), 0.6))
+            pokes = t.math('MAXIMUM', pokes, t.math('SUBTRACT', 1.0, ray.outputs["Is Hit"]))
         turn = t.N.new('FunctionNodeAlignRotationToVector')
         turn.axis = 'Z'
         t._set(turn.inputs["Rotation"], t.node('FunctionNodeEulerToRotation', Euler=t.named("h_turn", 'FLOAT_VECTOR')).outputs[0])
@@ -2076,13 +2090,15 @@ def cave_group():
     for i, (name, across, amount, core, edge) in enumerate(h_layers):
         placed, h_ground = h_layer(h_ground, name, across, amount, core, edge, 520 + i * 10, last=i == len(h_layers) - 1)
         t.L.new(placed, h_rocks.inputs[0])
-    # Onto the finished floor: each rock moves up or down by as much as the finished floor under the spot it
-    # fell on differs from the Preview-grid floor (smoothing and wall detail move it a little; D116's floaters).
+    # Onto the finished floor: each rock moves up or down by as much as the finished floor under the foot of its
+    # stack differs from the Preview-grid floor (smoothing and wall detail move it a little; D116's floaters).
+    # By its stack's foot, not its own spot: the two floors differ by a different amount a metre on, so moved
+    # one by one a stack came apart and its upper rocks hung 1-2 m in the air (T35, 53 of 1,850).
     h_lift = t.math('MAXIMUM', t.math('MULTIPLY', H, 0.3), 1.0)  # where the passage runs down into a chamber the two floors differ by metres
-    h_fin = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.named("h_p0", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, h_lift)),
-                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', h_lift, 2.0))
+    h_fin = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.named("h_anchor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, h_lift)),
+                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', h_lift, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
     h_final = t.node('GeometryNodeSetPosition', Geometry=h_rocks.outputs[0], Selection=h_fin.outputs["Is Hit"],
-                     Offset=t.vec(0.0, 0.0, t.math('SUBTRACT', t.xyz(h_fin.outputs["Hit Position"])["Z"], t.xyz(t.named("h_p0", 'FLOAT_VECTOR'))["Z"]))).outputs[0]
+                     Offset=t.vec(0.0, 0.0, t.math('SUBTRACT', t.xyz(h_fin.outputs["Hit Position"])["Z"], t.xyz(t.named("h_anchor", 'FLOAT_VECTOR'))["Z"]))).outputs[0]
     t.L.new(on_floor(h_final), with_rocks.inputs[0])
 
     # Formations (5.4, D168-D171; rules L1-L5 on docs/m5/c128_formation_refs.png). What grows follows the rock:

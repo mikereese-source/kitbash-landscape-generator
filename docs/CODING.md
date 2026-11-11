@@ -21,6 +21,13 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Each Detail Level keeps the quality approved at it.** Higher face counts are fine; speed comes after quality (D196).
 - **Never rename, prefix, regroup or tag** anything in a user's file. Naming belongs to KitBash and 3dam.
 
+## Finding and fixing problems (learned from Fable's LG-061 and LG-064 work, 2026-11-11)
+
+- **Count the failures before fixing.** Measure every bad case, then sort them by cause (for example 53 floating rocks: 15 from stacks pulling apart, 38 on bevelled edges). Fix each cause, not the symptom. Never guess at a cause.
+- **Prove a cause by switching it off.** Turn the suspect off in a scratch copy and show that the problem goes. Only then call it the cause and change the code.
+- **Place on cheap stand-ins, show the real meshes.** Scatter and stacking run on the Preview-level rocks (or the coarse space), and each Detail Level swaps in its own meshes. Placement is then the same at every level and costs no extra time.
+- **Measure against main in the same run.** Before and after timings come from one session, on the same caves (the default one and Mike's review cave), at Preview and High.
+
 ## Python and files
 
 - **Keep each file's line endings exactly.** Check the bytes before editing. `tests/run_tests.py` mixes CR CR LF lines; most others are CRLF. Edit with Python using `newline=''`, and insert the same ending the file already uses.

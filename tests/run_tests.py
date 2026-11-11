@@ -1145,6 +1145,76 @@ def _t36():
     return f"High from Preview {est_p[1] / 1e6:.2f}M (real {real_h / 1e6:.2f}M), Preview from High {est_h[0] / 1e6:.2f}M (real {real_p / 1e6:.2f}M), Ultra about {est_p[2] / 1e6:.1f}M"
 
 
+@test("T38", "List keeps its landscape; Fit to Selection on a turned landscape; quick scale keeps the ratio")
+def _t38():
+    # Old checker notes (LG-043).
+    import math as _m
+    fresh_scene()
+    scene = bpy.context.scene
+    bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))
+    spare = bpy.context.active_object
+    a = add("hills")
+    scene.lg_index = list(scene.objects).index(a)
+    bpy.data.objects.remove(spare)  # every list position after it shifts
+    bpy.context.view_layer.objects.active = None
+    check(lg.current_landscape(bpy.context) == a, "the picked landscape should stay picked when another object is removed")
+    bpy.context.view_layer.objects.active = a
+    a.lg.size_x, a.lg.size_y = 10.0, 5.0
+    bpy.ops.landscape.scale_size(factor=0.05)
+    check(abs(a.lg.size_x / a.lg.size_y - 2.0) < 1e-6 and a.lg.size_y >= 1.0, f"quick scale should keep 2:1 at the 1 m limit: {a.lg.size_x:.2f} x {a.lg.size_y:.2f}")
+    scaled = (a.lg.size_x, a.lg.size_y)
+    a.rotation_euler.z = _m.radians(45)
+    a.scale = (2.0, 2.0, 1.0)  # sizes are in the landscape's own units: half the world reach
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(30.0, 0.0, 0.0))
+    cube = bpy.context.active_object
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o == cube)
+    bpy.context.view_layer.objects.active = a
+    bpy.context.view_layer.update()
+    check(bpy.ops.landscape.fit_selection() == {"FINISHED"}, "Fit to Selection did not run")
+    check(abs(a.lg.size_x - (31.0 * _m.cos(_m.radians(45)) + 1.0 * _m.sin(_m.radians(45))) * lg.FIT_MARGIN) < 0.5, f"Fit on a turned, 2x-scaled landscape: width {a.lg.size_x:.1f}")
+    return f"picked landscape kept by reference; 0.05x gives {scaled[0]:.0f} x {scaled[1]:.0f} m (2:1 kept); fit on a 45 degree, 2x landscape {a.lg.size_x:.1f} x {a.lg.size_y:.1f} m"
+
+
+@test("T39", "Export package: recipe, 16-bit heightmap, masks, Unity RAW; base left out")
+def _t39():
+    # LG-023 / docs/PACKAGE.md: the files every other app reads.
+    import json, tempfile
+    from kitbash_landscape_generator import export
+    fresh_scene()
+    ob = add("hills")
+    ob.lg.base, ob.lg.base_depth = True, 15.0  # the base must not reach the heightmap
+    folder = tempfile.mkdtemp()
+    out = export.write_package(ob, folder, lg.presets.capture(ob.lg, lg.CONTROL_PROPS), 1009, raw16=True)
+    check(os.path.basename(out) == f"{ob.name}.kblandscape", f"folder should be named after the landscape: {out}")
+    with open(os.path.join(out, "recipe.json"), encoding="utf-8") as fh:
+        rec = json.load(fh)
+    check(rec["format"] == "kblandscape" and len(rec["tiles"]) == 1 and rec["tiles"][0]["type"] == "hills" and "controls" in rec["tiles"][0] and rec["base"]["on"], "recipe.json should hold one hills tile with its controls, and the base")
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = ob.evaluated_get(dg).to_mesh()
+    h, masks = export.top_grid(me, ob.lg.size_x, ob.lg.size_y)
+    ob.evaluated_get(dg).to_mesh_clear()
+    lo, hi = rec["height_range"]
+    bottom = min(v.co.z for v in ob.evaluated_get(dg).data.vertices)
+    check(lo > bottom + 10.0, f"the base should be left out: heightmap starts at {lo:.2f} m, the base bottom is {bottom:.2f} m")
+    img = bpy.data.images.load(os.path.join(out, "height.png"))
+    img.colorspace_settings.is_data = True
+    px = np.array(img.pixels[:]).reshape(img.size[1], img.size[0], -1)[:, :, 0]
+    check(img.size[0] == 1009 and img.size[1] == 1009, f"heightmap should be 1009 px: {tuple(img.size)}")
+    # Every pixel, so a flip or a mid-range shift shows, not only the corners.
+    want = export.resample(np.where(np.isnan(h), lo, h), 1009)
+    err = np.abs(lo + px * (hi - lo) - want).max()
+    check(err < (hi - lo) / 65535 * 2 + 1e-3, f"heightmap off by up to {err:.4f} m")
+    with open(os.path.join(out, "height.png"), "rb") as fh:
+        ihdr = fh.read(26)
+    check(ihdr[24] == 16 and ihdr[25] == 0, f"height.png should be 16-bit grayscale: depth {ihdr[24]}, colour type {ihdr[25]}")
+    raw = np.fromfile(os.path.join(out, "height.r16"), "<u2")
+    check(raw.size == 1009 * 1009, f"height.r16 should be 1009 x 1009: {raw.size}")
+    missing = [n for n in export.MASKS if n in masks and not os.path.exists(os.path.join(out, f"mask_{n[3:]}.png"))]
+    check(masks and not missing, f"mask images missing: {missing}")
+    return f"{os.path.basename(out)}: recipe, height.png 1009 px, height.r16, {len(masks)} masks; every pixel within two 16-bit steps; base left out"
+
+
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
 def _t33():
     # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the

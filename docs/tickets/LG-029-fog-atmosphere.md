@@ -9,6 +9,7 @@ Height fog, distance haze, clouds; part of the finished look in every app (D194)
 ## Done when
 - Presets (morning mist, dusty, stormy)
 - Cycles and Eevee
+- Default lighting: neutral sky HDRI (Poly Haven kloofendal_48d_partly_cloudy_puresky, CC0), with an HDRI slot to swap it, plus strength and rotation; set as the World only on request (Mike, 2026-11-11)
 
 ## Files
 - `kitbash_landscape_generator/atmosphere.py (new)`
@@ -20,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-11 Mike: neutral sky HDRI for basic lighting + a slot to replace it; HDRI downloaded (hdris/sources.json); added to the Fable brief

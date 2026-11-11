@@ -18,7 +18,7 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup, UIList
 
-from . import caves, erosion, nodes, presets
+from . import caves, erosion, export, nodes, presets
 
 MODIFIER_NAME = "KB Landscape"
 HERE = os.path.dirname(__file__)
@@ -175,8 +175,12 @@ def current_landscape(context):
     ob = context.active_object
     if landscape_modifier(ob):
         return ob
+    # The landscape last picked, held by reference: a list position drifted when objects were added or removed (LG-043).
     scene = context.scene
-    if 0 <= scene.lg_index < len(scene.objects):
+    ob = scene.lg_picked
+    if landscape_modifier(ob):
+        return ob
+    if 0 <= scene.lg_index < len(scene.objects):  # files saved before lg_picked existed (code review)
         ob = scene.objects[scene.lg_index]
         if landscape_modifier(ob):
             return ob
@@ -724,6 +728,7 @@ def _select_listed(scene, _context):
     if not 0 <= scene.lg_index < len(scene.objects):
         return
     ob = scene.objects[scene.lg_index]
+    scene.lg_picked = ob
     view_layer = bpy.context.view_layer
     if ob.name not in view_layer.objects:
         return
@@ -774,6 +779,7 @@ class LG_OT_add_landscape(Operator):
         ob.select_set(True)
         context.view_layer.objects.active = ob
         scene.lg_index = list(scene.objects).index(ob)
+        scene.lg_picked = ob
         return {'FINISHED'}
 
 
@@ -791,8 +797,10 @@ class LG_OT_scale_size(Operator):
 
     def execute(self, context):
         props = current_landscape(context).lg
-        props.size_x *= self.factor  # the property's min/max clamp tiny and huge sizes
-        props.size_y *= self.factor
+        # One factor for both sides, held inside 1 m-100 km so the Width:Depth ratio survives the limits (LG-043).
+        f = min(max(self.factor, 1.0 / min(props.size_x, props.size_y)), 100000.0 / max(props.size_x, props.size_y))
+        props.size_x *= f
+        props.size_y *= f
         return {'FINISHED'}
 
 
@@ -1025,12 +1033,16 @@ class LG_OT_fit_selection(Operator):
 
     def execute(self, context):
         ob = current_landscape(context)
-        cx, cy = ob.matrix_world.translation.xy
+        try:
+            to_local = ob.matrix_world.inverted()
+        except ValueError:  # a landscape scaled to zero has no axes to measure in
+            self.report({'WARNING'}, "The landscape is scaled to zero; give it a scale first")
+            return {'CANCELLED'}  # measured in the landscape's own axes and scale, so a turned or scaled one still covers them (LG-043)
         reach_x = reach_y = 0.0
         for src in _fit_sources(context):
             for corner in src.bound_box:
-                x, y, _z = src.matrix_world @ Vector(corner)
-                reach_x, reach_y = max(reach_x, abs(x - cx)), max(reach_y, abs(y - cy))
+                x, y, _z = to_local @ (src.matrix_world @ Vector(corner))
+                reach_x, reach_y = max(reach_x, abs(x)), max(reach_y, abs(y))
         # Sized around the landscape's own centre, so it covers them without moving.
         ob.lg.size_x = max(2 * reach_x * FIT_MARGIN, 1.0)
         ob.lg.size_y = max(2 * reach_y * FIT_MARGIN, 1.0)
@@ -1048,6 +1060,40 @@ class LG_UL_landscapes(UIList):
 
 
 RECIPE_KEY = "lg_recipe"  # the landscape's full settings, kept on a baked mesh so it can be rebuilt
+
+
+class LG_OT_export_package(Operator):
+    bl_idname = "landscape.export_package"
+    bl_label = "Export Package"
+    bl_description = ("Write the landscape as a .kblandscape folder: its recipe, a 16-bit heightmap and its masks, "
+                      "for Unreal, Unity, three.js or another Blender (docs/PACKAGE.md)")
+    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    size: EnumProperty(name="Heightmap Size", description="Pixels across: sizes Unreal takes without resampling",
+                       items=[(str(s), str(s), f"{s} x {s} pixels") for s in export.SIZES], default="2017")
+    raw16: BoolProperty(name="Unity RAW", description="Also write height.r16, the raw 16-bit heightmap Unity imports", default=False)
+
+    @classmethod
+    def poll(cls, context):
+        return current_landscape(context) is not None
+
+    def invoke(self, context, _event):
+        self.directory = bpy.path.abspath("//") if bpy.data.filepath else os.path.expanduser("~")
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        ob = current_landscape(context)
+        if ob.name in _pending or ob.name in _jobs:
+            self.report({'WARNING'}, "Erosion is still running: export once the eroded look has arrived")
+            return {'CANCELLED'}
+        try:
+            out = export.write_package(ob, bpy.path.abspath(self.directory), presets.capture(ob.lg, CONTROL_PROPS), int(self.size), self.raw16)
+        except (OSError, MemoryError, RuntimeError) as err:
+            self.report({'ERROR'}, f"Couldn't write the package: {err}")
+            return {'CANCELLED'}
+        self.report({'INFO'}, f"Exported {out}")
+        return {'FINISHED'}
 
 
 class LG_OT_bake(Operator):
@@ -1370,11 +1416,12 @@ class LG_PT_main(Panel):
         if box:
             box.label(text="A plain mesh to sculpt and edit; water becomes its own object")
             box.operator(LG_OT_bake.bl_idname, icon='MESH_GRID')
+            box.operator(LG_OT_export_package.bl_idname, icon='EXPORT')
 
 
 classes = (LG_ObjectProps, LG_OT_add_landscape, LG_OT_scale_size, LG_OT_pick_type, LG_OT_randomize, LG_OT_reset_look,
            LG_OT_fit_selection, LG_OT_preset_save, LG_OT_preset_folder, LG_OT_preset_load, LG_OT_preset_rename, LG_OT_preset_delete,
-           LG_OT_bake, LG_OT_restore,
+           LG_OT_bake, LG_OT_export_package, LG_OT_restore,
            LG_UL_landscapes, LG_PT_main)
 
 
@@ -1384,6 +1431,7 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.Object.lg = PointerProperty(type=LG_ObjectProps)
     bpy.types.Scene.lg_index = IntProperty(default=-1, update=_select_listed)
+    bpy.types.Scene.lg_picked = PointerProperty(type=bpy.types.Object)
     bpy.types.Scene.lg_type_key = StringProperty(name="Picked Type", default="")
     bpy.types.Scene.lg_preset = EnumProperty(name="Preset", description="Saved looks, the 5 most recent: pick one, then Load", items=_preset_enum)
     bpy.types.Scene.lg_preset_all = BoolProperty(name="Show All", description="List every saved preset, not only the 5 most recent", default=False)
@@ -1399,6 +1447,9 @@ def register():
 
 
 def unregister():
+    for timer in (_refresh_all, _erosion_timer):  # disabled right after enabling: no timer left to fire into a removed add-on (LG-043)
+        if bpy.app.timers.is_registered(timer):
+            bpy.app.timers.unregister(timer)
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
     caves.unregister()
@@ -1409,6 +1460,7 @@ def unregister():
     del bpy.types.Scene.lg_type
     del bpy.types.Scene.lg_type_key
     del bpy.types.Scene.lg_index
+    del bpy.types.Scene.lg_picked
     del bpy.types.Object.lg
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

@@ -9,7 +9,7 @@ One folder layout that every version writes and reads: Blender (6.3b export, M8 
   recipe.json          the recipe: rebuilds the landscape in any app
   height.png           16-bit grayscale heightmap (or height.exr, 32-bit float)
   height.r16           raw 16-bit little-endian, Unity's RAW (only when asked for)
-  masks.exr            the masks as channels, same size as the heightmap
+  mask_<name>.png      one 16-bit grayscale image per mask (height, slope, curvature, flow, wear, deposit, depth)
   splat_0.png          RGBA weight map: rock, scree, sand, grass (16-bit)
   splat_1.png          RGBA weight map: snow, wet, sediment, forest floor (16-bit)
   caves/<cave>.glb     each cave or overhang as its own mesh (D89), placed in landscape space
@@ -61,8 +61,12 @@ One folder layout that every version writes and reads: Blender (6.3b export, M8 
 | Height mapping | 0 = `height_range[0]`, 65535 = `height_range[1]` |
 | Base and water | Left out: the base's sides (`lg_base`) and the water sheet are not heights (LG-070) |
 | Caves | Not in the heightmap. Unreal cuts a landscape hole where a cave opens (D89) |
-| Masks (`masks.exr`) | Channels named as the attributes: `lg_height`, `lg_slope`, `lg_curvature`, `lg_flow`, `lg_wear`, `lg_deposit`, `lg_depth`, each 0-1 |
+| Masks | One 16-bit PNG per mask, `mask_height.png` ... `mask_depth.png`, each 0-1, same size as the heightmap. (First drafted as one multichannel EXR; Blender's image API can't name EXR channels, so separate PNGs, which every engine and tool reads) |
 | Splat maps | Weights per pixel add up to 1 across both files. Until M7 they are computed from the masks with the default dials |
+
+## Built so far (Blender, LG-023, 2026-11-11)
+
+`recipe.json`, `height.png`, `mask_*.png`, and `height.r16` when Unity RAW is ticked. Splat maps wait for M7's material dials. `preview.jpg` and the cave `.glb` files come later (bake with caves, LG-021). The recipe also lists `heightmap` and `masks`. Test T39.
 
 ## Rules
 

@@ -61,4 +61,6 @@ You are building the M7 material spike on the Mountains landscape type in the Ki
 - Full suite passes. Commit at every checkpoint. Messages end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - The main session does the code review and the merge.
 
+**Your own judgement (Mike, 2026-11-11):** you may do extra research or try your own ideas when they serve quality, speed, and a clean port to the three.js version. Examples: a blend technique, a cheaper anti-tiling trick, a material setup that maps one-to-one onto three.js TSL nodes. Keep it within reason: say what you tried and why, and keep the checkpoint scope. Bigger ideas go in your report as suggestions, and Mike decides.
+
 **Report at each checkpoint (under 350 words):** model, commits, what the board shows against the references, render times, tests, what you were unsure about.

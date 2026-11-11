@@ -1301,7 +1301,8 @@ def _t34():
 def heap_rocks(ob):
     """The cave's loose rocks, each measured against the shell and the other rocks (LG-061): its kit size, its
     width, how upright it stands, the gap under its middle (straight down from its underside to whatever is
-    below; under 0 it sits in it) and how much of it is inside a bigger rock (share of its points)."""
+    below; under 0 it sits in it), how much of it is inside a bigger rock (share of its points) and how far its
+    middle is over the cave's floor."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     from mathutils.kdtree import KDTree
@@ -1313,6 +1314,7 @@ def heap_rocks(ob):
     faces = [tuple(p.vertices) for p in me.polygons]
     ev.to_mesh_clear()
     owner = [-1] * len(faces)  # which rock each face of the one big tree belongs to (-1 the shell)
+    shell = BVHTree.FromPolygons(verts, faces)
     found = [(i.object.name, i.matrix_world.copy()) for i in dg.object_instances
              if i.is_instance and i.parent and i.parent.original == ob and "KB Rock" in i.object.name]
     local, rocks = {}, []
@@ -1349,6 +1351,7 @@ def heap_rocks(ob):
         return None
     for k, r in enumerate(rocks):
         under = r["tree"].ray_cast(r["mid"], down)  # its own underside, straight below its middle
+        r["over"] = shell.ray_cast(r["mid"], down)[3] or 0.0
         below, above = beyond(k, r["mid"], down), beyond(k, r["mid"], -down)
         # Its middle under the floor (the floor seen from below looks down) or inside another rock (leaving it by
         # its top): set in, not floating.
@@ -1381,6 +1384,9 @@ def _t35():
     # each rock onto the floor or the rocks below. No rock floats (a gap under its middle), none sits deep inside
     # a bigger one (over half its points), none leans steeply; sizes run about 10x across, very many small and
     # few big, all three kit sizes used; Spread sets the piles' footprint; the same rocks at Preview and High.
+    # A pile is wider than tall, not a cairn: no rock lands higher than a 22 degree cone over the pile's footprint
+    # (0.4 of its radius, which is at most 0.8 x 1.35 of the entrance's half width), and the big blocks lie on the
+    # floor. Spread moves the rocks together or apart and keeps their number (low Spread used to lose rocks).
     fresh_scene()
     bpy.ops.landscape.add_cave()
     ob = bpy.context.view_layer.objects.active
@@ -1397,6 +1403,11 @@ def _t35():
         check(not deep, f"{level}: {len(deep)} of {len(rocks)} rocks sit deep inside a bigger rock (the worst {max(r['inside'] for r in deep) if deep else 0:.0%} of it)")
         tipped = [r for r in rocks if r["up"] < 0.65]  # 40 degrees of slope at most, and the Tilt slider's own tip
         check(not tipped, f"{level}: {len(tipped)} rocks lean over 50 degrees")
+        cap = 0.4 * 0.8 * 1.35 * c.width * 0.5
+        high_up = [r for r in rocks if r["over"] - 0.5 * r["tall"] > cap + 0.5]
+        check(not high_up, f"{level}: piles should be wider than tall, no rock more than {cap:.1f} m up: {len(high_up)} are, the highest {max((r['over'] - 0.5 * r['tall'] for r in high_up), default=0):.1f} m")
+        stacked = [r for r in rocks if r["size"] == "Big" and r["over"] > r["tall"]]
+        check(not stacked, f"{level}: the big blocks should lie on the floor: {len(stacked)} sit on other rocks")
         return rocks
 
     def area(rocks, cell=3.0):  # floor covered: grid cells with a rock in them
@@ -1410,16 +1421,19 @@ def _t35():
     check(big > 2.5 * np.median(wide), f"the big blocks should be really big: {big:.1f} m against a median {np.median(wide):.1f} m")
     spots = sorted((round(r["at"].x, 1), round(r["at"].y, 1)) for r in rocks)
     c.spread = 0.0
-    tight = area(look("Spread 0"))
+    n_tight = look("Spread 0")
     c.spread = 1.0
-    strewn = area(look("Spread 1"))
-    check(strewn > tight * 1.5, f"Spread should set the piles' footprint: {tight:.0f} m2 at 0, {strewn:.0f} m2 at 1")
+    n_strewn = look("Spread 1")
+    tight, strewn = area(n_tight), area(n_strewn)
+    check(strewn > tight * 1.4, f"Spread should set the piles' footprint: {tight:.0f} m2 at 0, {strewn:.0f} m2 at 1")
+    check(all(abs(len(n) - len(rocks)) < 0.25 * len(rocks) for n in (n_tight, n_strewn)),
+          f"Spread should keep the number of rocks: {len(n_tight)} at 0, {len(rocks)} at 0.5, {len(n_strewn)} at 1")
     c.spread = 0.5
     c.detail = 'HIGH'
     high = look("High")
     check(sorted((round(r["at"].x, 1), round(r["at"].y, 1)) for r in high) == spots, f"the same rocks in the same spots at every level: {len(rocks)} at Preview, {len(high)} at High")
     return (f"{len(rocks)} rocks ({count['Big']} big, {count['Medium']} medium, {count['Small']} small), {wide[0]:.2f} to {wide[-1]:.2f} m across; none floats, "
-            f"none deep in another, none leaning; footprint {tight:.0f} m2 at Spread 0, {strewn:.0f} m2 at 1; the same at Preview and High")
+            f"none deep in another, none leaning, none over a low cone; footprint {tight:.0f} m2 at Spread 0, {strewn:.0f} m2 at 1 ({len(n_tight)} and {len(n_strewn)} rocks); the same at Preview and High")
 
 
 print("\n=== KitBash Landscape Generator tests ===")

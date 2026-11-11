@@ -1937,9 +1937,11 @@ def cave_group():
     # About as many piles as before (5 or so in a big cave at Rubble 0.5), now weighted to where rock falls.
     spots = t.node('GeometryNodeDeleteGeometry', Geometry=spots.outputs["Points"],
                    Selection=t.math('GREATER_THAN', rand(0.0, 1.0, 501), t.math('MULTIPLY', t.math('ADD', 0.24, t.math('MULTIPLY', gin["Rubble"], 0.9)), h_site))).outputs[0]
-    # Spread (Mike: it did nothing on Jointed) sets each pile's footprint: tight at 0 (0.6x), strewn at 1 (1.4x),
-    # the rock thinning out as it spreads past the middle setting, so there it moves rocks apart more than it adds any.
-    h_strewn = t.math('ADD', 0.6, t.math('MULTIPLY', gin["Spread"], 0.8))
+    # Spread (Mike: it did nothing on Jointed) sets each pile's footprint: tight at 0 (0.75x), strewn at 1 (1.35x).
+    # The same rock in every footprint (h_layer thins it as the pile spreads): Spread moves the rocks together or
+    # apart, it does not add or take any (low Spread used to shrink the piles and lose rocks with them). Squared,
+    # so the middle setting is still a pile (0.9x, two thirds of the tightest packing), not a strewn floor.
+    h_strewn = t.math('ADD', 0.75, t.math('MULTIPLY', t.math('MULTIPLY', gin["Spread"], gin["Spread"]), 0.6))
     h_rad = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), rand(0.5, 0.8, 503)),
                    t.math('MULTIPLY', h_strewn, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', h_foot, 0.25))))  # a wall-foot apron is smaller
     spots = t.store(t.store(t.store(spots, "h_rad", h_rad), "h_foot", h_foot), "h_mid", t.position(), 'FLOAT_VECTOR')
@@ -2001,15 +2003,16 @@ def cave_group():
         proxies, lo, hi, count = h_kits[name]
         gap = t.math('MULTIPLY', h_grain, across * 0.92)
         fall = t.math('SUBTRACT', 1.0, t.smooth(h_d, core, edge))
-        if name == "Rubble Big":  # off a wall the biggest blocks roll furthest: none right at its foot (ref 9, talus sorting)
-            fall = t.math('MULTIPLY', fall, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', h_in_foot, t.math('LESS_THAN', h_d, 0.3))))
+        if name == "Rubble Big":  # the biggest blocks roll furthest: they lie round the pile's toe, none in its middle (ref 9, talus sorting)
+            fall = t.math('MULTIPLY', fall, t.smooth(h_d, 0.35, 0.6))
         pts = t.N.new('GeometryNodeDistributePointsOnFaces')
         pts.distribute_method = 'POISSON'
         t._set(pts.inputs["Mesh"], rock_space)
         t._set(pts.inputs["Selection"], t.math('MULTIPLY', t.math('MULTIPLY', h_floor, jointed), t.math('MULTIPLY', t.math('LESS_THAN', h_d, edge), t.math('GREATER_THAN', h_reach, 0.0))))
         t._set(pts.inputs["Distance Min"], gap)
         t._set(pts.inputs["Density Max"], t.math('DIVIDE', 2.5, t.math('MULTIPLY', gap, gap)))
-        t._set(pts.inputs["Density Factor"], t.math('MULTIPLY', fall, t.math('MINIMUM', t.math('DIVIDE', amount, t.math('MULTIPLY', h_strewn, h_strewn)), 1.0)))
+        # Thinned by the footprint's area (0.5625 = the tightest footprint, squared), so every Spread has the same rock.
+        t._set(pts.inputs["Density Factor"], t.math('MULTIPLY', fall, t.math('DIVIDE', amount * 0.5625, t.math('MULTIPLY', h_strewn, h_strewn))))
         t._set(pts.inputs["Seed"], t.math('ADD', gin["Seed"], seed))
         # Each rock's own numbers, kept from the start (rocks left out later must not change the others).
         pick_k = t.math('FLOORED_MODULO', t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, seed + 1)).outputs[0], count)
@@ -2041,6 +2044,11 @@ def cave_group():
             t._set(land.inputs[key], value)
         rests = t.math('MULTIPLY', t.math('MULTIPLY', land.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(land.outputs["Hit Normal"])["Z"], 0.766)),
                        t.math('GREATER_THAN', room, t.math('MULTIPLY', tall, 1.1)))
+        # A pile is wider than tall (refs 1, 3: low mounds; a talus slope stands at 35 degrees at most): a rock may
+        # land no higher over the floor than a 22 degree cone from the pile's edge. Without it the middle stacked up
+        # block on block, like a cairn (Mike's checkpoint 1-2 board).
+        rests = t.math('MULTIPLY', rests, t.math('LESS_THAN', t.math('SUBTRACT', t.xyz(land.outputs["Hit Position"])["Z"], t.xyz(p0)["Z"]),
+                                                 t.math('ADD', t.math('MULTIPLY', t.math('MULTIPLY', h_reach, 0.4), t.math('MAXIMUM', t.math('SUBTRACT', 1.0, h_d), 0.0)), 0.05)))
         born = t.store(t.store(t.store(born, "h_hit", land.outputs["Hit Position"], 'FLOAT_VECTOR'), "h_n", land.outputs["Hit Normal"], 'FLOAT_VECTOR'), "h_rests", rests)
         born = t.store(born, "h_anchor", land.outputs["Attribute"], 'FLOAT_VECTOR')
         # Tipped most of the way to what it landed on, sunk 18% of its height into it (touching, never hanging).
@@ -2082,10 +2090,11 @@ def cave_group():
         return place(library(name)), more.outputs[0]
 
     # Big, then medium, then small (Mike, D204): (kit, size against the old block, how much of its ground it
-    # covers, the pile's core and edge against its footprint). The big blocks keep to the pile's body, the small
-    # stuff runs on past its edge and feathers out across the floor (refs 1, 3: a pile's edge is strewn chips).
+    # covers, the pile's core and edge against its footprint). The big blocks lie round the pile's toe, the medium
+    # ones make its body, the small stuff runs on past its edge and feathers out across the floor (refs 1, 3: a
+    # pile's edge is strewn chips).
     h_rocks = t.node('GeometryNodeJoinGeometry')
-    h_layers = (("Rubble Big", 2.2, 0.5, 0.45, 0.8), ("Rubble Medium", 1.25, 1.0, 0.5, 0.95), ("Rubble Medium", 0.75, 1.0, 0.55, 1.0),
+    h_layers = (("Rubble Big", 2.2, 0.8, 0.8, 1.05), ("Rubble Medium", 1.25, 1.0, 0.4, 0.9), ("Rubble Medium", 0.75, 1.0, 0.5, 1.0),
                 ("Rubble Small", 0.45, 1.0, 0.55, 1.15), ("Rubble Small", 0.27, 0.9, 0.6, 1.4))
     for i, (name, across, amount, core, edge) in enumerate(h_layers):
         placed, h_ground = h_layer(h_ground, name, across, amount, core, edge, 520 + i * 10, last=i == len(h_layers) - 1)

@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 207
+CAVE_VERSION = 210
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -1592,7 +1592,9 @@ def cave_group():
     lime_secondary = t.math('MULTIPLY', lime_secondary, 1.15)
     s_roof = t.math('MULTIPLY', s_roof, 1.15)
     lime_off = t.math('MULTIPLY', lime_off, t.math('SUBTRACT', 1.0, t.smooth(t.named("lg_sharp"), 0.02, 0.25)))
-    limestone = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F), t.math('MULTIPLY', lime_secondary, R)), lime_off),
+    # Limestone's Wall Shape eased up (Mike, LG-065: 0 fine, 1 should read 2-3x): F + 1.5 F^2, 0.5 -> 0.875, 1 -> 2.5.
+    F_lime = t.math('ADD', F, t.math('MULTIPLY', t.math('MULTIPLY', F, F), 1.5))
+    limestone = t.math('ADD', t.math('MULTIPLY', t.math('ADD', t.math('MULTIPLY', lime_primary, F_lime), t.math('MULTIPLY', lime_secondary, R)), lime_off),
                        t.math('MULTIPLY', s_roof, R))  # the roof's patches past the flat-roof damping
 
     # Lava tube: a smooth round tube that swells and narrows along its length, ropey ripples drawn out along
@@ -1634,7 +1636,9 @@ def cave_group():
     # High on the walls by height over the floor too: by the face's slope alone it still pushed the low wall in
     # over the bench's top, an overhanging lip with a dark slot and teeth under it (Mike's shot).
     lava_in = t.math('MULTIPLY', t.math('MINIMUM', lava_primary, 0.0), t.math('MULTIPLY', t.smooth(nz, -0.1, 0.5), t.smooth(t_hn, 0.3, 0.6)))
-    lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R))
+    # Lava's Roughness pushed (Mike, LG-069: 0.5 should look like 1 did, 1 about 30-50% more): R (2.6 - 1.2 R), 0.5 -> 1, 1 -> 1.4.
+    R_lava = t.math('MULTIPLY', R, t.math('SUBTRACT', 2.6, t.math('MULTIPLY', R, 1.2)))
+    lava = t.math('ADD', t.math('MULTIPLY', lava_in, F), t.math('MULTIPLY', lava_secondary, R_lava))
 
     # Lava floor flow lobes (5.4b, D175; the Stefanshellir floor on docs/m5/c131): the floor rises in rounded
     # pahoehoe tongues drawn out along the tube, flat-topped with rounded edges, overlapping, 4-10% of the
@@ -1696,8 +1700,10 @@ def cave_group():
     # at every Detail Level; one lip shape, each rock its own surface (Mike, PLAN-5.3): limestone lumpy, jointed in
     # blocky steps, lava smooth and slumped. It covers the mouth's rock out to a little past the wall's thickness.
     l_pos = t.xyz(t.position())
+    # Down on the floor too, at a third (Mike, LG-053: the lip's roughness carried onto the floor so the two read as
+    # one rock; a third keeps the floor walkable).
     at_mouth = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(l_pos["Y"], t.math('MULTIPLY', W, 0.45), t.math('MULTIPLY', W, 0.75))),
-                      t.smooth(l_pos["Z"], t.math('MULTIPLY', H, 0.06), t.math('MULTIPLY', H, 0.2)))
+                      t.math('MAXIMUM', t.smooth(l_pos["Z"], t.math('MULTIPLY', H, 0.06), t.math('MULTIPLY', H, 0.2)), 0.33))
     in_w = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.named("lg_out_w")), t.math('SUBTRACT', 1.0, at_mouth))
     lip_w = t.math('MULTIPLY', at_mouth, t.math('SUBTRACT', 1.0, t.smooth(t.named("lg_odist"), t.math('MULTIPLY', wall_t, 1.5), t.math('MULTIPLY', wall_t, 3.0))))
     l_n = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25))), Scale=1.0, Detail=3.0)
@@ -1714,7 +1720,7 @@ def cave_group():
     t._set(l_surf.inputs["Index"], gin["Rock"])
     for i, val in enumerate((t.math('MULTIPLY', l_lump, 0.5),
                              t.math('MULTIPLY', l_step, 0.7),  # jointed: blocky steps
-                             t.math('MULTIPLY', l_lump, 0.12))):
+                             t.math('MULTIPLY', l_lump, 0.32))):  # lava: rougher, nearer limestone's (Mike, LG-067; was 0.12)
         t._set(l_surf.inputs[i + 1], val)
     # Sized to the wall, and the outside half moved the same way as the inside (its normals face the other way):
     # pushed each along its own normal, the two faces of a thin wall met and crossed as slivers (Jointed, c172).
@@ -1772,7 +1778,8 @@ def cave_group():
     rough = t.node('GeometryNodeSetPosition', Geometry=rough,
                    Selection=t.math('MULTIPLY', t.math('MULTIPLY', t.named("lg_piece", 'BOOLEAN'), jointed_on), t.math('GREATER_THAN', p_out, p_margin)),
                    Position=t.vmath('ADD', p_near.outputs["Position"], t.vmath('SCALE', t.vmath('NORMALIZE', p_n.outputs["Value"]), scale=p_margin))).outputs[0]
-    marked = t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE')
+    # The face count the smoothing steps are picked from, so the panel can say what each Detail Level will cost (LG-055).
+    marked = t.store(t.store(rough, "lg_cave", True, 'BOOLEAN', 'FACE'), "lg_basis", faces, 'FLOAT', 'POINT')
     smooth = t.node('GeometryNodeSetShadeSmooth', Geometry=marked).outputs[0]
     # Rubble is separate pieces laid over the shell, wall foot and ramp alike (Mike, D107): instances, not
     # cut in, so Rubble 0 leaves no rock at all and Ramp off takes the ramp's rocks with it.

@@ -68,7 +68,7 @@ A **parity test** checks all three: the same recipe built in each app gives matc
   the rebuilt shape; the shipped copy is for checks and for tools that can't rebuild)
 - `material.json`: the M5 material layer choices and dial settings (snow line, rock angle, wetness, ...)
 - `scatter.json`: Kit or foliage layers and their mask rules (after the scatter work)
-- Sent from Cargo only: Cargo is where a landscape is first made, and it sends to Blender and to Unreal (more apps later). There's no Blender-to-Unreal path; the Blender add-on receives and edits, it doesn't hand on.
+- (Superseded 2026-11-10, D206: Blender gets the full export as the test bed for this package; see PACKAGE.md.) Sent from Cargo only: Cargo is where a landscape is first made, and it sends to Blender and to Unreal (more apps later). There's no Blender-to-Unreal path; the Blender add-on receives and edits, it doesn't hand on.
 
 ## Landing in Unreal (match and beat TerrainForge)
 1. **World Partition landscape** at the chosen resolution, with component sizes picked automatically, plus tiling

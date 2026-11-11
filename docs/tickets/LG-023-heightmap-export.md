@@ -25,3 +25,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-08 created (D201)
 - 2026-11-08 code review step added (D202)
+- 2026-11-10 D206: Blender writes the full package (all exports), folder named after the landscape, default 2017

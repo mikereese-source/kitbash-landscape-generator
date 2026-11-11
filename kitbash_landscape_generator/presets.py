@@ -7,6 +7,7 @@ file. The same JSON is meant for the three.js version later (Mike, 2026-10-25).
 
 import json
 import os
+import time
 
 import bpy
 
@@ -17,8 +18,21 @@ LOOK = ("height", "feature_scale", "roughness", "sharpness", "erosion_amount", "
 
 
 def path():
+    # The folder picked for this .blend (Mike, LG-007), else Blender's user config as before.
+    picked = getattr(bpy.context.scene, "lg_preset_dir", "") if bpy.context.scene else ""
+    if picked:
+        return os.path.join(bpy.path.abspath(picked), "kitbash_landscape_presets.json")
     folder = bpy.utils.user_resource('CONFIG', path="kitbash_landscape_generator", create=True)
     return os.path.join(folder, "presets.json")
+
+
+def adopt_folder(folder):
+    """Point this .blend at a preset folder. The first time a folder is used, the presets saved so far (Blender's
+    settings, or the folder picked before) are copied in, so none drop out of the list (code review, LG-007)."""
+    old = load_all()
+    bpy.context.scene.lg_preset_dir = folder
+    if old and not os.path.exists(path()):
+        _write(old)
 
 
 def load_all():
@@ -32,10 +46,12 @@ def load_all():
 
 
 def _write(presets):
-    tmp = path() + ".tmp"
+    target = path()
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    tmp = target + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump({"version": VERSION, "presets": presets}, fh, indent=1, sort_keys=True)
-    os.replace(tmp, path())  # never leave a half-written file
+    os.replace(tmp, target)  # never leave a half-written file
 
 
 def capture(props, control_props):
@@ -47,7 +63,7 @@ def capture(props, control_props):
 
 def save(name, props, control_props):
     presets = load_all()
-    presets[name] = capture(props, control_props)
+    presets[name] = dict(capture(props, control_props), saved=time.time())
     _write(presets)
 
 
@@ -71,7 +87,7 @@ def apply(props, data, known_types):
         props.type_key = data["type"]
     props.style_key = data.get("style", "") or ""
     for k, v in data.items():
-        if k in ("type", "style"):
+        if k in ("type", "style", "saved"):
             continue
         if k in props.bl_rna.properties and not props.bl_rna.properties[k].is_readonly:
             try:

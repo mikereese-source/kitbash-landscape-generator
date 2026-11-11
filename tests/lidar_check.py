@@ -33,7 +33,9 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ONLY = argv[argv.index("--only") + 1].split(",") if "--only" in argv else None  # e.g. --only mountains,dunes
 argv = [a for i, a in enumerate(argv) if a != "--only" and (i == 0 or argv[i - 1] != "--only")]
 SRC = argv[0] if argv else r"E:/Projects/3D/Terrain Generator_Build/Terrain References/usgs-3dep-1m"
-OUT = os.path.join(os.path.dirname(HERE), "docs", "realism", "lidar")
+# LG_REPORT_DIR keeps a trial run's report and hillshades out of the repo (LG-044); unset, they update the committed ones.
+REPORT_DIR = os.environ.get("LG_REPORT_DIR")
+OUT = REPORT_DIR or os.path.join(os.path.dirname(HERE), "docs", "realism", "lidar")
 os.makedirs(OUT, exist_ok=True)
 WIN = 2048
 STYLES = {"volcano_cinder": ("volcano", "cinder"), "volcano_strato": ("volcano", "strato"),
@@ -303,7 +305,7 @@ print(f"T6c: {len(report) - len(s_failed)}/{len(report)} drain like the real pla
 if ENFORCE_STRUCTURE:
     failed += s_failed
 
-with open(os.path.join(HERE, "lidar_report_partial.json" if ONLY else "lidar_report.json"), "w", encoding="utf-8") as fh:
+with open(os.path.join(REPORT_DIR or HERE, "lidar_report_partial.json" if ONLY else "lidar_report.json"), "w", encoding="utf-8") as fh:
     json.dump(report, fh, indent=1)
 print("wrote lidar_report.json")
 sys.exit(1 if failed else 0)

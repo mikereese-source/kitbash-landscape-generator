@@ -29,7 +29,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-004](tickets/LG-004-floor-apron.md) | Trim floor apron in front of the mouth | A Cave fixes | M5 5.5 | review | S | P2 | main | yes | features.py | - |
 | [LG-005](tickets/LG-005-stalactites-through-ledge.md) | Stalactites hang through rock ledges | A Cave fixes | M5 5.5 | ready | S-M | P2 | main | yes | formations.py; features.py | - |
 | [LG-006](tickets/LG-006-jointed-shards.md) | Jointed shards under the passage join (outside) | A Cave fixes | M5 5.5 | folded into LG-064 | S | P3 | main | yes | features.py | - |
-| [LG-007](tickets/LG-007-preset-save-location.md) | Preset save location | A Cave fixes | M5 | ready | S | P2 | side | tests only | presets.py; __init__.py; caves.py; run_tests.py | - |
+| [LG-007](tickets/LG-007-preset-save-location.md) | Preset save location | A Cave fixes | M5 | review | S | P2 | side | tests only | presets.py; __init__.py; caves.py; run_tests.py | - |
 | [LG-008](tickets/LG-008-floor-detail.md) | 5.4b Cave floor detail | B M5 finish | M5 5.4b | todo | M | P2 | main | yes | features.py; rocks.py | LG-001, LG-002, LG-004 |
 | [LG-009](tickets/LG-009-cutter-and-carve.md) | 5.3b Cutter mesh and carve into landscapes | B M5 finish | M5 5.3b | todo | M-L | P2 | main | yes | features.py; caves.py; run_tests.py | LG-008 |
 | [LG-010](tickets/LG-010-rocks-dress-entrance.md) | Rocks dress the cave entrance | B M5 finish | M5 5.3 | todo | M | P3 | main | yes | features.py; rocks.py | LG-009 |
@@ -40,13 +40,13 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-015](tickets/LG-015-drapes-tuning.md) | Drapes tuning | B M5 finish | M5 | todo | M | P3 | main | yes | formations.py; features.py | LG-013 |
 | [LG-016](tickets/LG-016-cave-speed-pass.md) | Cave speed pass | B M5 finish | M5 | todo | M | P2 | main | yes | features.py | LG-001, LG-002, LG-003, LG-004, LG-005, LG-008, LG-009, LG-013, LG-052 |
 | [LG-017](tickets/LG-017-m5-gate.md) | 5.5 Cave creator gate | B M5 finish | M5 5.5 | todo | S-M | P1 | main | yes | run_tests.py; PROJECT.md | LG-005, LG-006, LG-010, LG-014, LG-015, LG-016, LG-052 |
-| [LG-051](tickets/LG-051-coding-standards.md) | CODING.md: written coding standards | B M5 finish | M5 | ready | S | P2 | research | no | CODING.md | - |
+| [LG-051](tickets/LG-051-coding-standards.md) | CODING.md: written coding standards | B M5 finish | M5 | review | S | P2 | research | no | CODING.md | - |
 | [LG-052](tickets/LG-052-baseline-audit.md) | Baseline code audit (ponytail-audit) | B M5 finish | M5 | todo | M | P1 | research | no | reviews/ | LG-051 |
-| [LG-018](tickets/LG-018-cave-realism-refs.md) | Cave realism reference research | B M5 finish | M6 prep | ready | S | P3 | research | no | RESEARCH-caves.md | - |
+| [LG-018](tickets/LG-018-cave-realism-refs.md) | Cave realism reference research | B M5 finish | M6 prep | review | S | P3 | research | no | RESEARCH-caves.md | - |
 | [LG-019](tickets/LG-019-cave-landscape-type.md) | 6.1 Cave landscape type | E M6 | M6 6.1 | todo | L | P2 | main | yes | features.py; types.json; __init__.py | LG-017, LG-018 |
 | [LG-020](tickets/LG-020-cliff-features.md) | 6.2 Cliff features | E M6 | M6 6.2 | todo | M-L | P2 | main | yes | features.py | LG-019 |
 | [LG-021](tickets/LG-021-bake-with-caves.md) | 6.3 Bake and Restore with caves | E M6 | M6 6.3 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-019 |
-| [LG-022](tickets/LG-022-package-spec.md) | Export package spec (PACKAGE.md) | E M6 | M6 6.3b | ready | S | P2 | research | no | PACKAGE.md | - |
+| [LG-022](tickets/LG-022-package-spec.md) | Export package spec (PACKAGE.md) | E M6 | M6 6.3b | done | S | P2 | research | no | PACKAGE.md | - |
 | [LG-023](tickets/LG-023-heightmap-export.md) | 6.3b Heightmap and mask export | E M6 | M6 6.3b | todo | S | P2 | side | tests only | export.py; __init__.py; run_tests.py | LG-021, LG-022 |
 | [LG-024](tickets/LG-024-drag-handles.md) | 6.4 Drag handles for everything | E M6 | M6 6.4 | todo | M | P2 | side | tests only | gizmos.py; __init__.py | LG-019 |
 | [LG-025](tickets/LG-025-carve-strokes.md) | 6.4b Carve strokes | E M6 | M6 6.4b | todo | M | P2 | main | yes | features.py; __init__.py; run_tests.py | LG-019 |
@@ -73,7 +73,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-041](tickets/LG-041-heightmap-import.md) | Heightmap and real-elevation import | G M8 | M8 | todo | S-M | P2 | side | tests only | heightmap_import.py; __init__.py; run_tests.py | LG-022 |
 | [LG-042](tickets/LG-042-batch-script.md) | Headless batch build script | G M8 | M8 | todo | S | P3 | side | tests only | batch_build.py | LG-023 |
 | [LG-043](tickets/LG-043-checker-notes.md) | Checker-note fixes | G M8 | M8 | ready | S | P3 | side | tests only | __init__.py; run_tests.py | - |
-| [LG-044](tickets/LG-044-realism-output-folder.md) | Realism reports to an output folder | G M8 | M8 | ready | S | P3 | side | tests only | realism.py; lidar_check.py | - |
+| [LG-044](tickets/LG-044-realism-output-folder.md) | Realism reports to an output folder | G M8 | M8 | review | S | P3 | side | tests only | realism.py; lidar_check.py | - |
 | [LG-045](tickets/LG-045-m8-edge-cases.md) | M8 edge cases and gate | G M8 | M8 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-041, LG-042, LG-043 |
 | [LG-046](tickets/LG-046-shipped-presets.md) | Shipped KitBash presets | H Final | Final | todo | S-M | P2 | main | yes | presets | LG-035 |
 | [LG-047](tickets/LG-047-thumbnails.md) | Re-render gallery thumbnails | H Final | Final | todo | S | P3 | side | yes | thumbs | LG-035 |
@@ -85,9 +85,9 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 
 | ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
 |---|---|---|---|---|---|---|---|---|---|---|
-| [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | todo | M | P2 | main | yes | features.py | - |
+| [LG-053](tickets/LG-053-lip-roughness-into-floor.md) | Carry the lip roughness into the cave floor | A Cave fixes | M5 | review | M | P2 | main | yes | features.py | - |
 | [LG-054](tickets/LG-054-separate-detail-levels.md) | Separate Detail Levels for shell, rubble and formations | A Cave fixes | M5 | todo | M | P1 | main | yes | features.py; caves.py; rocks.py; formations.py; run_tests.py | - |
-| [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | todo | S | P2 | side | tests only | caves.py | - |
+| [LG-055](tickets/LG-055-face-count-readout.md) | Show face counts per Detail Level before switching | A Cave fixes | M5 | review | S | P2 | side | tests only | caves.py | - |
 | [LG-056](tickets/LG-056-ultra-at-render-time.md) | Ultra at render time (and camera-based detail) | A Cave fixes | M5 | todo | M-L | P2 | main | yes | features.py; caves.py | - |
 | [LG-057](tickets/LG-057-lip-minimum.md) | Lip minimum 0.3, range to 0.5, and fix pinches | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; caves.py; run_tests.py | - |
 | [LG-058](tickets/LG-058-no-puddles-at-lip.md) | No puddles at the lip | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |
@@ -96,12 +96,12 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-061](tickets/LG-061-rubble-heaps-rethink.md) | Rethink the rubble heaps and rubble scatter | A Cave fixes | M5 | ready | M-L | P1 | main | yes | features.py; rocks.py | - |
 | [LG-062](tickets/LG-062-puddles-on-jointed.md) | Puddles slider greyed out on Jointed | A Cave fixes | M5 | review | S | P1 | main | yes | features.py; caves.py | - |
 | [LG-063](tickets/LG-063-flooded-water-holes.md) | Holes in the flooded chamber water next to pieces | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
-| [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | todo | L | P1 | main | yes | features.py | - |
-| [LG-065](tickets/LG-065-limestone-wall-shape-stronger.md) | Limestone Wall Shape: make 1.0 much stronger | A Cave fixes | M5 | todo | S | P1 | main | yes | features.py | - |
+| [LG-064](tickets/LG-064-jointed-reevaluation.md) | Jointed: full re-evaluation against the earlier version | A Cave fixes | M5 | ready | L | P1 | main | yes | features.py | - |
+| [LG-065](tickets/LG-065-limestone-wall-shape-stronger.md) | Limestone Wall Shape: make 1.0 much stronger | A Cave fixes | M5 | review | S | P1 | main | yes | features.py | - |
 | [LG-066](tickets/LG-066-flooded-water-outside.md) | Flooded chamber water pokes out of the cave | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py; run_tests.py | - |
-| [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | todo | S | P2 | main | yes | features.py | - |
+| [LG-067](tickets/LG-067-lava-lip-roughness.md) | More roughness on the lava lip | A Cave fixes | M5 | review | S | P2 | main | yes | features.py | - |
 | [LG-068](tickets/LG-068-lip-extension.md) | Extend the lip outward (all three rocks) | A Cave fixes | M5 | todo | M | P3 | main | yes | features.py; caves.py; run_tests.py | - |
-| [LG-069](tickets/LG-069-lava-roughness-stronger.md) | Lava Roughness: fix 0 and push 1.0 harder | A Cave fixes | M5 | todo | S-M | P1 | main | yes | features.py | - |
+| [LG-069](tickets/LG-069-lava-roughness-stronger.md) | Lava Roughness: fix 0 and push 1.0 harder | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py | - |
 
 ## Code reviews (D202)
 
@@ -115,3 +115,4 @@ When they run (every one is a Done-when line on its ticket, so a ticket or gate 
 | Date | Ticket | Skill | Scope | Findings | Tickets made | Report |
 |---|---|---|---|---|---|---|
 | 2026-11-09 | LG-070 | mattpocock-skills:code-review | main...a210071 (standards + spec) | Standards: no library rebuild/tests yet, Log lines without refs, presets.py missing from Files, wrong lane, missing why-comments, Base Depth hard max. Spec: T34 relied on point order, no bake/water check, border selection, side points copy masks | None: all fixed in a5273aa before merge; tests then found the bottom not flat (fixed 1db679d) | in chat (reports not saved) |
+| 2026-11-10 | LG-055, LG-007 | mattpocock-skills:code-review (Sonnet subagents) | 2796290..31b7303 | Spec: old global presets hidden once a folder is picked; presets past 5 unreachable; unstamped presets sorted arbitrarily; tests skip the dialog and Ultra; Files lists out of date (features.py). Standards: no hard violations; _write never made the folder (traceback); basis.data unguarded; T36 could TypeError; smells: face_estimates repeats the node tree's step math, cave save reaches into presets._write | Fixed in the next commit: presets copied into a newly picked folder, deterministic sort, folder created, OSError reported, basis guard, T36 guard. Open for Mike: the 5-preset cap hides older presets (LG-007 log) | in chat |

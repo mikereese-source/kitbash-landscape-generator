@@ -352,9 +352,25 @@ def _t25():
         check("Renamed" in presets.load_all(), "rename failed")
         presets.delete("Renamed")
         check(not presets.load_all(), "delete failed")
+        # A folder picked per .blend holds the presets; the list shows the 5 most recently saved (Mike, LG-007).
+        import time
+        folder = tempfile.mkdtemp()
+        presets.path = real
+        bpy.context.scene.lg_preset_dir = folder
+        for i in range(6):
+            bpy.ops.landscape.preset_save(name=f"P{i}")
+            time.sleep(0.02)
+        check(os.path.exists(os.path.join(folder, "kitbash_landscape_presets.json")), "presets were not saved in the picked folder")
+        shown = [it[0] for it in lg._preset_enum(None, bpy.context)]
+        check(shown == ["P5", "P4", "P3", "P2", "P1"], f"the list should show the 5 most recent, newest first: {shown}")
+        bpy.context.scene.lg_preset_all = True
+        shown = [it[0] for it in lg._preset_enum(None, bpy.context)]
+        bpy.context.scene.lg_preset_all = False
+        check(len(shown) == 6 and shown[-1] == "P0", f"Show All should list all 6: {shown}")
     finally:
         presets.path = real
-    return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted"
+        bpy.context.scene.lg_preset_dir = ""
+    return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted; saved in a picked folder, 5 most recent listed"
 
 
 MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_depth")
@@ -1109,6 +1125,26 @@ def _t32():
     return f"{counts['PREVIEW']} formations at Preview, High and Ultra, same spots, none off the roof; amount sliders each take only their own family; old caves upgrade; pickers filled"
 
 
+@test("T36", "Face counts per Detail Level shown before switching")
+def _t36():
+    # Mike (LG-055): High gave 15M faces with no warning. The panel estimates every level from the current one.
+    fresh_scene()
+    bpy.ops.landscape.add_cave()
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    got = {}
+    for lvl in ("PREVIEW", "HIGH"):
+        c.detail = lvl
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        got[lvl] = (lg.caves.face_estimates(ob, bpy.context, lg.caves.DETAIL_INDEX[lvl]), len(ob.evaluated_get(dg).data.polygons))
+    (est_p, real_p), (est_h, real_h) = got["PREVIEW"], got["HIGH"]
+    check(est_p is not None and est_h is not None, "the cave should carry lg_basis so the panel can estimate")
+    check(est_p is not None and abs(est_p[1] / real_h - 1) < 0.2 and abs(est_h[0] / real_p - 1) < 0.2,
+          f"estimates should be within 20%: High from Preview {est_p[1]:,.0f} vs {real_h:,}; Preview from High {est_h[0]:,.0f} vs {real_p:,}")
+    return f"High from Preview {est_p[1] / 1e6:.2f}M (real {real_h / 1e6:.2f}M), Preview from High {est_h[0] / 1e6:.2f}M (real {real_p / 1e6:.2f}M), Ultra about {est_p[2] / 1e6:.1f}M"
+
+
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
 def _t33():
     # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the

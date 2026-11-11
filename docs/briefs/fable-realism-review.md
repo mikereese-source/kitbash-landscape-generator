@@ -44,6 +44,7 @@ Commit on that branch. Renders and measurements go through `bash tests/blender.s
 - the erosion mask finding and fix;
 - the shared causes and their fixes, in the order that gives the most lift first;
 - the three.js geometry notes, with sources;
+- **Solutions (Mike, 2026-11-11):** for every finding, a concrete solution: the technique and its reference, where it goes (file, function, node chain) with parameters, the three.js port, size and risk. Prove the cheap ones in a scratch copy with a before/after board. Order them by lift and write each so it can become a ticket;
 - the size of the lift to get the models close to Gaea, World Machine and World Creator;
 - your view on the best next steps for the models, and when to come back to materials (checkpoint 2 as is, changed, or after which model fixes).
 

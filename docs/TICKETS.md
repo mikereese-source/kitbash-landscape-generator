@@ -47,7 +47,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-020](tickets/LG-020-cliff-features.md) | 6.2 Cliff features | E M6 | M6 6.2 | todo | M-L | P2 | main | yes | features.py | LG-019 |
 | [LG-021](tickets/LG-021-bake-with-caves.md) | 6.3 Bake and Restore with caves | E M6 | M6 6.3 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-019 |
 | [LG-022](tickets/LG-022-package-spec.md) | Export package spec (PACKAGE.md) | E M6 | M6 6.3b | done | S | P2 | research | no | PACKAGE.md | - |
-| [LG-023](tickets/LG-023-heightmap-export.md) | 6.3b Heightmap and mask export | E M6 | M6 6.3b | todo | S | P2 | side | tests only | export.py; __init__.py; run_tests.py | LG-021, LG-022 |
+| [LG-023](tickets/LG-023-heightmap-export.md) | 6.3b Heightmap and mask export | E M6 | M6 6.3b | review | S | P2 | side | tests only | export.py; __init__.py; run_tests.py | LG-021, LG-022 |
 | [LG-024](tickets/LG-024-drag-handles.md) | 6.4 Drag handles for everything | E M6 | M6 6.4 | todo | M | P2 | side | tests only | gizmos.py; __init__.py | LG-019 |
 | [LG-025](tickets/LG-025-carve-strokes.md) | 6.4b Carve strokes | E M6 | M6 6.4b | todo | M | P2 | main | yes | features.py; __init__.py; run_tests.py | LG-019 |
 | [LG-070](tickets/LG-070-base-thickness.md) | Base thickness (solid sides) | E M6 | M6 6.4c | review | S | P2 | side | yes | nodes.py; __init__.py; presets.py; run_tests.py | - |

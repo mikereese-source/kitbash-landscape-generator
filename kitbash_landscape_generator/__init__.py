@@ -18,7 +18,7 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup, UIList
 
-from . import caves, erosion, nodes, presets
+from . import caves, erosion, export, nodes, presets
 
 MODIFIER_NAME = "KB Landscape"
 HERE = os.path.dirname(__file__)
@@ -1062,6 +1062,40 @@ class LG_UL_landscapes(UIList):
 RECIPE_KEY = "lg_recipe"  # the landscape's full settings, kept on a baked mesh so it can be rebuilt
 
 
+class LG_OT_export_package(Operator):
+    bl_idname = "landscape.export_package"
+    bl_label = "Export Package"
+    bl_description = ("Write the landscape as a .kblandscape folder: its recipe, a 16-bit heightmap and its masks, "
+                      "for Unreal, Unity, three.js or another Blender (docs/PACKAGE.md)")
+    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    size: EnumProperty(name="Heightmap Size", description="Pixels across: sizes Unreal takes without resampling",
+                       items=[(str(s), str(s), f"{s} x {s} pixels") for s in export.SIZES], default="2017")
+    raw16: BoolProperty(name="Unity RAW", description="Also write height.r16, the raw 16-bit heightmap Unity imports", default=False)
+
+    @classmethod
+    def poll(cls, context):
+        return current_landscape(context) is not None
+
+    def invoke(self, context, _event):
+        self.directory = bpy.path.abspath("//") if bpy.data.filepath else os.path.expanduser("~")
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        ob = current_landscape(context)
+        if ob.name in _pending or ob.name in _jobs:
+            self.report({'WARNING'}, "Erosion is still running: export once the eroded look has arrived")
+            return {'CANCELLED'}
+        try:
+            out = export.write_package(ob, bpy.path.abspath(self.directory), presets.capture(ob.lg, CONTROL_PROPS), int(self.size), self.raw16)
+        except OSError as err:
+            self.report({'ERROR'}, f"Couldn't write the package: {err}")
+            return {'CANCELLED'}
+        self.report({'INFO'}, f"Exported {out}")
+        return {'FINISHED'}
+
+
 class LG_OT_bake(Operator):
     bl_idname = "landscape.bake"
     bl_label = "Bake to Mesh"
@@ -1382,11 +1416,12 @@ class LG_PT_main(Panel):
         if box:
             box.label(text="A plain mesh to sculpt and edit; water becomes its own object")
             box.operator(LG_OT_bake.bl_idname, icon='MESH_GRID')
+            box.operator(LG_OT_export_package.bl_idname, icon='EXPORT')
 
 
 classes = (LG_ObjectProps, LG_OT_add_landscape, LG_OT_scale_size, LG_OT_pick_type, LG_OT_randomize, LG_OT_reset_look,
            LG_OT_fit_selection, LG_OT_preset_save, LG_OT_preset_folder, LG_OT_preset_load, LG_OT_preset_rename, LG_OT_preset_delete,
-           LG_OT_bake, LG_OT_restore,
+           LG_OT_bake, LG_OT_export_package, LG_OT_restore,
            LG_UL_landscapes, LG_PT_main)
 
 

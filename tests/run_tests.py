@@ -1176,6 +1176,43 @@ def _t38():
     return f"picked landscape kept by reference; 0.05x gives {scaled[0]:.0f} x {scaled[1]:.0f} m (2:1 kept); fit on a 45 degree, 2x landscape {a.lg.size_x:.1f} x {a.lg.size_y:.1f} m"
 
 
+@test("T39", "Export package: recipe, 16-bit heightmap, masks, Unity RAW; base left out")
+def _t39():
+    # LG-023 / docs/PACKAGE.md: the files every other app reads.
+    import json, tempfile
+    from kitbash_landscape_generator import export
+    fresh_scene()
+    ob = add("hills")
+    ob.lg.base, ob.lg.base_depth = True, 15.0  # the base must not reach the heightmap
+    folder = tempfile.mkdtemp()
+    out = export.write_package(ob, folder, lg.presets.capture(ob.lg, lg.CONTROL_PROPS), 1009, raw16=True)
+    check(os.path.basename(out) == f"{ob.name}.kblandscape", f"folder should be named after the landscape: {out}")
+    with open(os.path.join(out, "recipe.json"), encoding="utf-8") as fh:
+        rec = json.load(fh)
+    check(rec["format"] == "kblandscape" and len(rec["tiles"]) == 1 and rec["tiles"][0]["type"] == "hills", "recipe.json should hold one hills tile")
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = ob.evaluated_get(dg).to_mesh()
+    h, masks = export.top_grid(me, ob.lg.size_x, ob.lg.size_y)
+    ob.evaluated_get(dg).to_mesh_clear()
+    lo, hi = rec["height_range"]
+    check(abs(lo - h.min()) < 1e-3 and lo > h.min() - 1.0, f"the base should be left out: range starts at {lo:.2f}, top lowest {h.min():.2f}")
+    img = bpy.data.images.load(os.path.join(out, "height.png"))
+    img.colorspace_settings.is_data = True
+    px = np.array(img.pixels[:]).reshape(img.size[1], img.size[0], -1)[:, :, 0]
+    check(img.size[0] == 1009 and img.size[1] == 1009, f"heightmap should be 1009 px: {tuple(img.size)}")
+    got = lo + px[[0, 0, -1, -1], [0, -1, 0, -1]] * (hi - lo)
+    want = h[[0, 0, -1, -1], [0, -1, 0, -1]]
+    check(np.abs(got - want).max() < (hi - lo) / 65535 * 2 + 1e-3, f"corner heights off: {got} vs {want}")
+    with open(os.path.join(out, "height.png"), "rb") as fh:
+        ihdr = fh.read(26)
+    check(ihdr[24] == 16 and ihdr[25] == 0, f"height.png should be 16-bit grayscale: depth {ihdr[24]}, colour type {ihdr[25]}")
+    raw = np.fromfile(os.path.join(out, "height.r16"), "<u2")
+    check(raw.size == 1009 * 1009, f"height.r16 should be 1009 x 1009: {raw.size}")
+    missing = [n for n in export.MASKS if n in masks and not os.path.exists(os.path.join(out, f"mask_{n[3:]}.png"))]
+    check(masks and not missing, f"mask images missing: {missing}")
+    return f"{os.path.basename(out)}: recipe, height.png 1009 px, height.r16, {len(masks)} masks; corners within one 16-bit step; base left out"
+
+
 @test("T33", "Flooded chamber: flat water wall to wall, formations clear of it")
 def _t33():
     # D193 (Mike): Water = Flooded Chamber fills the chamber with one flat sheet at Water Level, its shore on the

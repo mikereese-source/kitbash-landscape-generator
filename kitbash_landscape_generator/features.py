@@ -7,6 +7,8 @@ the block's walls and floor are thrown away again. The rim of the piece never mo
 onto the rest of the grid exactly: the landscape stays one watertight surface (D91, bake as one mesh).
 """
 
+import math
+
 import bpy
 
 CUT_GROUP = "KB Landscape Cut"
@@ -427,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 209
+CAVE_VERSION = 210
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -445,6 +447,8 @@ CAVE_INPUTS = (
     # Rock kits (rocks.py), each in three sizes: the rubble at the wall foot and the scree on the ramp.
     ("Rubble Big", 'NodeSocketCollection', None), ("Rubble Medium", 'NodeSocketCollection', None), ("Rubble Small", 'NodeSocketCollection', None),
     ("Scree Big", 'NodeSocketCollection', None), ("Scree Medium", 'NodeSocketCollection', None), ("Scree Small", 'NodeSocketCollection', None),
+    # The Rubble kit at Preview detail: the jointed heaps are stacked on these at every Detail Level (LG-061).
+    ("Rubble Big Proxy", 'NodeSocketCollection', None), ("Rubble Medium Proxy", 'NodeSocketCollection', None), ("Rubble Small Proxy", 'NodeSocketCollection', None),
     # Formations (5.4, formations.py): how many, and each family's kit in three sizes.
     ("Formations", 'NodeSocketFloat', 0.5), ("Formation Size", 'NodeSocketFloat', 1.0), ("Formation Stretch", 'NodeSocketFloat', 0.5),
     ("Clusters", 'NodeSocketFloat', 0.85), ("Puddles", 'NodeSocketFloat', 0.5),  # mostly clusters, a few standing alone (Mike)
@@ -1886,69 +1890,224 @@ def cave_group():
         return n.outputs[0]
     t.L.new(on_floor(tipped.outputs[0]), with_rocks.inputs[0])
 
-    # Breakdown heaps (5.4b, D175, D178; the sea-cave rockfall and Giant's Coffin blocks on docs/m5/c131): in
-    # jointed rock the fallen roof lies in a few big heaps, the rest of the floor clear. Each heap a cone of
-    # tumbled blocks at about 30 degrees (rockfall's angle of rest), the biggest round its foot, smaller ones up
-    # its sides, a thin apron round the base. Heap spots are picked on the Preview-grid space like the rocks
-    # (the same heaps at every level), apart along the cave and past its front; Rubble sets how many, Rock Size
-    # how big the blocks. Every block drops onto the finished floor under it and sits partly in its heap (a
-    # rock's pivot is 45% up from its middle); any that would poke through a wall is left out.
+    # Breakdown heaps (5.4b, D175, D178), rebuilt as a layered drop (LG-061, D204; docs/RESEARCH-rubble.md): in
+    # jointed rock the fallen roof lies in a few piles, the rest of the floor clear.
+    # Where (White and White 1969; refs 1 Violet City and 3 Turner Avenue, piles under the roof that fell): wide
+    # roof fails first, so a pile in mid floor is likelier the wider the roof over it: the chamber, a bend, where
+    # the passage opens into the chamber. The others lie at the wall foot, where rock spalled off the wall (ref 9,
+    # the talus aprons). Rubble sets how many piles, Spread how far each is strewn, Rock Size how big the rocks.
+    # Everything is placed on the Preview-grid space and the Preview rocks, so every Detail Level has the same
+    # rocks in the same places; only the last step, onto the finished floor, reads the level's own shell.
     jointed = t.math('COMPARE', gin["Rock"], 1.0)
     h_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
-    h_s = t.N.new('GeometryNodeSampleIndex')
-    h_s.data_type, h_s.domain = 'FLOAT', 'POINT'
-    t._set(h_s.inputs["Geometry"], path)
-    t._set(h_s.inputs["Value"], t.named("c_s"))
-    t._set(h_s.inputs["Index"], h_near)
-    h_floor = t.math('LESS_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.9)
+
+    def h_path(value, shift=0.0, data_type='FLOAT'):
+        """A path value at the path point nearest here, or `shift` points on from it."""
+        n = t.N.new('GeometryNodeSampleIndex')
+        n.data_type, n.domain, n.clamp = data_type, 'POINT', True
+        t._set(n.inputs["Geometry"], path)
+        t._set(n.inputs["Value"], value)
+        t._set(n.inputs["Index"], t.math('ADD', h_near, shift) if shift else h_near)
+        return n.outputs[0]
+
+    h_ch = h_path(t.named("c_ch"))
+    # A bend: how far the passage turns over one and a half of its half widths (path points sit a quarter apart).
+    h_bend = t.math('MINIMUM', t.vmath('DISTANCE', h_path(t.named("c_across", 'FLOAT_VECTOR'), 3.0, 'FLOAT_VECTOR'),
+                                       h_path(t.named("c_across", 'FLOAT_VECTOR'), -3.0, 'FLOAT_VECTOR')), 1.0)
+    h_wide = t.math('MAXIMUM', t.math('MAXIMUM', h_ch, h_bend), t.math('MULTIPLY', t.math('MULTIPLY', h_ch, t.math('SUBTRACT', 1.0, h_ch)), 4.0))
+    # How far out from the passage's middle line, against its half width: 0 mid floor, 1 the wall.
+    h_out = t.math('DIVIDE', t.vmath('LENGTH', t.vmath('MULTIPLY', t.vmath('SUBTRACT', t.position(), h_path(t.position(), 0.0, 'FLOAT_VECTOR')), (1.0, 1.0, 0.0))),
+                   t.math('MAXIMUM', h_path(t.named("c_radius")), 1e-3))
+    # The floor rocks may lie on: clear of the jointed masses standing along the walls (the passage's columns and
+    # steps come in up to 0.38 of its half width at full Wall Shape, the chamber's ring up to 0.07 of its radius).
+    # By rule, not by reading the masses: those follow each Detail Level's own wall, and the rocks must not.
+    h_edge = t.math('SUBTRACT', 0.92, t.math('MULTIPLY', t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0),
+                                             t.math('ADD', 0.32, t.math('MULTIPLY', h_ch, -0.26))))
+    h_floor = t.math('MULTIPLY', t.math('LESS_THAN', t.xyz(t.node('GeometryNodeInputNormal').outputs[0])["Z"], -0.9), t.math('LESS_THAN', h_out, h_edge))
     spots = t.N.new('GeometryNodeDistributePointsOnFaces')
     spots.distribute_method = 'POISSON'  # before the inputs: its spacing input only shows in this mode
     t._set(spots.inputs["Mesh"], rock_space)
-    t._set(spots.inputs["Selection"], t.math('MULTIPLY', t.math('MULTIPLY', h_floor, jointed), t.math('GREATER_THAN', h_s.outputs[0], 0.3)))
+    t._set(spots.inputs["Selection"], t.math('MULTIPLY', t.math('MULTIPLY', h_floor, jointed),
+                                             t.math('MULTIPLY', t.math('GREATER_THAN', h_path(t.named("c_s")), 0.3), t.math('GREATER_THAN', gin["Rubble"], 0.0))))
     t._set(spots.inputs["Distance Min"], t.math('MULTIPLY', W, 0.5))
     t._set(spots.inputs["Density Max"], 1.0)
     t._set(spots.inputs["Seed"], gin["Seed"])
-    spots = t.node('GeometryNodeDeleteGeometry', Geometry=spots.outputs["Points"], Selection=t.math('GREATER_THAN', rand(0.0, 1.0, 501), t.math('ADD', 0.08, t.math('MULTIPLY', gin["Rubble"], 0.3)))).outputs[0]  # a few: about 5 in a big cave at Rubble 0.5
-    h_rad = t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), rand(0.5, 0.8, 503))  # each heap's radius (Mike: large heaps)
-    spots = t.store(spots, "h_rad", h_rad)
-    spots = t.store(spots, "h_mid", t.position(), 'FLOAT_VECTOR')
-    # 90 blocks cover the cone at Rock Size 1; smaller blocks need more (by area), or they spread thin over a
-    # cone that isn't there: scattered rocks, some on nothing (Mike, Rock Size 0.5).
-    # shortcut: capped at 800 (Rock Size about 0.34); smaller still thins out, shrink the cone then if wanted.
-    per = t.node('FunctionNodeFloatToInt', Float=t.math('MINIMUM', t.math('DIVIDE', 90.0, t.math('POWER', t.math('MAXIMUM', gin["Rock Size"], 0.1), 2.0)), 800.0)).outputs[0]
-    heap = t.node('GeometryNodeDuplicateElements', Geometry=spots, Amount=per)
-    heap.domain = 'POINT'
-    hr = t.named("h_rad")
-    # Out from the heap's middle: most blocks on the cone, some on the apron just past its foot.
-    d = t.math('MULTIPLY', hr, t.math('ADD', t.math('SQRT', rand(0.0, 1.0, 505)), t.math('MULTIPLY', t.math('GREATER_THAN', rand(0.0, 1.0, 507), 0.8), rand(0.0, 0.35, 509))))
-    a = rand(0.0, 6.2832, 511)
-    h_xy = t.node('GeometryNodeSetPosition', Geometry=heap.outputs["Geometry"],
-                  Position=t.vmath('ADD', t.named("h_mid", 'FLOAT_VECTOR'), t.vec(t.math('MULTIPLY', d, t.math('COSINE', a)), t.math('MULTIPLY', d, t.math('SINE', a)), 0.0))).outputs[0]
-    h_xy = t.store(h_xy, "h_d", t.math('DIVIDE', d, t.math('MAXIMUM', hr, 1e-3)))
-    h_down = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.6))),
-                    Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', H, 3.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
-    h_xy = t.store(h_xy, "h_hit", t.math('MULTIPLY', h_down.outputs["Is Hit"], t.math('LESS_THAN', t.xyz(h_down.outputs["Hit Normal"])["Z"], -0.7)))
-    h_xy = t.store(h_xy, "h_ground", h_down.outputs["Hit Position"], 'FLOAT_VECTOR')
-    h_xy = t.node('GeometryNodeDeleteGeometry', Geometry=h_xy, Selection=t.math('LESS_THAN', t.named("h_hit"), 0.5)).outputs[0]
-    hd = t.named("h_d")
-    # Blocks shrink up the heap: about Rock Size x 28% of the heap's radius across at its foot, half that at the top.
-    h_size = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MULTIPLY', hr, 0.14), gin["Rock Size"]),
-                    t.math('MULTIPLY', t.math('ADD', 0.5, t.math('MULTIPLY', t.math('MINIMUM', hd, 1.0), 0.6)), rand(0.7, 1.3, 513)))
-    cone = t.math('MULTIPLY', t.math('MULTIPLY', hr, 0.65), t.math('POWER', t.math('MAXIMUM', t.math('SUBTRACT', 1.0, hd), 0.0), 0.8))
-    h_at = t.node('GeometryNodeSetPosition', Geometry=h_xy,
-                  Position=t.vmath('ADD', t.named("h_ground", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('SUBTRACT', cone, t.math('MULTIPLY', h_size, 0.5))))).outputs[0]
-    h_pokes = None
-    for dvec in ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)):
-        ray = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.named("h_ground", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, t.math('MAXIMUM', cone, t.math('MULTIPLY', h_size, 0.6)))),
-                     Ray_Direction=dvec, Ray_Length=t.math('MULTIPLY', h_size, 1.6))  # from just over the floor: from the pivot, under it at the heap's foot, every ray met the floor
-        h_pokes = ray.outputs["Is Hit"] if h_pokes is None else t.math('MAXIMUM', h_pokes, ray.outputs["Is Hit"])
-    big = t.math('MULTIPLY', t.math('GREATER_THAN', hd, 0.55), t.math('LESS_THAN', rand(0.0, 1.0, 515), 0.35))  # big blocks round the foot
-    tumble = t.vec(rand(-0.7, 0.7, 517), rand(-0.7, 0.7, 519), rand(0.0, 6.28, 521))
-    for name, sel, k, seed in (("Rubble Big", big, 0.4, 523), ("Rubble Medium", t.math('SUBTRACT', 1.0, big), 1.0, 527)):
-        blocks_at = t.node('GeometryNodeInstanceOnPoints', Points=h_at, Selection=t.math('MULTIPLY', sel, t.math('SUBTRACT', 1.0, h_pokes)), Instance=library(name),
-                           Pick_Instance=True, Instance_Index=t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, seed)).outputs[0], Rotation=tumble,
-                           Scale=t.math('MULTIPLY', h_size, k)).outputs[0]
-        t.L.new(on_floor(blocks_at), with_rocks.inputs[0])
+    h_foot = t.math('GREATER_THAN', h_out, t.math('SUBTRACT', h_edge, 0.2))  # at the wall's foot
+    h_site = t.math('MAXIMUM', t.math('MULTIPLY', t.math('LESS_THAN', h_out, 0.45), t.math('ADD', 0.25, t.math('MULTIPLY', h_wide, 0.75))), t.math('MULTIPLY', h_foot, 0.5))
+    # About as many piles as before (5 or so in a big cave at Rubble 0.5), now weighted to where rock falls.
+    spots = t.node('GeometryNodeDeleteGeometry', Geometry=spots.outputs["Points"],
+                   Selection=t.math('GREATER_THAN', rand(0.0, 1.0, 501), t.math('MULTIPLY', t.math('ADD', 0.24, t.math('MULTIPLY', gin["Rubble"], 0.9)), h_site))).outputs[0]
+    # Spread (Mike: it did nothing on Jointed) sets each pile's footprint: tight at 0 (0.75x), strewn at 1 (1.35x).
+    # The same rock in every footprint (h_layer thins it as the pile spreads): Spread moves the rocks together or
+    # apart, it does not add or take any (low Spread used to shrink the piles and lose rocks with them). Squared,
+    # so the middle setting is still a pile (0.9x, two thirds of the tightest packing), not a strewn floor.
+    h_strewn = t.math('ADD', 0.75, t.math('MULTIPLY', t.math('MULTIPLY', gin["Spread"], gin["Spread"]), 0.6))
+    h_rad = t.math('MULTIPLY', t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), rand(0.5, 0.8, 503)),
+                   t.math('MULTIPLY', h_strewn, t.math('SUBTRACT', 1.0, t.math('MULTIPLY', h_foot, 0.25))))  # a wall-foot apron is smaller
+    spots = t.store(t.store(t.store(spots, "h_rad", h_rad), "h_foot", h_foot), "h_mid", t.position(), 'FLOAT_VECTOR')
+    h_spot = t.node('GeometryNodeSampleNearest', Geometry=spots, Sample_Position=t.position()).outputs[0]
+
+    def h_pile(name, data_type='FLOAT'):
+        """A value of the pile nearest here."""
+        n = t.N.new('GeometryNodeSampleIndex')
+        n.data_type, n.domain = data_type, 'POINT'
+        t._set(n.inputs["Geometry"], spots)
+        t._set(n.inputs["Value"], t.named(name, data_type))
+        t._set(n.inputs["Index"], h_spot)
+        return n.outputs[0]
+
+    h_reach = h_pile("h_rad")
+    h_d = t.math('DIVIDE', t.vmath('DISTANCE', t.position(), h_pile("h_mid", 'FLOAT_VECTOR')), t.math('MAXIMUM', h_reach, 1e-3))  # 0 the pile's middle, 1 its edge
+
+    # The ground the rocks drop onto: the cave's space, its faces turned to look up like a rock's top.
+    # Every face of it knows where its stack stands on the floor ("h_anchor"): the floor its own spot, a rock
+    # the spot under the rock at the bottom of its stack. A stack then moves onto the finished floor as one.
+    h_ground = t.store(t.node('GeometryNodeFlipFaces', Mesh=rock_space).outputs[0], "h_anchor", t.position(), 'FLOAT_VECTOR')
+
+    def h_kit(name):
+        """A kit's rocks at Preview detail (the stand-ins every Detail Level stacks on), each with its own
+        bounds measured, so any collection swapped in sits right. -> (rocks, low corner, high corner, how many)"""
+        rocks_in = library(f"{name} Proxy")
+        each, done = t.N.new('GeometryNodeForeachGeometryElementInput'), t.N.new('GeometryNodeForeachGeometryElementOutput')
+        each.pair_with_output(done)
+        done.domain = 'INSTANCE'
+        t._set(each.inputs["Geometry"], rocks_in)
+        box = t.node('GeometryNodeBoundBox', Geometry=t.node('GeometryNodeRealizeInstances', Geometry=each.outputs["Element"]).outputs[0])
+        done.main_items.new('VECTOR', "lo")
+        done.main_items.new('VECTOR', "hi")
+        t._set(done.inputs["lo"], box.outputs["Min"])
+        t._set(done.inputs["hi"], box.outputs["Max"])
+        count = t.node('GeometryNodeAttributeDomainSize', Geometry=rocks_in)
+        count.component = 'INSTANCES'
+        return done.outputs["Geometry"], done.outputs["lo"], done.outputs["hi"], t.math('MAXIMUM', count.outputs["Instance Count"], 1.0)
+
+    # Sizes (Ruiz-Carulla 2015, rockfall fragments follow a power law: very many small, few big, about 10x
+    # across a pile): five sizes, each about 0.6 of the one before, 2.2 down to 0.27 of the old heap block
+    # (0.146 of the entrance's half width across, at Rock Size 1); fewer of each bigger size. Big really is big:
+    # the Big kit at 2.2 (Giant's Coffin, ref 2), where it was scaled down to the medium rocks' size.
+    h_unit = t.math('MULTIPLY', t.math('MINIMUM', r, 30.0), 0.1456)
+    h_size = t.math('MULTIPLY', h_unit, gin["Rock Size"])
+    # shortcut: rocks are spaced as if Rock Size were at least 0.3 (the count grows as 1 / Rock Size squared);
+    # smaller still thins the piles out, shrink the piles then if wanted.
+    h_grain = t.math('MULTIPLY', h_unit, t.math('MAXIMUM', gin["Rock Size"], 0.3))
+    h_drop = t.math('MULTIPLY', h_size, 6.0)  # rocks fall from this far up (a pile is never this tall), or from just under the roof
+    h_kits = {name: h_kit(name) for name in ("Rubble Big", "Rubble Medium", "Rubble Small")}
+
+    def h_layer(ground, name, across, amount, core, edge, seed, last=False):
+        """One size of rock, dropped onto the floor and the layers before it (`ground`). Spots a rock's width
+        apart (Poisson), thinning from the pile's core to its edge; each rock falls straight down onto what is
+        below, is left out if that is too steep to rest on (over 40 degrees, a rock's side) or if it would
+        stand in a bigger rock or the wall, and is tipped to what it landed on and sunk a little into
+        it. -> (the rocks, the ground with them added)"""
+        proxies, lo, hi, count = h_kits[name]
+        gap = t.math('MULTIPLY', h_grain, across * 0.92)
+        fall = t.math('SUBTRACT', 1.0, t.smooth(h_d, core, edge))
+        if name == "Rubble Big":  # the biggest blocks roll furthest: they lie round the pile's toe, none in its middle (ref 9, talus sorting)
+            fall = t.math('MULTIPLY', fall, t.smooth(h_d, 0.35, 0.6))
+        pts = t.N.new('GeometryNodeDistributePointsOnFaces')
+        pts.distribute_method = 'POISSON'
+        t._set(pts.inputs["Mesh"], rock_space)
+        t._set(pts.inputs["Selection"], t.math('MULTIPLY', t.math('MULTIPLY', h_floor, jointed), t.math('MULTIPLY', t.math('LESS_THAN', h_d, edge), t.math('GREATER_THAN', h_reach, 0.0))))
+        t._set(pts.inputs["Distance Min"], gap)
+        t._set(pts.inputs["Density Max"], t.math('DIVIDE', 2.5, t.math('MULTIPLY', gap, gap)))
+        # Thinned by the footprint's area (0.5625 = the tightest footprint, squared), so every Spread has the same rock.
+        t._set(pts.inputs["Density Factor"], t.math('MULTIPLY', fall, t.math('DIVIDE', amount * 0.5625, t.math('MULTIPLY', h_strewn, h_strewn))))
+        t._set(pts.inputs["Seed"], t.math('ADD', gin["Seed"], seed))
+        # Each rock's own numbers, kept from the start (rocks left out later must not change the others).
+        pick_k = t.math('FLOORED_MODULO', t.node('FunctionNodeFloatToInt', Float=rand(0.0, 9999.0, seed + 1)).outputs[0], count)
+
+        def bound(value):
+            n = t.N.new('GeometryNodeSampleIndex')
+            n.data_type, n.domain = 'FLOAT_VECTOR', 'INSTANCE'
+            t._set(n.inputs["Geometry"], proxies)
+            t._set(n.inputs["Value"], value)
+            t._set(n.inputs["Index"], pick_k)
+            return t.xyz(n.outputs[0])
+        b_lo, b_hi = bound(lo), bound(hi)
+        half = t.math('MULTIPLY', t.math('MULTIPLY', h_size, across * 0.5), rand(0.8, 1.15, seed + 2))  # the rock's half width, whatever its mesh
+        k_across = t.math('MAXIMUM', t.math('MAXIMUM', t.math('ABSOLUTE', b_lo["X"]), b_hi["X"]), t.math('MAXIMUM', t.math('ABSOLUTE', b_lo["Y"]), b_hi["Y"]))
+        scale = t.math('DIVIDE', half, t.math('MAXIMUM', k_across, 1e-3))
+        born = t.store(pts.outputs["Points"], "h_p0", t.position(), 'FLOAT_VECTOR')
+        born = t.store(t.store(t.store(born, "h_k", pick_k, 'INT'), "h_scale", scale), "h_half", half)
+        born = t.store(t.store(born, "h_low", t.math('MULTIPLY', b_lo["Z"], scale)), "h_tall", t.math('MULTIPLY', t.math('SUBTRACT', b_hi["Z"], b_lo["Z"]), scale))
+        born = t.store(born, "h_turn", t.vec(t.math('MULTIPLY', rand(-0.3, 0.3, seed + 3), gin["Tilt"]), t.math('MULTIPLY', rand(-0.3, 0.3, seed + 4), gin["Tilt"]), rand(0.0, 6.2832, seed + 5)), 'FLOAT_VECTOR')
+        p0, tall, low = t.named("h_p0", 'FLOAT_VECTOR'), t.named("h_tall"), t.named("h_low")
+        # The drop: from as far up as the roof allows, straight down onto the floor or a rock.
+        roof = t.node('GeometryNodeRaycast', Target_Geometry=rock_space, Source_Position=t.vmath('ADD', p0, (0.0, 0.0, 0.02)), Ray_Direction=(0.0, 0.0, 1.0), Ray_Length=h_drop)
+        room = t.math('ADD', t.math('MULTIPLY', roof.outputs["Is Hit"], roof.outputs["Hit Distance"]), t.math('MULTIPLY', t.math('SUBTRACT', 1.0, roof.outputs["Is Hit"]), h_drop))
+        up_by = t.math('MULTIPLY', room, 0.9)
+        land = t.N.new('GeometryNodeRaycast')
+        land.data_type = 'FLOAT_VECTOR'  # before the links: changing it swaps the sockets
+        for key, value in (("Target Geometry", ground), ("Attribute", t.named("h_anchor", 'FLOAT_VECTOR')), ("Source Position", t.vmath('ADD', p0, t.vec(0.0, 0.0, up_by))),
+                           ("Ray Direction", (0.0, 0.0, -1.0)), ("Ray Length", t.math('ADD', up_by, 0.5))):
+            t._set(land.inputs[key], value)
+        rests = t.math('MULTIPLY', t.math('MULTIPLY', land.outputs["Is Hit"], t.math('GREATER_THAN', t.xyz(land.outputs["Hit Normal"])["Z"], 0.766)),
+                       t.math('GREATER_THAN', room, t.math('MULTIPLY', tall, 1.1)))
+        # A pile is wider than tall (refs 1, 3: low mounds; a talus slope stands at 35 degrees at most): a rock may
+        # land no higher over the floor than a 22 degree cone from the pile's edge. Without it the middle stacked up
+        # block on block, like a cairn (Mike's checkpoint 1-2 board).
+        rests = t.math('MULTIPLY', rests, t.math('LESS_THAN', t.math('SUBTRACT', t.xyz(land.outputs["Hit Position"])["Z"], t.xyz(p0)["Z"]),
+                                                 t.math('ADD', t.math('MULTIPLY', t.math('MULTIPLY', h_reach, 0.4), t.math('MAXIMUM', t.math('SUBTRACT', 1.0, h_d), 0.0)), 0.05)))
+        born = t.store(t.store(t.store(born, "h_hit", land.outputs["Hit Position"], 'FLOAT_VECTOR'), "h_n", land.outputs["Hit Normal"], 'FLOAT_VECTOR'), "h_rests", rests)
+        born = t.store(born, "h_anchor", land.outputs["Attribute"], 'FLOAT_VECTOR')
+        # Tipped most of the way to what it landed on, sunk 18% of its height into it (touching, never hanging).
+        lean = t.vmath('NORMALIZE', t.vmath('ADD', t.vmath('SCALE', t.named("h_n", 'FLOAT_VECTOR'), scale=0.85), (0.0, 0.0, 0.15)))
+        sink = t.math('MULTIPLY', tall, 0.18)
+        seat = t.vmath('ADD', t.named("h_hit", 'FLOAT_VECTOR'), t.vmath('SCALE', lean, scale=t.math('SUBTRACT', t.math('MULTIPLY', low, -1.0), sink)))
+        middle = t.vmath('ADD', t.named("h_hit", 'FLOAT_VECTOR'), t.vmath('SCALE', lean, scale=t.math('SUBTRACT', t.math('MULTIPLY', tall, 0.5), sink)))
+        # Nothing may stand within 0.45 of its half width of its middle: six level rays (per-size spacing against
+        # the layers before, and the wall).
+        pokes = None
+        for i in range(6):
+            ray = t.node('GeometryNodeRaycast', Target_Geometry=ground, Source_Position=middle, Ray_Direction=(math.cos(i * math.pi / 3.0), math.sin(i * math.pi / 3.0), 0.0),
+                         Ray_Length=t.math('MULTIPLY', t.named("h_half"), 0.45))
+            pokes = ray.outputs["Is Hit"] if pokes is None else t.math('MAXIMUM', pokes, ray.outputs["Is Hit"])
+        # And it must rest on something across its width, not on one spot: four more spots under it, 0.35 of its
+        # half width out, must lie within 0.3 of that half width of where it landed (a 40 degree slope's worth).
+        # Rocks that landed on a block's bevelled edge hung off its side, 1-2 m over the floor (T35, 38 of 1,850).
+        for dx, dy in ((0.35, 0.35), (-0.35, 0.35), (-0.35, -0.35), (0.35, -0.35)):
+            ray = t.node('GeometryNodeRaycast', Target_Geometry=ground,
+                         Source_Position=t.vmath('ADD', t.named("h_hit", 'FLOAT_VECTOR'), t.vmath('SCALE', (dx, dy, 0.3), scale=t.named("h_half"))),
+                         Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('MULTIPLY', t.named("h_half"), 0.6))
+            pokes = t.math('MAXIMUM', pokes, t.math('SUBTRACT', 1.0, ray.outputs["Is Hit"]))
+        turn = t.N.new('FunctionNodeAlignRotationToVector')
+        turn.axis = 'Z'
+        t._set(turn.inputs["Rotation"], t.node('FunctionNodeEulerToRotation', Euler=t.named("h_turn", 'FLOAT_VECTOR')).outputs[0])
+        t._set(turn.inputs["Vector"], lean)
+        kept = t.store(t.store(born, "h_rot", turn.outputs[0], 'QUATERNION'), "h_rests", t.math('MULTIPLY', t.named("h_rests"), t.math('SUBTRACT', 1.0, pokes)))
+        kept = t.node('GeometryNodeSetPosition', Geometry=kept, Position=seat).outputs[0]
+        kept = t.node('GeometryNodeDeleteGeometry', Geometry=kept, Selection=t.math('LESS_THAN', t.named("h_rests"), 0.5)).outputs[0]
+
+        def place(rocks_in):
+            return t.node('GeometryNodeInstanceOnPoints', Points=kept, Instance=rocks_in, Pick_Instance=True, Instance_Index=t.named("h_k", 'INT'),
+                          Rotation=t.named("h_rot", 'QUATERNION'), Scale=t.named("h_scale")).outputs[0]
+        if last:
+            return place(library(name)), ground
+        more = t.node('GeometryNodeJoinGeometry')
+        t.L.new(ground, more.inputs[0])
+        t.L.new(t.node('GeometryNodeRealizeInstances', Geometry=place(proxies)).outputs[0], more.inputs[0])
+        return place(library(name)), more.outputs[0]
+
+    # Big, then medium, then small (Mike, D204): (kit, size against the old block, how much of its ground it
+    # covers, the pile's core and edge against its footprint). The big blocks lie round the pile's toe, the medium
+    # ones make its body, the small stuff runs on past its edge and feathers out across the floor (refs 1, 3: a
+    # pile's edge is strewn chips).
+    h_rocks = t.node('GeometryNodeJoinGeometry')
+    h_layers = (("Rubble Big", 2.2, 0.8, 0.8, 1.05), ("Rubble Medium", 1.25, 1.0, 0.4, 0.9), ("Rubble Medium", 0.75, 1.0, 0.5, 1.0),
+                ("Rubble Small", 0.45, 1.0, 0.55, 1.15), ("Rubble Small", 0.27, 0.9, 0.6, 1.4))
+    for i, (name, across, amount, core, edge) in enumerate(h_layers):
+        placed, h_ground = h_layer(h_ground, name, across, amount, core, edge, 520 + i * 10, last=i == len(h_layers) - 1)
+        t.L.new(placed, h_rocks.inputs[0])
+    # Onto the finished floor: each rock moves up or down by as much as the finished floor under the foot of its
+    # stack differs from the Preview-grid floor (smoothing and wall detail move it a little; D116's floaters).
+    # By its stack's foot, not its own spot: the two floors differ by a different amount a metre on, so moved
+    # one by one a stack came apart and its upper rocks hung 1-2 m in the air (T35, 53 of 1,850).
+    h_lift = t.math('MAXIMUM', t.math('MULTIPLY', H, 0.3), 1.0)  # where the passage runs down into a chamber the two floors differ by metres
+    h_fin = t.node('GeometryNodeRaycast', Target_Geometry=smooth, Source_Position=t.vmath('ADD', t.named("h_anchor", 'FLOAT_VECTOR'), t.vec(0.0, 0.0, h_lift)),
+                   Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', h_lift, 2.0), t.math('MULTIPLY', gin["Chamber Drop"], 2.0)))
+    h_final = t.node('GeometryNodeSetPosition', Geometry=h_rocks.outputs[0], Selection=h_fin.outputs["Is Hit"],
+                     Offset=t.vec(0.0, 0.0, t.math('SUBTRACT', t.xyz(h_fin.outputs["Hit Position"])["Z"], t.xyz(t.named("h_anchor", 'FLOAT_VECTOR'))["Z"]))).outputs[0]
+    t.L.new(on_floor(h_final), with_rocks.inputs[0])
 
     # Formations (5.4, D168-D171; rules L1-L5 on docs/m5/c128_formation_refs.png). What grows follows the rock:
     # limestone grows stalactites, stalagmites under them and columns where a pair meets; lava and jointed rock

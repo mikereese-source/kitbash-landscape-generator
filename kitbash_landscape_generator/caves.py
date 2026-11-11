@@ -63,6 +63,8 @@ def sync_cave(ob):
     for use, kit in (("Rubble", ob.lg_cave.rubble_rocks or rocks.family("Blocks")), ("Scree", ob.lg_cave.scree_rocks or rocks.family("Scree"))):
         for (size, *_), coll in zip(rocks.SIZES, rocks.sizes(kit)):
             nodes.input_socket(mod, f"{use} {size}").value = rocks.at_level(coll, ob.lg_cave.detail.title())
+            if use == "Rubble":  # the jointed heaps are stacked on the Preview rocks at every Detail Level (LG-061)
+                nodes.input_socket(mod, f"{use} {size} Proxy").value = rocks.at_level(coll, "Preview")
     # Stalactites, stalagmites, columns and lava drips (5.4): the formation library's kits; the cave's Rock picks
     # which of them grow (D168). Any collection can be put on the modifier's inputs instead.
     for fam, prop in FORMATION_KITS.items():

@@ -10,23 +10,7 @@ It runs in three checkpoints, with Mike's review after each. Send one checkpoint
 
 You are building the M7 material spike on the Mountains landscape type in the KitBash Landscape Generator. It's a Blender 5.2 Geometry Nodes add-on built from Python. This is the look that sells the whole tool: a Mountains landscape that looks finished, like a real photo, at a shot distance and up close. Say at the top of your report which model and version you are.
 
-**Where:** the git worktree `E:\Projects\Cowork\apps\lg-m7-spike`, branch `lg-m7-spike`. Never edit the main checkout or Mike's open Blender.
-
-**Blender:** only through `bash tests/blender.sh <args>`: a shared lock, one Blender at a time. Render one shot per process. Renders for review: Cycles and Eevee, with a proper HDRI sky.
-
-**Read first:**
-- `docs/CODING.md`
-- `docs/tickets/README.md`
-- `docs/tickets/LG-027-m7-mountains-layers.md`, `LG-028-m7-material-controls.md`, `LG-029-fog-atmosphere.md`
-- `docs/RESEARCH-materials.md`, all of it: conclusions, competitor teardown, quality bar, the build plan in 4.1-4.6, and the risks
-- `docs/MATERIALS-needs.md`
-- the reference boards `docs/m7/c154-c167`
-- decisions D74, D75 (masks stay raw 0-1; the dials live in the material) and D194 (finished look first; the spike uses Poly Haven CC0 plus procedural; the final version uses KitBash 3D materials only)
-- PARKING.md rows "Climate switch" and "Fog and atmosphere"
-
-**Textures:** Poly Haven CC0 sets, already downloaded, in `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\` (`textures/`, `models/`, `manifest.json`). Use 4K at most (2K where that's the target). Don't download anything new without Mike's OK.
-
-**Lighting (Mike, 2026-11-11):** default lighting is a neutral sky HDRI, Poly Haven `kloofendal_48d_partly_cloudy_puresky` (CC0, 4K), already downloaded to `E:\ProjectsD\Terrain Generator_Build\Materials\polyhaven\hdris\`. Add an HDRI slot to the panel: a file picker that swaps the sky, plus strength and rotation. The default is used when the slot is empty. Set it up as the World only when the artist asks: a "Use Landscape Lighting" button. Never replace an artist's World silently. All review boards use it.
+**Where:** the git worktree `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\hdris\`. Add an HDRI slot to the panel: a file picker that swaps the sky, plus strength and rotation. The default is used when the slot is empty. Set it up as the World only when the artist asks: a "Use Landscape Lighting" button. Never replace an artist's World silently. All review boards use it.
 
 **The masks you drive the look from:** `lg_height`, `lg_slope`, `lg_curvature`, `lg_flow`, `lg_wear`, `lg_deposit`, `lg_depth`, plus `lg_water`. They're on every landscape (test T9). Box or triplanar mapping, since landscapes have no UVs.
 

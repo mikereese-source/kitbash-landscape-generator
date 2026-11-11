@@ -1,6 +1,6 @@
 # LG-061 Rethink the rubble heaps and rubble scatter
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: M-L | Priority: P1
-Status: ready | Lane: main | Needs Blender: yes | Mike review: yes
+Status: in progress | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -43,3 +43,5 @@ Also read docs/tickets/README.md (rules every ticket follows).
   - Board docs/m5/c178_rubble_layered.png: before (206) and after (210) at Preview and High, and a pile close-up
   - Not sure about: (1) the middle Spread packs each size at two thirds of its tightest, so piles are a little looser than the WIP board; (2) the big blocks stand clear of the pile's middle, which can read as a ring on a small pile; (3) rocks lean to the Preview-grid floor, not the finished floor, so a few sit a little tipped on flat ground; (4) the no-floating check measures under a rock's middle only
   - Left for checkpoint 3: Limestone and Lava foot rubble and the ramp scree onto the same scatter; Stretch is still not wired into the heaps. Checkpoint 4: the board against the reference photos for all three rocks
+- 2026-11-11 cp1-2 merged into main (CAVE_VERSION 210, suite 35/35, board c178). Review logged; carried to cp3/4: several floor samples under big rocks, T35 edge + Ultra checks, Scree proxies, tidy h_layer, Tilt kept unless Mike says otherwise. Look note: small rocks read as rounded pills, sparse; check against gravel references in cp4
+- 2026-11-11 lessons (Fable 5.2): counted and sorted all 53 failures by cause before fixing; placement on Preview stand-ins so every level matches at no cost; rules from real rockfall (power law, toe sorting, cone cap); timings against main in the same run; clean WIP handoffs. Weak: middle-only test, small scope creep (Tilt), long function with magic numbers. Four rules added to CODING.md (770f70b)

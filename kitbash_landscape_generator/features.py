@@ -1958,7 +1958,6 @@ def cave_group():
 
     h_reach = h_pile("h_rad")
     h_d = t.math('DIVIDE', t.vmath('DISTANCE', t.position(), h_pile("h_mid", 'FLOAT_VECTOR')), t.math('MAXIMUM', h_reach, 1e-3))  # 0 the pile's middle, 1 its edge
-    h_in_foot = h_pile("h_foot")
 
     # The ground the rocks drop onto: the cave's space, its faces turned to look up like a rock's top.
     # Every face of it knows where its stack stands on the floor ("h_anchor"): the floor its own spot, a rock

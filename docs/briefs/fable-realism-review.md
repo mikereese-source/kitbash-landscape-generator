@@ -1,52 +1,52 @@
-# Fable brief: realism review and research (analysis only)
+# Fable brief: realism review of the landscape models (analysis only)
 
-Ready-to-send prompt for a `model: "fable"` subagent (written 2026-11-11, Mike's job). Check `get_usage` first.
+Ready-to-send prompt for a `model: "fable"` subagent (written 2026-11-11, Mike's job; scope narrowed to the models the same day, D208). Check `get_usage` first.
 
 ---
 
-You are running a review and research session on the realism gaps in the KitBash Landscape Generator. It's a Blender 5.2 Geometry Nodes add-on built from Python, with a three.js / WebGPU version for Cargo to follow. **This is analysis only: make no fixes.** Mike wants your view on the way forward before material checkpoint 2, which is on hold. Say at the top of your report which model and version you are.
+You are running a review and research session on the realism gaps in the **landscape models** (the shapes) of the KitBash Landscape Generator. It's a Blender 5.2 Geometry Nodes add-on built from Python, with a three.js / WebGPU version for Cargo to follow. **This is analysis only: make no fixes.** Say at the top of your report which model and version you are.
 
-**Why:** reviewers found realism gaps in the material spike's checkpoint 1 board (`docs/m7/c183_spike_layers.png`), and Mike agrees with them.
+**Why:** the material spike on Mountains (`docs/m7/c183_spike_layers.png`) showed that once materials are on, the shapes fall apart. The Mountains are rounded domes where the rock faces should be crags. Mike wants the models closed up first, across every landscape type, before any more material work. Materials get re-evaluated once the models are better (D208). Material checkpoint 2 is on hold.
 
-**Where:** read anywhere in the repo. The spike branch is the worktree `E:\Projects\Cowork\apps\lg-m7-spike`, branch `lg-m7-spike`. Write only your outputs there:
+**Scope:**
+- All 13 landscape types and their styles: Hills, Mountains, Dunes, Seabed, Cliffs, Canyon, Mesa, Badlands, Volcanic, Volcano, Glacial, Riverbed and Craters. Caves are out of scope.
+- Shapes only. Leave texturing, grass, texture-read cost and shaders out; they come later.
+- Judge the shapes in clay under good light, which shows form honestly: the neutral sky HDRI `E:\Projects\3D\Terrain Generator_Build\Materials\polyhaven\hdris\kloofendal_48d_partly_cloudy_puresky_4k.hdr`, a low sun, and cavity or curvature shading.
+- The Mountains spike board is evidence of what textures expose. You may use a slope or curvature view as a probe, but build no materials.
+
+**Where:** read anywhere in the repo. Work in the worktree `E:\Projects\Cowork\apps\lg-m7-spike`, branch `lg-m7-spike`, writing only:
 - `docs/REVIEW-realism-2026-11.md`
-- boards in `docs/m7/` named `c186_realism_*.png`
+- boards in `docs/m2/` (or `docs/realism/`) named `c186_realism_<types>.png`
 
-Commit on that branch. Renders and measurements are fine, through `bash tests/blender.sh` (a shared lock, one Blender at a time, one shot per process). Don't change add-on code.
-
-**Scope: every landscape type, not just Mountains (Mike, 2026-11-11). Caves are out of scope.** The materials made it plain: once they're on, the shapes fall apart. So the main job is a holistic analysis of the models (the shapes) across all 13 types: Hills, Mountains, Dunes, Seabed, Cliffs, Canyon, Mesa, Badlands, Volcanic, Volcano, Glacial, Riverbed and Craters, plus their styles.
-- For each type, render it with the spike's material on (the Mountains-tuned material as it is; it's a probe, not the final look) at a wide and a mid shot. Put it beside that type's own references. One board per few types, `c186_realism_<types>.png`.
-- Per type, say where the shape gives itself away once it's textured: rounded or blobby forms, missing crags and cliff bands, wrong scale of detail, smooth or noisy surfaces, missing drainage, repeated or stretched patterns, flat masks. Measure where you can: slope histograms, the T6 / T6b numbers, mask ranges.
-- Look for causes common to every type (the noise base, the detail cutoff, the erosion model, the mask normalisation, the Preview/High detail) and causes per type. Most of the lift should come from fixing shared causes once.
-- The four gaps below are the ones seen on Mountains; check each on every type (for example, flat erosion masks on all of them?).
+Commit on that branch. Renders and measurements go through `bash tests/blender.sh` (a shared lock, one Blender at a time, one shot per process). Don't change add-on code.
 
 **Compare against what we already have:**
-- the reference boards `docs/m7/c154-c167`, `docs/m5/`, and the type references in `Terrain References` (`E:\Projects\3D\Terrain Generator_Build\Terrain References\`, with sources.json)
-- the realism work so far: `docs/REALISM.md`, `PASS1-8.md`, `PHOTO_REVIEW.md`, the T6 / T6b checks against real elevation data (`tests/realism.py`, `lidar_check.py`), decisions D52-D73
-- `docs/RESEARCH-materials.md`, `RESEARCH-engines.md`, `RESEARCH-features.md`, `RESEARCH-positioning.md`
+- each type's references in `E:\Projects\3D\Terrain Generator_Build\Terrain References\` (with sources.json), and the photo boards in `docs/`
+- the realism work so far: `docs/REALISM.md`, `PASS1-8.md`, `PHOTO_REVIEW.md`, `TYPE_SHEET.md`, the T6 / T6b / T6m checks against real elevation data (`tests/realism.py`, `lidar_check.py`, `moon_check.py`, `realism_report.json`, `lidar_report.json`), the waivers at the M2 gate (D57, D73), and decisions D52-D73
+- `docs/RESEARCH-features.md` and `RESEARCH-positioning.md` (competitors), `RESEARCH-engines.md` (three.js)
 
-**Cover each of these gaps, each with a finding (measured where you can) and a way to close it:**
-1. **Close up, the grass is taller than in the reference.** Scale and texel density against c159 E and the close-camera target (256-1024 px/m).
-2. **The mountains are rounded domes; the rock faces should be crags.** This is about the Mountains shape, not the material. Find why in `types.json`, the recipe, `nodes.py` and `erosion.py`. Compare against the Mountains references and the lidar checks. What makes real alpine faces craggy (jointed bedrock, frost shattering, cliff bands, talus, plus erosion with hardness) and how competitors get it (Gaea's Rugged / Stratify / Erosion2, World Machine's Thermal plus hardness, World Creator).
-3. **The erosion masks barely vary on Mountains:** deposit is 1.0 on 95% of it and wear is 0 on 98%. Find the cause in `erosion.py` (normalisation? thresholds? the sediment model?) and say whether and how it can be fixed.
-4. **Texture cost:** one material without normal or roughness maps, yet rock alone takes 18 texture reads, which is heavy for three.js. Answer what to do: fewer triplanar reads (biplanar, stochastic or hash tiling), packed textures (height, roughness and AO in one map), texture arrays, a baked macro colour and normal map for the far range, detail only up close, virtual texturing, and how the per-layer cost adds up.
-5. **Research how others reach this level of realism in three.js / WebGPU:** WebGPU terrain demos, three.js TSL terrain shaders, published techniques (Unity and Unreal landscape layer blends, The Witcher 3 and Horizon terrain talks, Far Cry procedural terrain), and browser products. Say what we would need: textures and resolution, shader structure, a read budget per pixel, LOD and geometry (tessellation or displacement, clipmaps), lighting (an HDRI plus a sun, AO, shadows), atmosphere and post (tonemapping, fog, colour grading).
-
-**Mike's decision:** materials are on by default, as in the panel plan. Record that in your recommendations; the change itself happens with the fixes.
-
-**Deliverable: `docs/REVIEW-realism-2026-11.md`:**
-- a summary up front;
-- one section per gap: finding, evidence, how to close it, size (S / M / L) and risk;
-- the texture-cost answer, with a read budget;
-- the three.js / WebGPU research with sources;
-- a per-type table (type, what falls apart, cause, shared or own, fix, size); the size of the lift to get close to Gaea, World Machine and World Creator, split into shape, erosion, materials, lighting and atmosphere, and three.js;
-- your view on the best next steps, and whether to go to checkpoint 2 now, after some fixes, or in a changed form.
-
-Boards (side-by-side with references) where they make a point. Plain short sentences.
+**What to find:**
+1. **Per type:** where the shape gives itself away. Rounded or blobby forms, missing crags, cliff bands and joints, the wrong scale of detail (too smooth close up, too noisy far off), missing or weak drainage, stretched or repeated patterns, uniform slopes, no talus or aprons where there should be. Wide and mid shots, each beside the type's references. Measure where you can: slope histograms, the T6 / T6b numbers, roughness by scale, hypsometric curves.
+2. **Mountains in depth:** why they come out as domes and not crags. Look in `types.json`, the recipe, `nodes.py` and `erosion.py`. Find what makes real alpine faces craggy: jointed bedrock, frost shattering, cliff bands, talus, erosion that respects rock hardness. Find how Gaea (Rugged, Stratify, Erosion 2), World Machine (Thermal plus hardness) and World Creator get it.
+3. **Erosion masks:** on Mountains, deposit is 1.0 on 95% of the surface and wear is 0 on 98%. Check every type. Find the cause in `erosion.py` (scaling, thresholds, the sediment model) and how to fix it. The masks drive the materials later, so they must vary.
+4. **Shared causes:** what's common to every type (the noise base, the detail cutoff at Preview and High, the erosion model, mask scaling, resolution). Fixing those once should give most of the lift. Separate them from per-type causes.
+5. **three.js and WebGPU, geometry only:** how others generate and erode realistic terrain in the browser (WebGPU compute erosion, GPU noise, clipmaps and LOD, detail by displacement). What our shape fixes would need there, so whatever we pick for Blender also ports.
 
 **Rules:**
-- Follow `docs/CODING.md`'s "Finding and fixing problems": count and measure, and prove causes by switching them off in a scratch copy, not in the add-on.
+- Follow `docs/CODING.md`'s "Finding and fixing problems": count and measure, and prove causes by switching them off in a scratch copy, never in the add-on.
 - Don't download anything new without Mike's OK.
 - Commit at clean points. Messages end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
-**Report (under 400 words):** model, commits, the top findings per gap, the size of the lift, your recommended next steps, and your view on checkpoint 2.
+**Deliverable, `docs/REVIEW-realism-2026-11.md`:**
+- a summary up front;
+- a per-type table: type, what falls apart, cause, shared or own, fix, size (S / M / L), risk;
+- the Mountains deep dive;
+- the erosion mask finding and fix;
+- the shared causes and their fixes, in the order that gives the most lift first;
+- the three.js geometry notes, with sources;
+- the size of the lift to get the models close to Gaea, World Machine and World Creator;
+- your view on the best next steps for the models, and when to come back to materials (checkpoint 2 as is, changed, or after which model fixes).
+
+Boards side by side with the references.
+
+**Report (under 400 words):** model, commits, the top findings, the biggest shared causes, the size of the lift, the recommended next steps, and your view on when to return to materials.

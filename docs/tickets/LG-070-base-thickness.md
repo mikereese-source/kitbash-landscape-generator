@@ -30,3 +30,5 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 a5273aa code-review fixes: T34 order-free, bake + water checks, why-comments, Base Depth max; lane side
 - 2026-11-09 code review done (logged in TICKETS.md), fixes a5273aa; tests found the bottom points off level, snapped flat (1db679d, GROUP_VERSION 144); merged into main (1d3f8c0); full suite 31/31; board docs/m5/c175_base_thickness.png. Waiting on Mike's review
 - 2026-11-11 Mike signed off -> done
+- 2026-11-11 Mike: make Base on by default. Uncommitted in the main checkout: __init__.py base default=True; run_tests.py add() turns base off for grid tests, T34 checks the default. Full suite not yet run (paused); run it, then commit
+- 2026-11-12 full suite 35/35 with Base on by default; committed

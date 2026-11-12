@@ -576,13 +576,16 @@ def erosion_masks(before, after):
         np.add.at(area, r[ok], area[lv][ok])
     a_rel = (area / (n * m * dx * dx)).reshape(n, m)
     flow = np.clip(np.log10(np.maximum(a_rel, 1e-12) * n * m) / np.log10(n * m), 0.0, 1.0)  # one cell 0, all 1
-    # The even uplift and the stretch to full relief lift every cell, so after - before read as deposit almost
-    # everywhere (Mountains 89%). Take out pit filling and the broad lift (LG-075, realism review 2026-11).
+    return flow, change_mask(before, after)
+
+
+def change_mask(before, after):
+    """0.5 untouched, toward 0 where erosion cut, toward 1 where it filled, at the ends for the strongest 3%."""
     dz = after - fill(before)
-    dz = dz - blur(dz, max(int(round(0.05 * max(n, m))), 1))
+    # The uplift and the stretch lift every cell: without this, deposit was 1 on 89% of Mountains (LG-075).
+    dz = dz - blur(dz, max(int(round(0.05 * max(dz.shape))), 1))
     k = max(float(np.percentile(np.abs(dz), 97)), 0.005 * float(np.ptp(after)), 1e-12)  # floor: no noise blown up to full range
-    change = np.clip(0.5 + 0.5 * dz / k, 0.0, 1.0)
-    return flow, change
+    return np.clip(0.5 + 0.5 * dz / k, 0.0, 1.0)
 
 
 if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, loses its pits

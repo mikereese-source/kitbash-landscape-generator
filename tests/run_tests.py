@@ -393,7 +393,7 @@ def masks_of(ob):
     return out
 
 
-@test("T9", "Masks exist and are 0-1")
+@test("T9", "Masks exist and are 0-1; wear and deposit vary")
 def _t9():
     eroded = 0
     for key, rec in lg.TYPES.items():
@@ -409,6 +409,12 @@ def _t9():
             eroded += 1
             check(m["lg_flow"].max() > 0.5, f"{key}: no channels in the flow mask")
             check(m["lg_wear"].max() > 0.05 or m["lg_deposit"].max() > 0.05, f"{key}: erosion left no wear or deposit")
+            mid = np.zeros(len(m["lg_wear"]), bool)
+            for n in ("lg_wear", "lg_deposit"):  # the masks measured the uplift: deposit 1 on 89% of Mountains (LG-075)
+                full = float((m[n] > 0.99).mean())
+                check(full < 0.2, f"{key}: {n} at 1 on {full:.0%} of the surface, want under 20%")
+                mid |= (m[n] > 0.1) & (m[n] < 0.9)
+            check(mid.mean() > 0.1, f"{key}: wear or deposit in 0.1-0.9 on {mid.mean():.0%} of the surface, want over 10%")
     fresh_scene()
     ob = add("mountains")
     m = masks_of(ob)

@@ -465,9 +465,10 @@ def _sample_shape(ob, grid):
 
 def _compute_erosion(h, hard, settings, pad):
     """Pure numpy: safe on a worker thread."""
-    z, (flow, change) = erosion.erode(h, settings, hard, masks=True)
+    z, (flow, _change) = erosion.erode(h, settings, hard, masks=True)
     crop = (slice(pad, -pad), slice(pad, -pad))
-    return z[crop], flow[crop], change[crop]
+    # Wear and deposit from the visible part only: the padding's lift skewed the scale and the edge band (LG-075 review).
+    return z[crop], flow[crop], erosion.change_mask(h[crop], z[crop])
 
 
 def _apply_erosion(ob, eroded, key, seconds):

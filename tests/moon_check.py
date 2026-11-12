@@ -214,6 +214,7 @@ def ours(set_props, width_m=2048 * STEP):
     ob = bpy.context.view_layer.objects.active
     ob.lg.size_x = ob.lg.size_y = width_m
     ob.lg.water = False  # terrain only: the water sheet's points aren't on the grid
+    ob.lg.base = False  # nor the base's sides and bottom (on by default since 2026-11-12)
     ob.lg.final = True
     for k, v in set_props.items():
         setattr(ob.lg, k, v)

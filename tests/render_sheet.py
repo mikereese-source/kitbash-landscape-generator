@@ -38,6 +38,7 @@ for shot in shots:
     bpy.ops.landscape.add()
     ob = bpy.context.view_layer.objects.active
     ob.lg.detail = shot.get("detail", "FINAL")
+    ob.lg.base = False  # shots as before Base went on by default; a shot can set it
     for k, v in shot.get("set", {}).items():
         setattr(ob.lg, k, v)
     for k, v in shot.get("nodes", {}).items():  # raw node inputs, e.g. {"Rock": 0} for a before/after

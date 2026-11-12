@@ -7,6 +7,7 @@ Depends on: LG-076 | Blocks: LG-082
 Nothing exists between the 16 m shape floor and the 1 m grain, so rock faces read as pillows. A scratch breakup lifted Mountains from 2.9% to 8.6% over 60 deg and smoothness from 0.99 to 0.89 (real 0.89) (review S4). This is secondary volume (5-60 m), so it belongs in the mesh, not the material (D157, D163).
 
 ## Done when
+- Sharp summits and knife-edge crests (Mike, 2026-11-12: 'we need to resolve getting sharp mountain tops... overall sharper, more realistic mountains'): the highest peaks read as horns and aretes, not domes, in the wide and mid clay shots; crest sharpness measured as in the realism review (today 38, real Sierra 1351) and logged
 - Reference board per rock type first (granite blocks, bedded limestone, sandstone) in `docs/realism/`
 - Jointed blocks at three sizes plus strata benches, masked by slope 34-46 deg and rock patches, in `nodes.py` after the erosion blend
 - Per-type inputs: Breakup amount, bed thickness, bed dip, block size; tooltips (T8)
@@ -29,3 +30,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-11 created from the realism review (D209)
+- 2026-11-12 Mike picked incision 1.8 (LG-076) and asked for sharp mountain tops: added to Done when

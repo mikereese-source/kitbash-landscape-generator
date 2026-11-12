@@ -465,9 +465,10 @@ def _sample_shape(ob, grid):
 
 def _compute_erosion(h, hard, settings, pad):
     """Pure numpy: safe on a worker thread."""
-    z, (flow, change) = erosion.erode(h, settings, hard, masks=True)
+    z, (flow, _change) = erosion.erode(h, settings, hard, masks=True)
     crop = (slice(pad, -pad), slice(pad, -pad))
-    return z[crop], flow[crop], change[crop]
+    # Wear and deposit from the visible part only: the padding's lift skewed the scale and the edge band (LG-075 review).
+    return z[crop], flow[crop], erosion.change_mask(h[crop], z[crop])
 
 
 def _apply_erosion(ob, eroded, key, seconds):
@@ -687,7 +688,7 @@ class LG_ObjectProps(PropertyGroup):
     water_level: FloatProperty(name="Water Level", description="How high the water comes: 0 the lowest ground, 1 the highest",
                                default=0.3, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     base: BoolProperty(name="Base", description="Solid sides down to a flat, closed bottom, so the landscape reads as a slab",
-                       default=False, update=_sync)
+                       default=True, update=_sync)  # on for new landscapes (Mike, 2026-11-11)
     # Meters, not a share of the size: like the cave, it stays put when the landscape is resized. 20 m is
     # 10% of the default 200 m landscape, a bit under its default relief.
     base_depth: FloatProperty(name="Base Depth", description="How far the flat bottom sits below the lowest ground",

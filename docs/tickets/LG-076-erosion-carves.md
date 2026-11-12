@@ -1,6 +1,6 @@
 # LG-076 Retune erosion so it carves (Mountains, Glacial, Canyon)
 Type: feature | Milestone: Model realism | Phase: B2 Model realism | Size: S | Priority: P1
-Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
+Status: blocked | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: LG-075 | Blocks: LG-077, LG-079
 
 ## Why
@@ -23,3 +23,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-11 created from the realism review (D209)
+- 2026-11-12 board docs/realism/c187_lg076_incision.png: Mountains, 2 km, High, clay, S1 settings (channel 0.0003, finish_blur 8, cliff_deg 75, talus_deg 35, soften 0.1); columns today | 1.0 | 1.2 | 1.5 | 1.8, rows wide | mid (the highest peak) | top-down. Over 60 deg (real Sierra lidar 11.7%): 3.1 / 11.5 / 13.5 / 15.6 / 17.6%; median slope 34.6 / 36.5 / 37.6 / 39.2 / 40.6 deg. 1.0 added: 1.2 already overshoots at High. Seen: drips hang under the open edges, worse than today; the highest peak stays a dome at every setting (that's LG-077). Blocked on Mike's pick

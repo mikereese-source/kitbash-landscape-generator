@@ -1556,7 +1556,7 @@ def piece_chunks(ob):
         low = min(pts, key=lambda p: p.z)
         air = float("inf")
         top = max(q.z for q in pts)
-        for q in [q for q in pts if q.z <= low.z + 0.25 * (top - low.z)][:400]:
+        for q in [q for q in pts if q.z <= low.z + 0.25 * (top - low.z)]:  # every foot point: a capped sample hung on vertex order
             hit = tree.ray_cast(q - tree.find_nearest(q)[1] * 3.0, (0.0, 0.0, -1.0))
             if hit[0] is not None:
                 air = min(air, max(q.z - hit[0].z, 0.0))
@@ -1587,8 +1587,26 @@ def _t37():
     front = min(ch[3] for ch in chunks if ch[0] > speck)
     check(front < 0.5 * c.width, f"the passage should have its pieces: the nearest stands {front:.0f} m in from the mouth, want under {0.5 * c.width:.0f} m")
     specks = [ch for ch in chunks if ch[0] <= speck and ch[1] > gap]
+    # The same rule on the default Jointed cave, on a bent one (pieces placed by distance along the path, not by Y),
+    # and on the review cave at High (code review of LG-064).
+    others = []
+    for label, sets, detail in (("default", {}, "PREVIEW"), ("bent", dict(wiggle=1.0, turn=0.6, depth=120.0), "PREVIEW"), ("review cave at High", {}, "HIGH")):
+        if label != "review cave at High":
+            fresh_scene()
+            check(bpy.ops.landscape.add_cave() == {'FINISHED'}, "Add Cave did not finish")
+            ob = bpy.context.view_layer.objects.active
+            c = ob.lg_cave
+            c.rock = 'JOINTED'
+            for k, v in sets.items():
+                setattr(c, k, v)
+        c.detail = detail
+        ch2 = piece_chunks(ob)
+        g2, s2 = 0.15 * c.height, 0.02 * c.width * c.height
+        h2 = [ch for ch in ch2 if ch[0] > s2 and ch[1] > g2]
+        check(not h2, f"{label}: no jointed piece should hang, {len(h2)} of {len(ch2)} stop short of the floor, the biggest {max((ch[0] for ch in h2), default=0):.0f} m2")
+        others.append(f"{label} {len(ch2)} pieces")
     return (f"{len(chunks) - len(specks)} pieces show, {sum(ch[0] for ch in chunks):.0f} m2, each standing on rock (at most {gap:.0f} m of air under a foot); "
-            f"the nearest {front:.0f} m in from the mouth; {len(specks)} specks under {speck:.0f} m2 ({sum(ch[0] for ch in specks):.0f} m2) stop short")
+            f"the nearest {front:.0f} m in from the mouth; {len(specks)} specks under {speck:.0f} m2 ({sum(ch[0] for ch in specks):.0f} m2) stop short; none hang on: {', '.join(others)}")
 
 
 print("\n=== KitBash Landscape Generator tests ===")

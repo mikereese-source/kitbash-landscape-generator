@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 212
+CAVE_VERSION = 213
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -601,8 +601,7 @@ def cave_group():
     dirn = t.xyz(t.vmath('NORMALIZE', t.vmath('SUBTRACT', ahead.outputs[0], behind.outputs[0])))
     across = t.vec(dirn["Y"], t.math('MULTIPLY', dirn["X"], -1.0), 0.0)  # flat, at right angles to the path
     path = t.store(t.store(path, "c_across", across, 'FLOAT_VECTOR'), "c_radius", radius)
-    path = t.store(path, "c_y", t.xyz(t.position())["Y"])  # how far in from the mouth (LG-064)
-    # Distance along the path from its start, for the tube coordinates (below).
+    # Distance along the path from its start, for the tube coordinates (below) and how far in a passage piece stands (LG-064).
     run = t.N.new('GeometryNodeAccumulateField')
     run.data_type, run.domain = 'FLOAT', 'POINT'
     t._set(run.inputs["Value"], t.vmath('DISTANCE', t.position(), behind.outputs[0]))
@@ -790,7 +789,7 @@ def cave_group():
     # opens: the nearest a chamber section's dome reaches back toward the mouth (the Depth without a chamber).
     is_jointed = t.math('COMPARE', gin["Rock"], 1.0)
     ch_open = t.node('GeometryNodeAttributeStatistic', Geometry=path,
-                     Attribute=t.math('ADD', t.math('SUBTRACT', t.named("c_y"), t.named("c_radius")), t.math('MULTIPLY', t.math('LESS_THAN', t.named("c_ch"), 0.3), 1e5)))
+                     Attribute=t.math('ADD', t.math('SUBTRACT', t.named("c_len"), t.named("c_radius")), t.math('MULTIPLY', t.math('LESS_THAN', t.named("c_ch"), 0.3), 1e5)))
     ch_open.data_type, ch_open.domain = 'FLOAT', 'POINT'
     pass_end = t.math('MINIMUM', ch_open.outputs["Min"], D)
     # The mouth zone (the lip's own surface, no creases, the thin wall) was sized by the width alone, 0.75 x it back:
@@ -800,9 +799,9 @@ def cave_group():
     # The passage by its real length (LG-064, D205): from where the pieces are cut off at the mouth (a short column's
     # half length before it) to where the chamber opens. By 0.3-0.58 of the path, a short cave with a big chamber
     # had its passage masses out over the chamber's drop, hanging.
-    in_pass = t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_y"), t.math('SUBTRACT', t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', W, 0.2))),
-                     t.math('LESS_THAN', t.named("c_y"), pass_end))
-    jointed_on = t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 1.0), t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
+    in_pass = t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_len"), t.math('SUBTRACT', t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', W, 0.2))),
+                     t.math('LESS_THAN', t.named("c_len"), pass_end))
+    jointed_on = t.math('MULTIPLY', is_jointed, t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
     # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
     # passage stuck out into the bigger space).
     opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.64), t.math('LESS_THAN', t.named("c_s"), 0.8)))
@@ -1046,7 +1045,7 @@ def cave_group():
             t.math('MULTIPLY', cb["X"], t.math('MULTIPLY', cut_wide, 2.0)), cb["Y"],
             t.math('ADD', z_from, t.math('MULTIPLY', t.math('ADD', cb["Z"], 0.5), t.math('ADD', t.math('MULTIPLY', H, 4.0), t.math('MULTIPLY', wall_t, 4.0)))))).outputs[0]
         # Notched, not a smooth curve (review: the rim read as a clean cut; Vranja's is jagged): finer noise,
-        # wandering about a fifth of the width in and out.
+        # wandering about a fifth of the width in and out (Jointed: less, on coarser noise; LG-064).
         n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.5), W, t.math('MULTIPLY', W, 0.5))), t.vec(shift, shift, shift)),
                    Scale=scale, Detail=detail, Roughness=0.6)
         y = t.math('ADD', t.math('MULTIPLY', w, back), t.math('MULTIPLY', w, t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), wander)))
@@ -1697,7 +1696,7 @@ def cave_group():
     pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.05), t.math('MULTIPLY', H, 0.1))),
                                           t.math('SUBTRACT', 1.0, t.named("lg_piece", 'BOOLEAN'))))
     # Never at the mouth (Mike, LG-058: a little water round the lip read as an error): the mouth's floor, out to
-    # where the lip's own surface ends (0.45-0.75 of the width in), and never on the rock body's outside.
+    # where the lip's own surface ends (0.45-0.75 of the mouth zone in), and never on the rock body's outside.
     pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', mouth_w, 1.0)),
                                           t.math('SUBTRACT', 1.0, t.named("lg_outer", 'BOOLEAN'))))
     pool_d = t.math('MULTIPLY', pool, t.math('MULTIPLY', H, 0.02))

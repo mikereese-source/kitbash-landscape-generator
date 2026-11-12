@@ -103,6 +103,22 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-068](tickets/LG-068-lip-extension.md) | Extend the lip outward (all three rocks) | A Cave fixes | M5 | todo | M | P3 | main | yes | features.py; caves.py; run_tests.py | - |
 | [LG-069](tickets/LG-069-lava-roughness-stronger.md) | Lava Roughness: fix 0 and push 1.0 harder | A Cave fixes | M5 | review | S-M | P1 | main | yes | features.py | - |
 
+## Model realism (D209, from docs/REVIEW-realism-2026-11.md)
+
+Models before materials (D208). Order is the review's, most lift first: masks, erosion retune, bedrock breakup, then meters, hard rock, talus, finer grid, per-type pass. The material spike (LG-028, LG-029) waits for LG-083.
+
+| ID | Title | Phase | Milestone | Status | Size | Pri | Lane | Blender | Files | Depends on |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [LG-075](tickets/LG-075-masks-vary.md) | Erosion masks that vary (mask fix A) | B2 Model realism | Realism | ready | S | P1 | side | tests only | erosion.py; run_tests.py | - |
+| [LG-076](tickets/LG-076-erosion-carves.md) | Retune erosion so it carves (Mountains, Glacial, Canyon) | B2 Model realism | Realism | todo | S | P1 | main | yes | types.json; realism.py | LG-075 |
+| [LG-077](tickets/LG-077-bedrock-breakup.md) | Bedrock breakup stage on the finished mesh | B2 Model realism | Realism | todo | M-L | P1 | side | yes | nodes.py; types.json; __init__.py; node_groups.blend; run_tests.py | LG-076 |
+| [LG-078](tickets/LG-078-erosion-in-meters.md) | Erosion in meters, the same at Preview and High | B2 Model realism | Realism | todo | M | P2 | side | tests only | erosion.py; run_tests.py | LG-076 |
+| [LG-079](tickets/LG-079-hard-rock-map.md) | Hard-rock map and bedrock structure for Mountains | B2 Model realism | Realism | todo | M | P2 | side | yes | nodes.py; node_groups.blend; run_tests.py | LG-076, LG-078 |
+| [LG-080](tickets/LG-080-talus.md) | Talus as a landform and the lg_talus mask (plus mask fix B) | B2 Model realism | Realism | todo | M | P2 | side | yes | erosion.py; nodes.py; node_groups.blend; run_tests.py | LG-075, LG-078 |
+| [LG-081](tickets/LG-081-finer-erosion-grid.md) | Finer erosion grid at High and Ultra | B2 Model realism | Realism | todo | M | P3 | side | tests only | erosion.py; __init__.py; run_tests.py | LG-077, LG-078, LG-079, LG-080 |
+| [LG-082](tickets/LG-082-per-type-realism.md) | Per-type realism pass (all 13 types) | B2 Model realism | Realism | todo | L | P2 | main | yes | types.json; nodes.py; run_tests.py | LG-077, LG-079, LG-080 |
+| [LG-083](tickets/LG-083-materials-return.md) | Back to materials: re-shoot checkpoint 1, rework checkpoint 2 | B2 Model realism | Realism | todo | S-M | P1 | main | yes | render_m7.py; fable-M7-spike.md | LG-075, LG-076, LG-077 |
+
 ## Code reviews (D202)
 
 When they run (every one is a Done-when line on its ticket, so a ticket or gate can't close without it):

@@ -54,6 +54,7 @@ def add(kind="mountains", at=(0, 0, 0), keep_water=False):
     ob = bpy.context.view_layer.objects.active
     if not keep_water:
         ob.lg.water = False  # terrain tests read the mesh as a grid; the water sheet's 4 points aren't on it
+    ob.lg.base = False  # same for the base (on by default since 2026-11-11): its side and bottom points aren't on the grid
     return ob
 
 
@@ -1319,7 +1320,7 @@ def _t34():
 
     def key(p):
         return (round(float(p[0]), 3), round(float(p[1]), 3))
-    check(not ob.lg.base, "Base should start off")
+    check(ob.lg.bl_rna.properties["base"].default, "Base should be on by default (Mike, 2026-11-11)")
     co0, flag0, _w, h0, ef0, faces0 = look()
     check(not flag0.any() and min(ef0) == 1, "Base off should leave the open landscape sheet")
     top0 = {key(p): (p[2], hh) for p, hh in zip(co0, h0)}

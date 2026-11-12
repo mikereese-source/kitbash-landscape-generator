@@ -565,7 +565,7 @@ def erode(h, settings=None, hard=None, masks=False):
 def erosion_masks(before, after):
     """(flow, change), both 0..1, for materials and scatter (M3): flow is how much water drains through
     each cell (log of drainage area, 1 on the trunks); change is 0.5 where erosion left the ground alone,
-    toward 0 where it cut (wear) and toward 1 where it filled (deposits), at 1 for a 5% of the relief change."""
+    toward 0 where it cut (wear) and toward 1 where it filled (deposits), at 1 for the strongest 3% of changes."""
     n, m = after.shape
     dx = 1.0 / (max(n, m) - 1)
     rcv, _ = routing(after, dx)
@@ -576,8 +576,12 @@ def erosion_masks(before, after):
         np.add.at(area, r[ok], area[lv][ok])
     a_rel = (area / (n * m * dx * dx)).reshape(n, m)
     flow = np.clip(np.log10(np.maximum(a_rel, 1e-12) * n * m) / np.log10(n * m), 0.0, 1.0)  # one cell 0, all 1
-    span = max(float(np.ptp(after)), 1e-12) * 0.05
-    change = np.clip(0.5 + 0.5 * (after - before) / span, 0.0, 1.0)
+    # The even uplift and the stretch to full relief lift every cell, so after - before read as deposit almost
+    # everywhere (Mountains 89%). Take out pit filling and the broad lift (LG-075, realism review 2026-11).
+    dz = after - fill(before)
+    dz = dz - blur(dz, max(int(round(0.05 * max(n, m))), 1))
+    k = max(float(np.percentile(np.abs(dz), 97)), 0.005 * float(np.ptp(after)), 1e-12)  # floor: no noise blown up to full range
+    change = np.clip(0.5 + 0.5 * dz / k, 0.0, 1.0)
     return flow, change
 
 
@@ -609,6 +613,7 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     z2, (fl, ch) = erode(h, masks=True)
     assert fl.shape == h.shape and 0.0 <= fl.min() and fl.max() <= 1.0 and 0.0 <= ch.min() and ch.max() <= 1.0, "masks out of range"
     assert fl[-2, :].mean() > fl[1, :].mean(), "flow should gather downhill"
+    assert ((ch < 0.01) | (ch > 0.99)).mean() < 0.6, "change mask saturated (LG-075)"
     cap_t = np.zeros((64, 64))
     cap_t[10:40, 10:40] = 1.0  # a wide block
     cap_t[45:47, 5:60] = 1.0   # a 2-cell fin

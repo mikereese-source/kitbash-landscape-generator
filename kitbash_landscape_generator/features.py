@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 213
+CAVE_VERSION = 215
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -601,7 +601,9 @@ def cave_group():
     dirn = t.xyz(t.vmath('NORMALIZE', t.vmath('SUBTRACT', ahead.outputs[0], behind.outputs[0])))
     across = t.vec(dirn["Y"], t.math('MULTIPLY', dirn["X"], -1.0), 0.0)  # flat, at right angles to the path
     path = t.store(t.store(path, "c_across", across, 'FLOAT_VECTOR'), "c_radius", radius)
-    # Distance along the path from its start, for the tube coordinates (below) and how far in a passage piece stands (LG-064).
+    # How far in from the mouth, straight along Y (LG-064). shortcut: a strongly bent passage drifts; T37 checks a bent cave, measure along the path if it ever fails.
+    path = t.store(path, "c_y", t.xyz(t.position())["Y"])
+    # Distance along the path from its start, for the tube coordinates (below).
     run = t.N.new('GeometryNodeAccumulateField')
     run.data_type, run.domain = 'FLOAT', 'POINT'
     t._set(run.inputs["Value"], t.vmath('DISTANCE', t.position(), behind.outputs[0]))
@@ -789,7 +791,7 @@ def cave_group():
     # opens: the nearest a chamber section's dome reaches back toward the mouth (the Depth without a chamber).
     is_jointed = t.math('COMPARE', gin["Rock"], 1.0)
     ch_open = t.node('GeometryNodeAttributeStatistic', Geometry=path,
-                     Attribute=t.math('ADD', t.math('SUBTRACT', t.named("c_len"), t.named("c_radius")), t.math('MULTIPLY', t.math('LESS_THAN', t.named("c_ch"), 0.3), 1e5)))
+                     Attribute=t.math('ADD', t.math('SUBTRACT', t.named("c_y"), t.named("c_radius")), t.math('MULTIPLY', t.math('LESS_THAN', t.named("c_ch"), 0.3), 1e5)))
     ch_open.data_type, ch_open.domain = 'FLOAT', 'POINT'
     pass_end = t.math('MINIMUM', ch_open.outputs["Min"], D)
     # The mouth zone (the lip's own surface, no creases, the thin wall) was sized by the width alone, 0.75 x it back:
@@ -799,8 +801,8 @@ def cave_group():
     # The passage by its real length (LG-064, D205): from where the pieces are cut off at the mouth (a short column's
     # half length before it) to where the chamber opens. By 0.3-0.58 of the path, a short cave with a big chamber
     # had its passage masses out over the chamber's drop, hanging.
-    in_pass = t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_len"), t.math('SUBTRACT', t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', W, 0.2))),
-                     t.math('LESS_THAN', t.named("c_len"), pass_end))
+    in_pass = t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_y"), t.math('SUBTRACT', t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', W, 0.2))),
+                     t.math('LESS_THAN', t.named("c_y"), pass_end))
     jointed_on = t.math('MULTIPLY', is_jointed, t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
     # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
     # passage stuck out into the bigger space).

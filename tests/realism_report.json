@@ -27,11 +27,11 @@
    "rough": 0.0276
   },
   "ours": {
-   "relief": 0.1556,
-   "slope50": 34.6,
-   "slope90": 51.8,
-   "hyps": 0.403,
-   "rough": 0.0258
+   "relief": 0.1571,
+   "slope50": 40.6,
+   "slope90": 66.6,
+   "hyps": 0.412,
+   "rough": 0.0555
   },
   "t6": "PASS"
  },
@@ -98,11 +98,11 @@
    "rough": 0.0221
   },
   "ours": {
-   "relief": 0.1161,
+   "relief": 0.1167,
    "slope50": 10.1,
-   "slope90": 45.4,
-   "hyps": 0.225,
-   "rough": 0.045
+   "slope90": 46.4,
+   "hyps": 0.226,
+   "rough": 0.0462
   },
   "t6": "PASS"
  },

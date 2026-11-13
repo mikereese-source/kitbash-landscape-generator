@@ -808,7 +808,7 @@ def _t14():
     return f"closed, {n:,} faces in {dt:.2f} s; mouth {w:.1f} x {h:.1f} m (set 12 x 6), flat floor, {pts[:, 1].max():.0f} m deep; chamber, drop, ramp, rubble, seed, Reset, presets work"
 
 
-@test("T11", "Erosion lowers steep slopes")
+@test("T11", "Erosion carves Mountains steeper as it rises")
 def _t11():
     fresh_scene()
     ob = add("mountains")
@@ -822,7 +822,8 @@ def _t11():
         z = p[:n * n, 2].reshape(n, n)
         gy, gx = np.gradient(z, ob.lg.size_x / (n - 1))
         out.append(float(np.percentile(np.degrees(np.arctan(np.hypot(gx, gy))), 99)))
-    check(out[1] < out[0] and out[2] <= out[1] + 0.5, f"steepest slopes should drop as erosion rises: {[round(v, 1) for v in out]}")
+    # D211 (Mike, LG-076): incision 1.8 cuts V valleys and steep walls, so the steepest slopes rise with erosion (they fell at 0.5).
+    check(out[0] < out[1] <= out[2] + 0.5, f"steepest slopes should rise as erosion carves: {[round(v, 1) for v in out]}")
     return "99th-percentile slope " + " -> ".join(f"{v:.1f}" for v in out) + " deg at Erosion 0 / 0.5 / 1"
 
 

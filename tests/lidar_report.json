@@ -199,17 +199,17 @@
    "relief": 726.6
   },
   "ours": {
-   "s1": 0.0054,
-   "s8": 0.0427,
-   "s64": 0.294,
+   "s1": 0.01,
+   "s8": 0.0791,
+   "s64": 0.443,
    "h_small": 0.99,
-   "h_mid": 0.82,
-   "slope50": 34.7,
-   "slope90": 52.1,
-   "spikes": 3.0,
-   "spike_m": 56.9,
-   "streaks": 1.32,
-   "relief": 319.5
+   "h_mid": 0.63,
+   "slope50": 40.7,
+   "slope90": 67.0,
+   "spikes": 5.4,
+   "spike_m": 41.0,
+   "streaks": 1.54,
+   "relief": 322.1
   },
   "real_structure": {
    "pit_share": 0.02,
@@ -220,14 +220,14 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 3.4,
-   "concavity": 0.6,
-   "rough_split": 0.82,
-   "trunk": 0.563
+   "drainage": 3.9,
+   "concavity": 0.31,
+   "rough_split": 1.13,
+   "trunk": 0.558
   },
   "missing": 0.0,
   "t6b": "PASS",
-  "t6c": "FAIL: rough_split"
+  "t6c": "PASS"
  },
  "seabed": {
   "step_m": 3.44,
@@ -383,17 +383,17 @@
    "relief": 232.1
   },
   "ours": {
-   "s1": 0.0107,
-   "s8": 0.0807,
-   "s64": 0.375,
+   "s1": 0.0102,
+   "s8": 0.0771,
+   "s64": 0.371,
    "h_small": 0.95,
-   "h_mid": 0.59,
-   "slope50": 11.9,
-   "slope90": 46.3,
+   "h_mid": 0.61,
+   "slope50": 11.5,
+   "slope90": 45.8,
    "spikes": 4.2,
    "spike_m": 113.8,
-   "streaks": 1.54,
-   "relief": 239.4
+   "streaks": 3.55,
+   "relief": 239.3
   },
   "real_structure": {
    "pit_share": 0.0,
@@ -404,9 +404,9 @@
   },
   "ours_structure": {
    "pit_share": 0.0,
-   "drainage": 4.4,
+   "drainage": 4.5,
    "concavity": 0.33,
-   "rough_split": 1.15,
+   "rough_split": 1.13,
    "trunk": 0.35
   },
   "missing": 0.0,

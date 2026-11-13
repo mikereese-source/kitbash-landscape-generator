@@ -56,9 +56,12 @@
       "erosion": {
         "on": true,
         "amount": 0.8,
-        "talus_deg": 38.0,
-        "incision": 0.5,
-        "cliff_deg": 60.0
+        "talus_deg": 35.0,
+        "incision": 1.8,
+        "cliff_deg": 75.0,
+        "channel": 0.0003,
+        "finish_blur": 8,
+        "soften": 0.1
       },
       "feature_label": "Ridge Spacing",
       "feature_noun": "ridges",

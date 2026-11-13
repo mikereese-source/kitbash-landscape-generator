@@ -1,6 +1,6 @@
 # LG-069 Lava Roughness: fix 0 and push 1.0 harder
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: P1
-Status: review | Lane: main | Needs Blender: yes | Mike review: yes
+Status: done | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (lava)
 - 2026-11-09 prioritized P1, step 8 of the review order (TICKETS.md)
 - 2026-11-10 built by Opus 5.5 (CAVE_VERSION 207, board docs/m5/c179_step2_sliders.png, cave tests 5/5): Lava Roughness remapped: R (2.6 - 1.2 R) (0.5 -> today's 1, 1 -> 1.4). The square artifacts at 0 did not show in headless renders (smooth wall at Preview); Mike to point at where he saw them. Waiting on Mike's review
+- 2026-11-13 Mike approved (board c179) -> done

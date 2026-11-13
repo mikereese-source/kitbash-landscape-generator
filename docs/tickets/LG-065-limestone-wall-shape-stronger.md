@@ -1,6 +1,6 @@
 # LG-065 Limestone Wall Shape: make 1.0 much stronger
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: S | Priority: P1
-Status: review | Lane: main | Needs Blender: yes | Mike review: yes
+Status: done | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (jointed)
 - 2026-11-09 prioritized P1, step 7 of the review order (TICKETS.md)
 - 2026-11-10 built by Opus 5.5 (CAVE_VERSION 207, board docs/m5/c179_step2_sliders.png, cave tests 5/5): Limestone Wall Shape eased up: F + 1.5 F^2 (0.5 -> 0.875, 1 -> 2.5). Waiting on Mike's review
+- 2026-11-13 Mike approved (board c179) -> done

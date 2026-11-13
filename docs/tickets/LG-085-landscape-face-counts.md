@@ -1,6 +1,6 @@
 # LG-085 Face counts per Detail Level for landscapes
 Type: feature | Milestone: M6 | Phase: E M6 | Size: S | Priority: P2
-Status: review | Lane: side | Needs Blender: tests only | Mike review: yes
+Status: done | Lane: side | Needs Blender: tests only | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -23,3 +23,5 @@ Also read docs/tickets/README.md and docs/CODING.md.
 ## Log
 - 2026-11-13 created (Mike, panel screenshot)
 - 2026-11-13 built (15bebbe + review fixes): Preview / High / Ultra face counts under the landscape's Detail Level, alert over 5M like caves; under 1M shows two decimals (0.27M, not 0.3M). T41: exact on square and 300x150, base and water on or off, Preview and High; a cave cut in is 0.4% under (allowed 2%); Ultra same formula, not built in the test. Mesa matches exactly. Code review (standards + spec, Sonnet): docstring, comment citation, Ultra note, more T41 cases fixed -> review
+- 2026-11-13 Mike approved (board panel, T41) -> done
+- 2026-11-13 Lessons: (1) measuring the reviewer's worst cases (Mesa, non-square, cave) took one probe run and settled them with numbers instead of guesses; (2) a closed-form count can stand in for building the mesh when a test checks it against the real mesh

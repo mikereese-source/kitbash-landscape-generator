@@ -1,6 +1,6 @@
 # LG-066 Flooded chamber water pokes out of the cave
 Type: bug | Milestone: M5 | Phase: A Cave fixes | Size: S-M | Priority: P1
-Status: review | Lane: main | Needs Blender: yes | Mike review: no
+Status: done | Lane: main | Needs Blender: yes | Mike review: no
 Depends on: none | Blocks: none
 
 ## Why
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (lava)
 - 2026-11-09 prioritized P1, step 5 of the review order (TICKETS.md)
 - 2026-11-09 built (CAVE_VERSION 206, board docs/m5/c174_step1_fixes.png, tests 30/30): same change: the space test keeps the sheet out from under the rock body. Waiting on Mike's review
+- 2026-11-13 Mike approved (board c174) -> done

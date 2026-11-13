@@ -1,6 +1,6 @@
 # LG-053 Carry the lip roughness into the cave floor
 Type: feature | Milestone: M5 | Phase: A Cave fixes | Size: M | Priority: P2
-Status: review | Lane: main | Needs Blender: yes | Mike review: yes
+Status: done | Lane: main | Needs Blender: yes | Mike review: yes
 Depends on: none | Blocks: none
 
 ## Why
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 - 2026-11-09 created from Mike's review (limestone)
 - 2026-11-09 prioritized P2, step 10 of the review order (TICKETS.md)
 - 2026-11-10 built by Opus 5.5 (CAVE_VERSION 208, board docs/m5/c180_lip_roughness.png, T14/T31/T33 pass): the lip surface now also covers the floor at the mouth at a third of its strength, so the floor stays walkable (T14 flat floor passes). Waiting on Mike's review
+- 2026-11-13 Mike approved (board c180) -> done

@@ -51,6 +51,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-024](tickets/LG-024-drag-handles.md) | 6.4 Drag handles for everything | E M6 | M6 6.4 | todo | M | P2 | side | tests only | gizmos.py; __init__.py | LG-019 |
 | [LG-025](tickets/LG-025-carve-strokes.md) | 6.4b Carve strokes | E M6 | M6 6.4b | todo | M | P2 | main | yes | features.py; __init__.py; run_tests.py | LG-019 |
 | [LG-070](tickets/LG-070-base-thickness.md) | Base thickness (solid sides) | E M6 | M6 6.4c | done | S | P2 | side | yes | nodes.py; __init__.py; presets.py; run_tests.py | - |
+| [LG-085](tickets/LG-085-landscape-face-counts.md) | Face counts per Detail Level for landscapes | E M6 | M6 | todo | S | P2 | side | tests only | __init__.py; run_tests.py | - |
 | [LG-026](tickets/LG-026-m6-gate.md) | 6.5 M6 gate | E M6 | M6 6.5 | todo | M | P1 | main | yes | run_tests.py | LG-020, LG-023, LG-024, LG-025 |
 | [LG-027](tickets/LG-027-m7-mountains-layers.md) | M7 spike: Mountains material layers | C Material spike | M7 | todo | L | P1 | main | yes | materials.py; __init__.py | - |
 | [LG-028](tickets/LG-028-m7-material-controls.md) | M7 spike: material controls | C Material spike | M7 | todo | M | P1 | main | yes | materials.py; __init__.py | LG-027 |

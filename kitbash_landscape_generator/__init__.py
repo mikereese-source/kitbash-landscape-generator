@@ -1231,8 +1231,7 @@ class LG_OT_restore(Operator):
 
 
 def landscape_counts(props, mod):
-    """(spacing m, points, faces) for Preview, High and Ultra (Mike, LG-085): the grid's quads, plus the base's
-    sides and bottom and the water sheet when they are on."""
+    """(spacing m, points, faces) at Preview, High and Ultra: grid quads, base sides and bottom, water (Mike, LG-085)."""
     out = []
     for sock in ("Preview Resolution", "Final Resolution", "Ultra Resolution"):
         spacing = max(props.size_x, props.size_y) / nodes.input_socket(mod, sock).value
@@ -1365,7 +1364,7 @@ class LG_PT_main(Panel):
             row = box.row(align=True)
             for name, (_s, _p, n) in zip(("Preview", "High", "Ultra"), counts):
                 cell = row.row()
-                cell.alert = n > 5e6  # heavy for the viewport, as on caves (LG-055)
+                cell.alert = n > 5e6  # heavy for the viewport, the caves' limit (Mike, LG-085)
                 cell.label(text=f"{name} {n / 1e6:.2f}M" if n < 1e6 else f"{name} {n / 1e6:.1f}M")
             box.label(text="Faces per Detail Level")
 

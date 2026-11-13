@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-11 created from the realism review (D209)
+- 2026-11-13 from LG-076: also try the S1 settings on Glacial (incision 1.0, soften 0.2) and Canyon (finish_blur 8), each with a board for Mike

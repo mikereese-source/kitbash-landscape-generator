@@ -1,6 +1,6 @@
 # LG-051 CODING.md: written coding standards
 Type: docs | Milestone: M5 | Phase: B M5 finish | Size: S | Priority: P2
-Status: review | Lane: research | Needs Blender: no | Mike review: yes
+Status: done | Lane: research | Needs Blender: no | Mike review: yes
 Depends on: none | Blocks: LG-052
 
 ## Why
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-08 created (D202)
 - 2026-11-10 written by Opus 5.5: docs/CODING.md. Waiting on Mike's OK
+- 2026-11-13 Mike approved (board panel check / skim) -> done

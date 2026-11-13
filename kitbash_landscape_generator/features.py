@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 210
+CAVE_VERSION = 215
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -601,6 +601,8 @@ def cave_group():
     dirn = t.xyz(t.vmath('NORMALIZE', t.vmath('SUBTRACT', ahead.outputs[0], behind.outputs[0])))
     across = t.vec(dirn["Y"], t.math('MULTIPLY', dirn["X"], -1.0), 0.0)  # flat, at right angles to the path
     path = t.store(t.store(path, "c_across", across, 'FLOAT_VECTOR'), "c_radius", radius)
+    # How far in from the mouth, straight along Y (LG-064). shortcut: a strongly bent passage drifts; T37 checks a bent cave, measure along the path if it ever fails.
+    path = t.store(path, "c_y", t.xyz(t.position())["Y"])
     # Distance along the path from its start, for the tube coordinates (below).
     run = t.N.new('GeometryNodeAccumulateField')
     run.data_type, run.domain = 'FLOAT', 'POINT'
@@ -785,12 +787,27 @@ def cave_group():
     # is a tall keyhole of big masses, overlapping into creased edges, never reaching the walkway (at most 40%
     # of the way in at their foot). Displacing the finished tube could only make ramps, which
     # wrapped the passage in rings.
-    jointed_on = t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 1.0), t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
+    # Jointed's mouth is calmer and shorter (LG-064, D205; docs/REVIEW-jointed-2026-11-10.md). Where the chamber
+    # opens: the nearest a chamber section's dome reaches back toward the mouth (the Depth without a chamber).
+    is_jointed = t.math('COMPARE', gin["Rock"], 1.0)
+    ch_open = t.node('GeometryNodeAttributeStatistic', Geometry=path,
+                     Attribute=t.math('ADD', t.math('SUBTRACT', t.named("c_y"), t.named("c_radius")), t.math('MULTIPLY', t.math('LESS_THAN', t.named("c_ch"), 0.3), 1e5)))
+    ch_open.data_type, ch_open.domain = 'FLOAT', 'POINT'
+    pass_end = t.math('MINIMUM', ch_open.outputs["Min"], D)
+    # The mouth zone (the lip's own surface, no creases, the thin wall) was sized by the width alone, 0.75 x it back:
+    # on a short passage it covered the chamber's rim. Jointed's stops a tenth short of the chamber (its roof ledges
+    # keep their size: scaled down with it they fell under a voxel and the roof lost its steps).
+    mouth_w = t.math('SUBTRACT', W, t.math('MULTIPLY', is_jointed, t.math('MINIMUM', t.math('MAXIMUM', t.math('SUBTRACT', W, t.math('MULTIPLY', pass_end, 1.2)), 0.0), t.math('MULTIPLY', W, 0.7))))
+    # The passage by its real length (LG-064, D205): from where the pieces are cut off at the mouth (a short column's
+    # half length before it) to where the chamber opens. By 0.3-0.58 of the path, a short cave with a big chamber
+    # had its passage masses out over the chamber's drop, hanging.
+    in_pass = t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_y"), t.math('SUBTRACT', t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', W, 0.2))),
+                     t.math('LESS_THAN', t.named("c_y"), pass_end))
+    jointed_on = t.math('MULTIPLY', is_jointed, t.math('GREATER_THAN', gin["Wall Shape"], 0.0))
     # None at the mouth (it keeps its size) or where the passage opens into a chamber (a slab sized for the
     # passage stuck out into the bigger space).
     opening = t.math('MULTIPLY', has_chamber, t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.64), t.math('LESS_THAN', t.named("c_s"), 0.8)))
-    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.5)),
-                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))
+    slab_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 211), 0.5)), in_pass)
     # right up to the opening (Mike: melted without them) but not past its lip: over a sunk chamber they hung
     # out over the drop; the chamber's ring of masses is its wall
     intrude = t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(0.08, 0.2, 213), t.math('MINIMUM', t.math('MULTIPLY', gin["Wall Shape"], 1.6), 1.0)))
@@ -857,8 +874,11 @@ def cave_group():
     flat = lambda v: t.vec(t.xyz(v)["X"], t.xyz(v)["Y"], 0.0)
     # the opening: where the path crosses the chamber's edge, a chamber's radius from its middle
     ch_door = path_mean(t.math('LESS_THAN', t.math('ABSOLUTE', t.math('SUBTRACT', t.vmath('LENGTH', flat(t.vmath('SUBTRACT', t.position(), ch_mid))), rc)), W))
-    # 24 rays out from the chamber's middle, a third of the way up; none within 35 degrees of the opening.
-    ring_n = t.node('GeometryNodePoints', Count=24, Position=t.vmath('ADD', ch_mid, t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.35)))).outputs[0]
+    # 24 rays out from the chamber's middle, a tenth of the way up; none within 35 degrees of the opening.
+    # (A third of the way up, with the lean read 40% higher, the column's line ran on into the rock below where it
+    # was measured: under the dome's curve only its top showed, a mass hanging on the wall; LG-064, D205. From a
+    # tenth to 70% up, the line is a chord of the dome: the column stands on the floor and shows up to 70%.)
+    ring_n = t.node('GeometryNodePoints', Count=24, Position=t.vmath('ADD', ch_mid, t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.1)))).outputs[0]
     ang = t.math('ADD', t.math('MULTIPLY', t.node('GeometryNodeInputIndex').outputs[0], 0.2618), rand(-0.1, 0.1, 231))
     ring_dir = t.vec(t.math('COSINE', ang), t.math('SINE', ang), 0.0)
     to_door = t.vmath('NORMALIZE', flat(t.vmath('SUBTRACT', ch_door, ch_mid)))
@@ -872,9 +892,9 @@ def cave_group():
     # Leaning in with the dome (straight up, a column left the chamber's space halfway up and was cut off there,
     # a stub): a second ray, higher up, finds how far the wall has come in, and the column tips to follow it.
     up_ray = t.node('GeometryNodeRaycast', Target_Geometry=space_mesh,
-                    Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.4))),
+                    Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', gin["Ceiling Height"], 0.6))),
                     Ray_Direction=ring_dir, Ray_Length=t.math('MULTIPLY', rc, 3.0))
-    lean = t.math('ARCTAN2', t.math('SUBTRACT', ring_ray.outputs["Hit Distance"], up_ray.outputs["Hit Distance"]), t.math('MULTIPLY', gin["Ceiling Height"], 0.4))
+    lean = t.math('ARCTAN2', t.math('SUBTRACT', ring_ray.outputs["Hit Distance"], up_ray.outputs["Hit Distance"]), t.math('MULTIPLY', gin["Ceiling Height"], 0.6))
     lean = t.math('MULTIPLY', up_ray.outputs["Is Hit"], t.math('MINIMUM', t.math('MAXIMUM', lean, 0.0), 0.7))
     ring_n = t.store(ring_n, "lg_lean", lean)
     ring_n = t.store(ring_n, "lg_rk", ring_keep)  # kept before the points move (the ray is cast from where they start)
@@ -902,8 +922,7 @@ def cave_group():
     hang_at = t.node('GeometryNodeSetPosition', Geometry=rows.outputs[0],
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(0.1, 0.5, 303)))),
                                     t.vec(0.0, 0.0, t.math('ADD', hang_h, t.math('MULTIPLY', hang_d, 0.5))))).outputs[0]
-    hang_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 305), 0.4)),
-                       t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.25), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))  # the passage only: sized by a chamber's radius they filled its dome (Mike)
+    hang_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 305), 0.4)), in_pass)  # the passage only: sized by a chamber's radius they filled its dome (Mike)
     hangs = t.node('GeometryNodeInstanceOnPoints', Points=hang_at, Selection=hang_keep, Instance=block,
                    Rotation=t.vec(rand(-0.45, 0.45, 307), rand(-0.45, 0.45, 309), t.math('ADD', yaw, rand(-0.4, 0.4, 311))),
                    Scale=t.vec(t.math('MULTIPLY', t.named("c_radius"), rand(0.5, 1.1, 313)), t.math('MULTIPLY', W, rand(0.4, 0.9, 315)), hang_d)).outputs[0]
@@ -932,8 +951,7 @@ def cave_group():
     drop_at = t.node('GeometryNodeSetPosition', Geometry=slab_at,
                      Offset=t.vmath('ADD', t.vmath('SCALE', across_s, scale=t.math('MULTIPLY', sidev, t.math('MULTIPLY', t.named("c_radius"), rand(-0.06, 0.0, 343)))),
                                     t.vec(0.0, 0.0, t.math('MULTIPLY', t.named("c_tall"), 0.05)))).outputs[0]  # centred at 55% of the height
-    drop_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 345), 0.5)),
-                      t.math('MULTIPLY', t.math('GREATER_THAN', t.named("c_s"), 0.3), t.math('LESS_THAN', t.math('MULTIPLY', t.named("c_s"), has_chamber), 0.58)))  # standing passage wall (behind a chamber's dome they were buried)
+    drop_keep = t.math('MULTIPLY', t.math('MULTIPLY', jointed_on, t.math('LESS_THAN', rand(0.0, 1.0, 345), 0.5)), in_pass)  # standing passage wall (behind a chamber's dome they were buried)
     drops = t.node('GeometryNodeInstanceOnPoints', Points=drop_at, Selection=drop_keep, Instance=drop_cone,
                    Rotation=t.vec(rand(-0.05, 0.05, 347), rand(-0.05, 0.05, 349), t.math('ADD', yaw, rand(-0.15, 0.15, 351))),
                    Scale=t.vec(t.math('MULTIPLY', thick, 0.5), t.math('MULTIPLY', W, rand(0.4, 0.8, 353)), drop_h)).outputs[0]
@@ -1016,19 +1034,23 @@ def cave_group():
     cut_wide = t.math('ADD', t.math('MULTIPLY', W, 2.0), t.math('MULTIPLY', wall_t, 2.0))
     cut_z0 = t.math('MULTIPLY', H, 0.06)  # just over the floor: the floor and the rock under it stay
     cb = t.xyz(t.position())
+    # And its cuts wander less, on coarser noise: up to 0.2 x the width in and out on fine noise notched the rim.
+    cut_wander = t.math('SUBTRACT', 0.8, t.math('MULTIPLY', is_jointed, 0.5))
+    cut_scale = t.math('SUBTRACT', 2.5, t.math('MULTIPLY', is_jointed, 1.5))
+    cut_detail = t.math('SUBTRACT', 5.0, t.math('MULTIPLY', is_jointed, 3.0))
 
-    def cut_at(back, shift, z_from=cut_z0, wander=0.8, scale=2.5, detail=5.0):
+    def cut_at(back, shift, z_from=cut_z0, wander=cut_wander, scale=cut_scale, detail=cut_detail, w=W):
         """Everything in front of a wandering line `back` x the width behind the mouth, from `z_from` up, as a
-        distance field. `shift` moves the noise so each line wanders its own way."""
+        distance field. `shift` moves the noise so each line wanders its own way. `w` is the width it is sized by."""
         box = t.node('GeometryNodeMeshCube', Size=(1.0, 1.0, 1.0), Vertices_X=48, Vertices_Y=2, Vertices_Z=24).outputs["Mesh"]
         box = t.node('GeometryNodeSetPosition', Geometry=box, Position=t.vec(
             t.math('MULTIPLY', cb["X"], t.math('MULTIPLY', cut_wide, 2.0)), cb["Y"],
             t.math('ADD', z_from, t.math('MULTIPLY', t.math('ADD', cb["Z"], 0.5), t.math('ADD', t.math('MULTIPLY', H, 4.0), t.math('MULTIPLY', wall_t, 4.0)))))).outputs[0]
         # Notched, not a smooth curve (review: the rim read as a clean cut; Vranja's is jagged): finer noise,
-        # wandering about a fifth of the width in and out.
+        # wandering about a fifth of the width in and out (Jointed: less, on coarser noise; LG-064).
         n = t.node('ShaderNodeTexNoise', Vector=t.vmath('ADD', t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.5), W, t.math('MULTIPLY', W, 0.5))), t.vec(shift, shift, shift)),
                    Scale=scale, Detail=detail, Roughness=0.6)
-        y = t.math('ADD', t.math('MULTIPLY', W, back), t.math('MULTIPLY', W, t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), wander)))
+        y = t.math('ADD', t.math('MULTIPLY', w, back), t.math('MULTIPLY', w, t.math('MULTIPLY', t.math('SUBTRACT', n.outputs["Fac"], 0.5), wander)))
         # Back face onto the wandering line (its noise read where it lands), front face well out in front.
         box = t.node('GeometryNodeSetPosition', Geometry=box, Selection=t.math('LESS_THAN', cb["Y"], 0.0),
                      Position=t.vec(cb["X"], t.math('MULTIPLY', cut_wide, -1.0), cb["Z"])).outputs[0]
@@ -1071,7 +1093,9 @@ def cave_group():
     # lip and showed as thin plates (Mike's markup on c169). None in the stepped flare either.
     # None in the mouth at all (D196 review fixes): cut by the lip they left slivers through its blocky surface;
     # the lip's own surface (below) gives jointed rock its blocks there.
-    t.L.new(cut_at(0.8, 5.1, t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_t, 4.0)))), clear_pieces.inputs["Grid 2"])
+    # Straight across, where the mouth zone ends (LG-064, D205): the wandering line, 0.8 x the width back, took the
+    # passage's pieces with it (37% of them on Mike's review cave) and sliced others part-way into roof stubs.
+    t.L.new(cut_at(0.75, 5.1, t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_t, 4.0))), wander=0.0, w=mouth_w), clear_pieces.inputs["Grid 2"])
     pieces_mesh = t.node('GeometryNodeGridToMesh', Grid=clear_pieces.outputs[0]).outputs[0]
     pieces_mesh = t.node('GeometryNodeDeleteGeometry', Geometry=pieces_mesh, Selection=t.math('LESS_THAN', jointed_on, 0.5)).outputs[0]
     # Slivers where a box's corner only just reaches into the margin are dropped (under 5% of the biggest piece).
@@ -1098,7 +1122,7 @@ def cave_group():
     # inside out by up to that much, and on a thinner wall Jointed punched holes through the outside (c172). Only
     # the mouth's rock, which gets the lip's own surface instead, is as thin as Lip sets.
     wall_back = t.math('MAXIMUM', wall_t, t.math('MULTIPLY', rock_voxel, 3.0))
-    mouth_zone = cut_at(0.75, 9.1, t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_back, 4.0))))
+    mouth_zone = cut_at(0.75, 9.1, w=mouth_w, z_from=t.math('SUBTRACT', 0.0, t.math('ADD', t.math('MULTIPLY', H, 2.0), t.math('MULTIPLY', wall_back, 4.0))))
 
     def rock_body(g):
         back = t.N.new('GeometryNodeSDFGridBoolean')
@@ -1361,7 +1385,7 @@ def cave_group():
     squared = t.store(squared, "lg_sharp", sharp_b.outputs["Value"])
     # Not at the mouth either (D196, Mike's markup on c169): the lip's ledges end mid-wall, and creased they
     # pinched into the same thin plates.
-    off_mouth = t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', W, 0.5), t.math('MULTIPLY', W, 0.7))
+    off_mouth = t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', mouth_w, 0.5), t.math('MULTIPLY', mouth_w, 0.7))
     dense = t.node('GeometryNodeSubdivisionSurface', Mesh=squared, Edge_Crease=t.math('MULTIPLY', t.math('MULTIPLY', t.smooth(bend, 0.35, 0.8), t.math('COMPARE', gin["Rock"], 1.0)), off_mouth),  # jointed rock only: a lava tube stays smooth (creases ringed it at the domes' joins), and on limestone the creases ending mid-wall pinched the bed plates' edges into lips (D161)
                    Level=t.node('FunctionNodeFloatToInt', Float=levels).outputs[0]).outputs[0]
 
@@ -1674,8 +1698,8 @@ def cave_group():
     pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(over_floor, t.math('MULTIPLY', H, 0.05), t.math('MULTIPLY', H, 0.1))),
                                           t.math('SUBTRACT', 1.0, t.named("lg_piece", 'BOOLEAN'))))
     # Never at the mouth (Mike, LG-058: a little water round the lip read as an error): the mouth's floor, out to
-    # where the lip's own surface ends (0.45-0.75 of the width in), and never on the rock body's outside.
-    pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', W, 0.75), t.math('MULTIPLY', W, 1.0)),
+    # where the lip's own surface ends (0.45-0.75 of the mouth zone in), and never on the rock body's outside.
+    pool = t.math('MULTIPLY', pool, t.math('MULTIPLY', t.smooth(t.xyz(t.position())["Y"], t.math('MULTIPLY', mouth_w, 0.75), t.math('MULTIPLY', mouth_w, 1.0)),
                                           t.math('SUBTRACT', 1.0, t.named("lg_outer", 'BOOLEAN'))))
     pool_d = t.math('MULTIPLY', pool, t.math('MULTIPLY', H, 0.02))
     bench = t.vec(0.0, 0.0, t.math('ADD', t.math('ADD', b_blur.outputs["Value"], l_blur.outputs["Value"]), t.math('SUBTRACT', bank, pool_d)))
@@ -1702,24 +1726,22 @@ def cave_group():
     l_pos = t.xyz(t.position())
     # Down on the floor too, at a third (Mike, LG-053: the lip's roughness carried onto the floor so the two read as
     # one rock; a third keeps the floor walkable).
-    at_mouth = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(l_pos["Y"], t.math('MULTIPLY', W, 0.45), t.math('MULTIPLY', W, 0.75))),
+    at_mouth = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.smooth(l_pos["Y"], t.math('MULTIPLY', mouth_w, 0.45), t.math('MULTIPLY', mouth_w, 0.75))),
                       t.math('MAXIMUM', t.smooth(l_pos["Z"], t.math('MULTIPLY', H, 0.06), t.math('MULTIPLY', H, 0.2)), 0.33))
     in_w = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.named("lg_out_w")), t.math('SUBTRACT', 1.0, at_mouth))
     lip_w = t.math('MULTIPLY', at_mouth, t.math('SUBTRACT', 1.0, t.smooth(t.named("lg_odist"), t.math('MULTIPLY', wall_t, 1.5), t.math('MULTIPLY', wall_t, 3.0))))
     l_n = t.node('ShaderNodeTexNoise', Vector=t.vmath('DIVIDE', t.position(), t.vec(t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25), t.math('MULTIPLY', W, 0.25))), Scale=1.0, Detail=3.0)
     l_lump = t.math('SUBTRACT', l_n.outputs["Fac"], 0.5)
-    # Jointed's blocks: steep but unbroken steps (rounded to whole steps, the jumps folded the surface into
-    # strips, c172): each step rises over the middle third between flats.
-    l_v = t.math('MULTIPLY', l_lump, 4.0)
-    l_fl = t.math('FLOOR', l_v)
-    l_step = t.math('DIVIDE', t.math('ADD', l_fl, t.smooth(t.math('SUBTRACT', l_v, l_fl), 0.33, 0.67)), 4.0)
+    # Jointed: plain ledges (Mike, D205). Its blocky steps were sized to the wall, which LG-057 doubled: 5-9 m steps
+    # on 15 m cells, a spiky rim. Now a low swell sized to the width alone, about 1.5% of it, so the roof's cut
+    # ledges are the shape.
     l_surf = t.N.new('GeometryNodeIndexSwitch')
     l_surf.data_type = 'FLOAT'
     while len(l_surf.index_switch_items) < 3:
         l_surf.index_switch_items.new()
     t._set(l_surf.inputs["Index"], gin["Rock"])
     for i, val in enumerate((t.math('MULTIPLY', l_lump, 0.5),
-                             t.math('MULTIPLY', l_step, 0.7),  # jointed: blocky steps
+                             t.math('DIVIDE', t.math('MULTIPLY', l_lump, t.math('MULTIPLY', W, 0.06)), t.math('MULTIPLY', wall_t, 1.5)),  # jointed: by the width, not the wall
                              t.math('MULTIPLY', l_lump, 0.32))):  # lava: rougher, nearer limestone's (Mike, LG-067; was 0.12)
         t._set(l_surf.inputs[i + 1], val)
     # Sized to the wall, and the outside half moved the same way as the inside (its normals face the other way):

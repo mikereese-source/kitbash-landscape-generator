@@ -1513,6 +1513,102 @@ def _t35():
             f"none deep in another, none leaning, none over a low cone; footprint {tight:.0f} m2 at Spread 0, {strewn:.0f} m2 at 1 ({len(n_tight)} and {len(n_strewn)} rocks); the same at Preview and High")
 
 
+def piece_chunks(ob):
+    """The jointed pieces as they show (LG-064): each connected patch of piece faces standing in the open, as
+    (its area, the air under its foot down to the cave's rock, its lowest point, how near the mouth it comes). A piece's buried faces (behind
+    the shell, whose normals point into the rock) don't count. The foot is its lowest quarter
+    (a piece standing at the brink of a drop has its lowest point over the drop), and the air under each is
+    measured 3 m out from the rock nearest it: straight under a piece that runs into the wall there is only wall."""
+    import bmesh
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg)
+    bm = bmesh.new()
+    bm.from_mesh(ev.to_mesh())
+    ev.to_mesh_clear()
+    lp = bm.verts.layers.bool.get("lg_piece")
+    check(lp is not None, "the cave should mark its jointed pieces (lg_piece)")
+    bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromPolygons([v.co.copy() for v in bm.verts], [[v.index for v in f.verts] for f in bm.faces if not f.verts[0][lp]])
+
+    def in_open(v):
+        loc, nrm, _i, _d = tree.find_nearest(v.co)
+        return (v.co - loc).dot(nrm) <= 0.0
+
+    free = {v.index: in_open(v) for v in bm.verts if v[lp]}
+    shown = {f.index for f in bm.faces if f.verts[0][lp] and any(free[v.index] for v in f.verts)}
+    seen, chunks = set(), []
+    for start in shown:
+        if start in seen:
+            continue
+        seen.add(start)
+        todo, group = [start], []
+        while todo:
+            f = bm.faces[todo.pop()]
+            group.append(f)
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g.index in shown and g.index not in seen:
+                        seen.add(g.index)
+                        todo.append(g.index)
+        pts = [v.co for v in {v for f in group for v in f.verts} if free[v.index]]
+        low = min(pts, key=lambda p: p.z)
+        air = float("inf")
+        top = max(q.z for q in pts)
+        for q in [q for q in pts if q.z <= low.z + 0.25 * (top - low.z)]:  # every foot point: a capped sample hung on vertex order
+            hit = tree.ray_cast(q - tree.find_nearest(q)[1] * 3.0, (0.0, 0.0, -1.0))
+            if hit[0] is not None:
+                air = min(air, max(q.z - hit[0].z, 0.0))
+        chunks.append((sum(f.calc_area() for f in group), air, low.copy(), min(q.y for q in pts)))
+    bm.free()
+    return chunks
+
+
+@test("T37", "Jointed pieces: every one stands on rock, none hangs; the passage has its pieces")
+def _t37():
+    fresh_scene()
+    check(bpy.ops.landscape.add_cave() == {'FINISHED'}, "Add Cave did not finish")
+    ob = bpy.context.view_layer.objects.active
+    c = ob.lg_cave
+    c.rock = 'JOINTED'
+    # Mike's review cave (D205): a short passage into a big sunk chamber. Its pieces showed as masses hanging on the
+    # chamber's walls and over the opening, and none came nearer the mouth than 42 m.
+    for k, v in dict(width=60.0, height=40.0, depth=100.0, chamber=120.0, ceiling=60.0, chamber_drop=60.0, roughness=1.0, wall_shape=0.8).items():
+        setattr(c, k, v)
+    chunks = piece_chunks(ob)
+    check(len(chunks) > 0, "jointed rock should show its pieces")
+    # Standing: no more air under its foot than 15% of the entrance height (a Preview voxel is 12%). Specks smaller
+    # than 2% of the entrance's face (a boulder) are not masses.
+    gap, speck = 0.15 * c.height, 0.02 * c.width * c.height
+    hung = sorted((ch for ch in chunks if ch[0] > speck and ch[1] > gap), key=lambda ch: -ch[0])
+    check(not hung, f"no jointed piece should hang: {len(hung)} of {len(chunks)} stop short of the floor, {sum(ch[0] for ch in hung):.0f} m2; the biggest "
+                    f"{hung[0][0]:.0f} m2 with {hung[0][1]:.0f} m of air under it at {tuple(round(x) for x in hung[0][2])}" if hung else "")
+    front = min(ch[3] for ch in chunks if ch[0] > speck)
+    check(front < 0.5 * c.width, f"the passage should have its pieces: the nearest stands {front:.0f} m in from the mouth, want under {0.5 * c.width:.0f} m")
+    specks = [ch for ch in chunks if ch[0] <= speck and ch[1] > gap]
+    # The same rule on the default Jointed cave, on a bent one (pieces placed by distance along the path, not by Y),
+    # and on the review cave at High (code review of LG-064).
+    others = []
+    for label, sets, detail in (("default", {}, "PREVIEW"), ("bent", dict(wiggle=1.0, turn=0.6, depth=120.0), "PREVIEW"), ("review cave at High", {}, "HIGH")):
+        if label != "review cave at High":
+            fresh_scene()
+            check(bpy.ops.landscape.add_cave() == {'FINISHED'}, "Add Cave did not finish")
+            ob = bpy.context.view_layer.objects.active
+            c = ob.lg_cave
+            c.rock = 'JOINTED'
+            for k, v in sets.items():
+                setattr(c, k, v)
+        c.detail = detail
+        ch2 = piece_chunks(ob)
+        g2, s2 = 0.15 * c.height, 0.02 * c.width * c.height
+        h2 = [ch for ch in ch2 if ch[0] > s2 and ch[1] > g2]
+        check(not h2, f"{label}: no jointed piece should hang, {len(h2)} of {len(ch2)} stop short of the floor, the biggest {max((ch[0] for ch in h2), default=0):.0f} m2")
+        others.append(f"{label} {len(ch2)} pieces")
+    return (f"{len(chunks) - len(specks)} pieces show, {sum(ch[0] for ch in chunks):.0f} m2, each standing on rock (at most {gap:.0f} m of air under a foot); "
+            f"the nearest {front:.0f} m in from the mouth; {len(specks)} specks under {speck:.0f} m2 ({sum(ch[0] for ch in specks):.0f} m2) stop short; none hang on: {', '.join(others)}")
+
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

@@ -1230,6 +1230,21 @@ class LG_OT_restore(Operator):
         return {'FINISHED'}
 
 
+def landscape_counts(props, mod):
+    """(spacing m, points, faces) at Preview, High and Ultra: grid quads, base sides and bottom, water (Mike, LG-085)."""
+    out = []
+    for sock in ("Preview Resolution", "Final Resolution", "Ultra Resolution"):
+        spacing = max(props.size_x, props.size_y) / nodes.input_socket(mod, sock).value
+        nx, ny = round(props.size_x / spacing) + 1, round(props.size_y / spacing) + 1
+        faces = (nx - 1) * (ny - 1)
+        if props.base:  # a side face per border edge, and the bottom filled from the same edges
+            rim = 2 * (nx - 1) + 2 * (ny - 1)
+            faces += rim + rim - 2
+        faces += 1 if props.water else 0
+        out.append((spacing, nx * ny, faces))
+    return out
+
+
 class LG_PT_main(Panel):
     bl_label = "KitBash Landscape Generator"
     bl_space_type = 'VIEW_3D'
@@ -1343,12 +1358,15 @@ class LG_PT_main(Panel):
         if box:
             row = box.row(align=True)
             row.prop(props, "detail", expand=True)
-            res = nodes.input_socket(mod, "Ultra Resolution" if props.ultra else
-                                     "Final Resolution" if props.final else "Preview Resolution").value
-            size_x, size_y = props.size_x, props.size_y
-            spacing = max(size_x, size_y) / res
-            points = (round(size_x / spacing) + 1) * (round(size_y / spacing) + 1)
+            counts = landscape_counts(props, mod)
+            spacing, points, _faces = counts[2 if props.ultra else 1 if props.final else 0]
             box.label(text=f"A point every {spacing:.2f} m · {points / 1000:,.0f} k points")
+            row = box.row(align=True)
+            for name, (_s, _p, n) in zip(("Preview", "High", "Ultra"), counts):
+                cell = row.row()
+                cell.alert = n > 5e6  # heavy for the viewport, the caves' limit (Mike, LG-085)
+                cell.label(text=f"{name} {n / 1e6:.2f}M" if n < 1e6 else f"{name} {n / 1e6:.1f}M")
+            box.label(text="Faces per Detail Level")
 
         header, box = layout.panel("lg_water", default_closed=True)
         header.label(text="Water")  # label first, so it lines up with the other section titles (Mike)

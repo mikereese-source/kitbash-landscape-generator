@@ -1609,6 +1609,26 @@ def _t37():
             f"the nearest {front:.0f} m in from the mouth; {len(specks)} specks under {speck:.0f} m2 ({sum(ch[0] for ch in specks):.0f} m2) stop short; none hang on: {', '.join(others)}")
 
 
+@test("T41", "Landscape face counts per Detail Level match the built mesh")
+def _t41():
+    # LG-085 (Mike): the panel shows each level's faces before switching, as caves do (LG-055). Within 2% of the mesh.
+    fresh_scene()
+    ob = add("hills")
+    out = []
+    for base, water, final in ((False, False, False), (True, True, False), (True, False, True)):
+        ob.lg.base, ob.lg.water, ob.lg.final = base, water, final
+        counts = lg.landscape_counts(ob.lg, lg.landscape_modifier(ob))
+        dg = bpy.context.evaluated_depsgraph_get()
+        dg.update()
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        real = len(me.polygons)
+        ev.to_mesh_clear()
+        est = counts[1 if final else 0][2]
+        check(abs(est - real) <= 0.02 * real, f"base {base}, water {water}, {'High' if final else 'Preview'}: panel says {est:,} faces, the mesh has {real:,}; want within 2%")
+        out.append(f"{est:,} vs {real:,}")
+    return "; ".join(out)
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

@@ -11,7 +11,7 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 10
+LIBRARY_VERSION = 11
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 # Faces at High: Big 2,400, Medium 600, Small 150 (Mike: the Big rocks had 9,600 and far too many polygons).
@@ -109,6 +109,10 @@ def _rock(family, rng, scale=1.0, subdivisions=4, slab=False):
             v.co = v.co * stretch * (1.0 + lumps - pits)
         for _ in range(rng.randint(2, 4)):  # broken faces, so it reads as rubble, not a sponge
             _clip(verts, *_plane(rng))
+        if scale < 0.6:  # small clinker as broken chips, not round pebbles (Mike, LG-061 cp3)
+            for _ in range(rng.randint(4, 6)):
+                n, d = _plane(rng)
+                _clip(verts, n, d * 0.75)
         grain = 0.02
     bm.normal_update()
     for v in verts:  # a fine surface grain over every family
@@ -170,7 +174,7 @@ def ensure_library():
                     bm.to_mesh(me)
                     bm.free()
                     me.shade_smooth()
-                    me.set_sharp_from_angle(angle=3.14 if family == "Boulders" else 0.35 if (family == "Blocks" and size == "Small") else 0.7)  # chips: crisp facet edges
+                    me.set_sharp_from_angle(angle=3.14 if family == "Boulders" else 0.35 if (family in ("Blocks", "Lava") and size == "Small") else 0.7)  # chips: crisp facet edges
                     colls[level].objects.link(bpy.data.objects.new(me.name, me))
     levels.use_fake_user = True
     top.use_fake_user = True  # kept in the file though no scene shows it

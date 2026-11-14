@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 215
+CAVE_VERSION = 217
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -640,22 +640,11 @@ def cave_group():
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
     # out across the floor to break it up. A rock is big or medium, never both on one spot.
-    not_jointed = t.math('SUBTRACT', 1.0, t.math('COMPARE', gin["Rock"], 1.0))  # jointed rock's fallen blocks lie in heaps instead (D178)
+    # Limestone and lava keep a sparse row of big and medium rocks at the wall foot beside the heaps below (Mike, LG-061 cp3); jointed only heaps (D178).
+    not_jointed = t.math('MULTIPLY', t.math('SUBTRACT', 1.0, t.math('COMPARE', gin["Rock"], 1.0)), t.math('LESS_THAN', rand(0.0, 1.0, 141), 0.5))  # half of them
     big_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], t.math('ADD', 0.15, t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), 0.15)))), not_jointed)  # lava: its big rocks are the fallen roof slabs, twice as many
     keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep)), not_jointed)
-    # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
-    strewn = t.node('GeometryNodeDuplicateElements', Geometry=rows.outputs[0], Amount=t.node('FunctionNodeFloatToInt', Float=t.math('ADD', 2.0, t.math('MULTIPLY', gin["Rubble"], 6.0))).outputs[0])
-    strewn.domain = 'POINT'
-    across_v = t.named("c_across", 'FLOAT_VECTOR')
-    along_v = t.vec(t.math('MULTIPLY', t.xyz(across_v)["Y"], -1.0), t.xyz(across_v)["X"], 0.0)
-    pebble_at = t.node('GeometryNodeSetPosition', Geometry=strewn.outputs["Geometry"],
-                       Offset=t.vmath('ADD', t.vmath('SCALE', across_v, scale=t.math('MULTIPLY', sidev, t.math('SUBTRACT', t.math('MULTIPLY', t.named("c_radius"), t.math('SUBTRACT', 0.95, t.math('MULTIPLY', rand(0.0, 1.5, 131), gin["Spread"]))), t.math('MULTIPLY', rock_r, 0.1)))),
-                                      t.vmath('SCALE', along_v, scale=t.math('MULTIPLY', t.named("c_radius"), t.math('MULTIPLY', rand(-1.2, 1.2, 137), gin["Spread"]))))).outputs[0]
-    pebble_ray = t.node('GeometryNodeRaycast', Target_Geometry=rock_space,
-                        Source_Position=t.vmath('ADD', t.position(), t.vec(0.0, 0.0, t.math('MULTIPLY', H, 0.3))),
-                        Ray_Direction=(0.0, 0.0, -1.0), Ray_Length=t.math('ADD', t.math('MULTIPLY', gin["Chamber Drop"], 2.0), t.math('MULTIPLY', H, 2.0)))
-    pebbles_at = t.node('GeometryNodeSetPosition', Geometry=pebble_at, Selection=pebble_ray.outputs["Is Hit"], Position=pebble_ray.outputs["Hit Position"]).outputs[0]
-    pebble_keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 139), gin["Rubble"]), pebble_ray.outputs["Is Hit"]), not_jointed)
+    # No pebble row: the heaps' small layers strew the chips now (LG-061 cp3).
     # The rocks come from a collection of separate rock meshes (D105, rocks.py; any collection can be swapped
     # in), one picked at random per rock. Each fits -1..1 with its pivot 45% up, so it sits partly buried.
     def library(name):
@@ -678,8 +667,7 @@ def cave_group():
 
     # Sized to the passage up to the cap above; instances, so no lower limit from the rock-detail grid.
     size = t.math('MULTIPLY', t.math('MULTIPLY', rock_r, rand(0.12, 0.32, 37)), 0.8)
-    rubble_sets = [scatter(foot, keep, "Rubble Medium", size, 97, 1.0), scatter(foot, big_keep, "Rubble Big", size, 151, 3.0),
-                   scatter(pebbles_at, pebble_keep, "Rubble Small", size, 161, 0.5)]
+    rubble_sets = [scatter(foot, keep, "Rubble Medium", size, 97, 1.0), scatter(foot, big_keep, "Rubble Big", size, 151, 3.0)]
 
     # Ramp into Chamber (Mike, for players): an embankment of rock along the path, from the passage floor down
     # into the sunk chamber, so it can be walked down instead of jumped, with scree on its slopes.
@@ -1920,7 +1908,7 @@ def cave_group():
     # the talus aprons). Rubble sets how many piles, Spread how far each is strewn, Rock Size how big the rocks.
     # Everything is placed on the Preview-grid space and the Preview rocks, so every Detail Level has the same
     # rocks in the same places; only the last step, onto the finished floor, reads the level's own shell.
-    jointed = t.math('COMPARE', gin["Rock"], 1.0)
+    jointed = 1.0  # all three rocks drop their rubble this way (LG-061 cp3, D204: one scatter for all rubble)
     h_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
 
     def h_path(value, shift=0.0, data_type='FLOAT'):

@@ -11,7 +11,7 @@ import bpy
 from mathutils import Vector, noise
 
 LIBRARY = "KB Cave Rocks"
-LIBRARY_VERSION = 9
+LIBRARY_VERSION = 10
 # Each family is a kit of three sizes (Mike): a few big ones, the everyday ones, and pebbles to break up the
 # floor. Size -> (how many, size range against a medium rock, detail of the mesh at High).
 # Faces at High: Big 2,400, Medium 600, Small 150 (Mike: the Big rocks had 9,600 and far too many polygons).
@@ -57,7 +57,8 @@ def _rock(family, rng, scale=1.0, subdivisions=4, slab=False):
     verts = bm.verts
     off = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
     if family == "Blocks":
-        stretch = Vector((1.0, rng.uniform(0.45, 1.0), rng.uniform(0.45, 0.85)))  # some long blocks
+        chip = scale < 0.6  # the Small kit: angular chips, not pills (Mike, LG-061 cp3)
+        stretch = Vector((1.0, rng.uniform(0.65 if chip else 0.45, 1.0), rng.uniform(0.6 if chip else 0.45, 0.85)))  # some long blocks
         for v in verts:
             v.co = v.co * stretch
         for axis in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((0, 0, 1)), Vector((0, 0, -1))):
@@ -65,6 +66,10 @@ def _rock(family, rng, scale=1.0, subdivisions=4, slab=False):
             _clip(verts, (axis + jitter).normalized(), rng.uniform(0.5, 0.7))
         for _ in range(rng.randint(2, 4)):  # the odd corner knocked off
             _clip(verts, *_plane(rng))
+        if chip:  # on a coarse small mesh the sphere left between cuts read as a rounded pill: cut it all into facets
+            for _ in range(rng.randint(5, 7)):
+                n, d = _plane(rng)
+                _clip(verts, n, d * 0.7)
         grain = 0.03
     elif family == "Scree":
         stretch = Vector((1.0, rng.uniform(0.3, 0.8), rng.uniform(0.15, 0.3)))  # long, thin, slate-like
@@ -165,7 +170,7 @@ def ensure_library():
                     bm.to_mesh(me)
                     bm.free()
                     me.shade_smooth()
-                    me.set_sharp_from_angle(angle=0.7 if family != "Boulders" else 3.14)
+                    me.set_sharp_from_angle(angle=3.14 if family == "Boulders" else 0.35 if (family == "Blocks" and size == "Small") else 0.7)  # chips: crisp facet edges
                     colls[level].objects.link(bpy.data.objects.new(me.name, me))
     levels.use_fake_user = True
     top.use_fake_user = True  # kept in the file though no scene shows it

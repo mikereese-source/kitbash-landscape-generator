@@ -320,6 +320,7 @@ def _erosion_settings(recipe, props):
     for k in ("on", "amount"):
         er.pop(k, None)
     er["seed"] = props.seed  # same seed, same erosion (T7)
+    er["scale"] = EROSION_GRID[bool(props.final or props.ultra)] / 512.0  # cell counts are tuned at 512 (LG-078)
     # Amount is erosion time: 0 none, 1 the type's full erosion. Every process scales with it, so a low
     # Amount keeps the shape (only incision scaled before, so 0.03 still melted it), and the drainage
     # stays whole (blending plain and eroded heights dammed rivers into pools; Mike, Pass 3).

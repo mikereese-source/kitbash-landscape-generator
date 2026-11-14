@@ -36,6 +36,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Parse every edited `.py` before running Blender**: `python -c "import ast; ast.parse(open(p, encoding='latin1').read())"`.
 - **Comments say why, in one line**, citing the decision or Mike's note (`# ... (Mike, LG-057)`). Never delete or shorten an existing comment you weren't asked to change.
 - **Write the shortest complete change.** No options, wrappers or abstractions nobody asked for. Reuse the `_Tree` helpers (`t.node`, `t.math`, `t.smooth`, ...) and the patterns around the change.
+- **Turn a feature off by deleting its code, not by feeding it a zero.** A 0.0 sent into a yes/no socket broke the cave build (LG-061 cp3), and dead nodes still cost build time.
 
 ## Blender and tests
 

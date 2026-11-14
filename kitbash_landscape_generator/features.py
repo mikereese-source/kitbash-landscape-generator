@@ -429,7 +429,7 @@ def entrance_group():
 
 
 CAVE_GROUP = "KB Cave"
-CAVE_VERSION = 215
+CAVE_VERSION = 216
 # (name, socket type, default) for the cave object's controls; sizes in real meters (D91).
 CAVE_INPUTS = (
     ("Entrance Width", 'NodeSocketFloat', 12.0), ("Entrance Height", 'NodeSocketFloat', 6.0),
@@ -640,7 +640,7 @@ def cave_group():
     foot = t.node('GeometryNodeSetPosition', Geometry=foot, Selection=drop_ray.outputs["Is Hit"], Position=drop_ray.outputs["Hit Position"]).outputs[0]
     # A kit of three sizes (Mike): the odd big block leaning on the wall, the everyday rocks, and pebbles strewn
     # out across the floor to break it up. A rock is big or medium, never both on one spot.
-    not_jointed = t.math('SUBTRACT', 1.0, t.math('COMPARE', gin["Rock"], 1.0))  # jointed rock's fallen blocks lie in heaps instead (D178)
+    not_jointed = 0.0  # every rock's rubble now lies in the layered heaps below (LG-061 cp3; was jointed only, D178)
     big_keep = t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 29), t.math('MULTIPLY', gin["Rubble"], t.math('ADD', 0.15, t.math('MULTIPLY', t.math('COMPARE', gin["Rock"], 2.0), 0.15)))), not_jointed)  # lava: its big rocks are the fallen roof slabs, twice as many
     keep = t.math('MULTIPLY', t.math('MULTIPLY', t.math('LESS_THAN', rand(0.0, 1.0, 23), gin["Rubble"]), t.math('SUBTRACT', 1.0, big_keep)), not_jointed)
     # Pebbles: three for each foot point, thrown out from the wall onto the floor and along the passage.
@@ -1920,7 +1920,7 @@ def cave_group():
     # the talus aprons). Rubble sets how many piles, Spread how far each is strewn, Rock Size how big the rocks.
     # Everything is placed on the Preview-grid space and the Preview rocks, so every Detail Level has the same
     # rocks in the same places; only the last step, onto the finished floor, reads the level's own shell.
-    jointed = t.math('COMPARE', gin["Rock"], 1.0)
+    jointed = 1.0  # all three rocks drop their rubble this way (LG-061 cp3, D204: one scatter for all rubble)
     h_near = t.node('GeometryNodeSampleNearest', Geometry=path, Sample_Position=t.position()).outputs[0]
 
     def h_path(value, shift=0.0, data_type='FLOAT'):

@@ -1634,6 +1634,36 @@ def _t41():
         out.append(f"{est:,} vs {real:,}")
     return "; ".join(out)
 
+@test("T42", "Bedrock breakup: steep rock breaks into blocks, scree-angle ground stays smooth")
+def _t42():
+    # LG-077 (review S4): jointed blocks and bedded ledges where Mountains are steeper than scree can lie (34 to 46 deg
+    # and up); gentler ground is left alone, no points are added, and the erosion engine never sees it.
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2000.0)
+    kept = lg.TYPES["mountains"]["breakup"]
+    check(kept > 0, "Mountains should ship with Breakup on")
+    try:
+        on = evaluated_points(ob)
+        lg.TYPES["mountains"]["breakup"] = 0.0
+        lg.sync_object(ob)
+        off = evaluated_points(ob)
+    finally:
+        lg.TYPES["mountains"]["breakup"] = kept
+    check(len(on) == len(off), f"breakup must not add points: {len(off):,} without, {len(on):,} with")
+    n = int(round(math.sqrt(len(off))))
+    gy, gx = np.gradient(off[:, 2].reshape(n, n), 2000.0 / (n - 1))
+    deg = np.degrees(np.arctan(np.hypot(gx, gy))).ravel()
+    gentle, steep = deg < 30.0, deg > 50.0
+    check(gentle.mean() > 0.05 and steep.mean() > 0.02, f"need both kinds of ground: {gentle.mean():.0%} under 30 deg, {steep.mean():.0%} over 50 deg")
+    # Height is stretched back to the exact relief after the breakup, so take that stretch out before comparing.
+    a, c = np.polyfit(off[gentle, 2], on[gentle, 2], 1)
+    moved = np.linalg.norm(on - np.c_[off[:, :2], a * off[:, 2] + c], axis=1)
+    calm, broken = float(np.percentile(moved[gentle], 95)), float(np.sqrt((moved[steep] ** 2).mean()))
+    check(calm < 0.5, f"ground under 30 deg should stay as it was: 95% of it moved up to {calm:.2f} m (limit 0.5 m)")
+    check(broken > 1.5, f"rock over 50 deg should break into blocks meters deep: it moved {broken:.2f} m rms (want over 1.5 m)")
+    return f"2 km Mountains, Preview: rock over 50 deg moved {broken:.1f} m rms, ground under 30 deg {calm:.2f} m; {len(on):,} points both ways"
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

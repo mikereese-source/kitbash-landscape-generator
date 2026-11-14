@@ -30,7 +30,8 @@ TYPE_GROUPS = TYPES_FILE.get("groups", [])  # picker order and headers (by setti
 
 # types.json key -> node group input, for the parts of a recipe the panel doesn't expose
 TYPE_INPUTS = {"recipe": "Recipe", "detail": "Detail", "warp": "Warp", "rock": "Rock",
-               "grain_roughness": "Grain Roughness"}
+               "grain_roughness": "Grain Roughness", "breakup": "Breakup", "block_size": "Block Size",
+               "bed_thickness": "Bed Thickness", "bed_dip": "Bed Dip"}
 # Shape settings: the panel edits these; picking a type or Reset loads them from types.json.
 LOOK_INPUTS = {"height": "Height", "feature_scale": "Feature Scale", "roughness": "Roughness",
                "sharpness": "Sharpness"}
@@ -205,7 +206,7 @@ def sync_object(ob):
     if not props.look_set:  # landscape from before step 2.2
         apply_type_look(props)
     recipe = TYPES.get(_object_type_key(props), TYPES[TYPES_FILE["default"]])
-    values.update({sock: recipe[key] for key, sock in TYPE_INPUTS.items()})
+    values.update({sock: recipe[key] for key, sock in TYPE_INPUTS.items() if key in recipe})  # breakup: rocky types only (LG-077)
     values.update({sock: getattr(props, key) for key, sock in LOOK_INPUTS.items()})
     values["Seed"] = props.seed
     st = _style_entry(props)
@@ -243,7 +244,7 @@ def sync_object(ob):
 # replaces it a moment later (in the background build it runs straight away).
 EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
-             "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
+             "Grain Roughness", "Breakup", "Block Size", "Bed Thickness", "Bed Dip", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
              "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth",
              "Base", "Base Depth"}  # water, caves and the base never change the eroded terrain: no re-erosion
 _pending = {}

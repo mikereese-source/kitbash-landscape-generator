@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 145  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 147  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)

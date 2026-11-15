@@ -66,6 +66,7 @@ DEFAULTS = {
                          # rills curve and merge instead of following the grid in straight rows
     "jitter": 0.5,       # random nudge to water routing, so channels branch instead of running parallel
     "seed": 0,
+    "scale": 1.0,        # this grid against the 512 grid the cell counts above are tuned on (LG-078: the same in meters at every Detail Level)
     "fill_every": 1000,  # full pit passes are slow; pits pass their water on every pass anyway
 }
 
@@ -445,6 +446,10 @@ def erode(h, settings=None, hard=None, masks=False):
     talus = np.tan(np.radians(s["talus_deg"] + (s["cliff_deg"] - s["talus_deg"]) * r))
     cliff = np.tan(np.radians(s["cliff_deg"] + (86.0 - s["cliff_deg"]) * r))
     soft_w = 1.0 - r
+    # Cell counts read "at 512": blur rounds scale with the grid squared, one-cell-a-round steps with it (LG-078, S5).
+    f = float(s["scale"])
+    sq = lambda k: max(int(round(k * f * f)), 1) if k > 0 else 0
+    ln = lambda k: max(int(round(k * f)), 1) if k > 0 else 0
     # Incision: knickpoints on the main channel move about k_inc of the landscape per pass, so the
     # result doesn't depend on grid size. F = k_inc * A^m / distance, solved implicitly.
     k_inc = s["incision"] * 0.06
@@ -495,9 +500,9 @@ def erode(h, settings=None, hard=None, masks=False):
                 load[cells] -= drop
                 np.add.at(load, rr, load[cells])
         cut = flat.reshape(n, m)
-        z = slump(cut, talus, dx, s["slump_every_pass"], cliff)  # valley walls fall back to their resting angle
+        z = slump(cut, talus, dx, ln(s["slump_every_pass"]), cliff)  # valley walls fall back to their resting angle
         if soften > 0:  # hillslope softening
-            for _ in range(int(s["soften_rounds"])):
+            for _ in range(sq(s["soften_rounds"])):
                 p = np.pad(z, 1, mode="edge")
                 z = z + soften * soft_w * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
         # Rivers carry away what slides and creeps into them: hillslope debris never raises a channel.
@@ -512,7 +517,7 @@ def erode(h, settings=None, hard=None, masks=False):
     # what's left: a final breach would re-cut trenches that any resampling breaks into deep pits.
     if s["pit_mode"] == "breach":  # (a fill here was redundant: the last step fills anyway; speed, Pass 4)
         z = breach(z)
-    z = widen_floors(z, dx, s["floor_width"], s["floor_from"])
+    z = widen_floors(z, dx, ln(s["floor_width"]), s["floor_from"])
     # The landscape is stretched back to its Height afterwards (D3), which steepens whatever the
     # slumping laid back. Stretch, then slump, until the relief holds, so slopes still sit at their
     # resting angle at the final relief.
@@ -520,24 +525,26 @@ def erode(h, settings=None, hard=None, masks=False):
     for _ in range(6):
         z = lo + (z - z.min()) / max(float(np.ptp(z)), 1e-12) * span
         before = z
-        z = slump(z, talus, dx, s["final_slump"], cliff)
+        z = slump(z, talus, dx, ln(s["final_slump"]), cliff)
         z = np.where(chan, np.minimum(z, before), z)
         if np.ptp(z) > 0.98 * span:
             break
-    z = carve_floors(z, dx, s["floor_carve"], s["bank_deg"], s["channel"])
+    z = carve_floors(z, dx, ln(s["floor_carve"]), s["bank_deg"], s["channel"])
     # Round off the grid: D8 channels, the cliff cap and the carve leave one-cell stair steps that
     # showed as staircase edges and moire on the mesh (Pass 2). Floors are wide enough now not to dam.
-    def smooth_rounds(z, k):
-        for _ in range(int(k)):
+    gy, gx = np.gradient(z, dx)
+    finish_w = soft_w * (np.hypot(gx, gy) <= talus)  # walls steeper than scree keep their edge (LG-078)
+    def smooth_rounds(z, k, w=soft_w):
+        for _ in range(sq(k)):
             p = np.pad(z, 1, mode="edge")
-            z = z + 0.2 * soft_w * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
+            z = z + 0.2 * w * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
         return z
-    z = smooth_rounds(z, s["finish_blur"])
+    z = smooth_rounds(z, s["finish_blur"], finish_w)
     if s["finish_blur"] > 3:
         # Heavy smoothing dams channels into chains of flat pools: cut each dam back to a downhill
         # exit, widen the cut, and smooth lightly once more.
         z = breach(z, s["exit_slope"] / (max(n, m) - 1))
-        z = carve_floors(z, dx, s["floor_carve"], s["bank_deg"], s["channel"])
+        z = carve_floors(z, dx, ln(s["floor_carve"]), s["bank_deg"], s["channel"])
         z = smooth_rounds(z, 4)
     if sea is not None:
         z = np.where(sea, np.maximum(z, sea_z), z)
@@ -545,7 +552,7 @@ def erode(h, settings=None, hard=None, masks=False):
     # Give back the shape's own fine detail (finer than ~3 cells) on slopes and ridges, never in channels
     # or on valley floors: the smoothing above washed every texture away (Mike, Pass 3).
     if s["keep_detail"] > 0:
-        fine = np.asarray(h, dtype=np.float64) - blur(np.asarray(h, dtype=np.float64), 1)
+        fine = np.asarray(h, dtype=np.float64) - blur(np.asarray(h, dtype=np.float64), ln(1))  # 3 cells at 512 (LG-078)
         # At a sheer step (caprock rim, cliff top) height minus its blur is a large spike on the top cells, an
         # unsharp-mask halo that stood up as a serrated lip along every Mesa rim (Mike, Pass 8). Clip it to a
         # few times the typical texture: rough ground keeps its detail, step edges lose the halo.

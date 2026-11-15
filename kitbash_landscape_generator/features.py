@@ -12,7 +12,7 @@ import math
 import bpy
 
 CUT_GROUP = "KB Landscape Cut"
-CUT_VERSION = 9
+CUT_VERSION = 11
 
 
 def cut_group():
@@ -130,7 +130,7 @@ def cut_group():
     cutter = store(gin.outputs["Cutter"], "lg_cave", True)
     boolean = N.new('GeometryNodeMeshBoolean')
     boolean.operation = 'DIFFERENCE'
-    boolean.solver = 'EXACT'
+    boolean.solver = 'MANIFOLD'  # Exact left a 4-face edge where the cave floor touched the ground (LG-078, T30)
     L.new(grow.outputs["Mesh"], boolean.inputs["Mesh 1"])
     L.new(cutter, boolean.inputs["Mesh 2"])
     # Keep the top and the carved faces; the block's walls and floor go.
@@ -144,7 +144,17 @@ def cut_group():
     tri = N.new('GeometryNodeTriangulate')
     L.new(trim.outputs[0], tri.inputs["Mesh"])
     corners = N.new('GeometryNodeInputMeshFaceNeighbors')  # "Vertex Count": corners per face
-    L.new(math('GREATER_THAN', corners.outputs["Vertex Count"], 4.5), tri.inputs["Selection"])
+    # Ground n-gons clear of the cave only: one touching it re-cut a cave edge or ear (3-4 face edges, LG-078, T30).
+    cave_f = N.new('GeometryNodeInputNamedAttribute')
+    cave_f.data_type = 'FLOAT'
+    cave_f.inputs["Name"].default_value = "lg_cave"
+    cave_pt = N.new('GeometryNodeFieldOnDomain')
+    cave_pt.domain, cave_pt.data_type = 'POINT', 'FLOAT'
+    L.new(cave_f.outputs["Attribute"], cave_pt.inputs[0])
+    touch = N.new('GeometryNodeFieldOnDomain')
+    touch.domain, touch.data_type = 'FACE', 'FLOAT'
+    L.new(cave_pt.outputs[0], touch.inputs[0])
+    L.new(math('MULTIPLY', math('GREATER_THAN', corners.outputs["Vertex Count"], 4.5), math('LESS_THAN', touch.outputs[0], 1e-6)), tri.inputs["Selection"])
     back = N.new('GeometryNodeJoinGeometry')
     L.new(tri.outputs[0], back.inputs[0])
     L.new(sep.outputs["Inverted"], back.inputs[0])

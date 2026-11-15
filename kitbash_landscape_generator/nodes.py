@@ -8,7 +8,11 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 144  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 145  # bump when the tree changes so old files rebuild it
+# Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
+BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
+BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
+BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -30,6 +34,10 @@ INPUTS = (
     ("Pad Cells", 'NodeSocketFloat', 0.0, 0.0, 4096.0, "Extra rings of points around the edge, for the erosion engine (set by the add-on)"),
     ("Detail Floor", 'NodeSocketFloat', 0.25, 0.01, 1000.0, "Smallest shape wavelength in meters; with erosion on, the erosion grid's (set by the add-on)"),
     ("Grain Roughness", 'NodeSocketFloat', 0.5, 0.3, 0.8, "How fast rock grain fades with size: higher = rubblier at 1 m (per type, from lidar)"),
+    ("Breakup", 'NodeSocketFloat', 0.0, 0.0, 2.0, "How much steep bedrock breaks into jointed blocks and ledges: 0 none (per type)"),
+    ("Block Size", 'NodeSocketFloat', 60.0, 1.0, 500.0, "Width of the biggest rock blocks in meters; two smaller sizes follow it (per type)"),
+    ("Bed Thickness", 'NodeSocketFloat', 14.0, 0.5, 200.0, "Height of one rock layer in meters: each layer makes a ledge and a riser (per type)"),
+    ("Bed Dip", 'NodeSocketFloat', 4.0, 0.0, 45.0, "How many degrees the rock layers tilt from level (per type)"),
     ("Roughness", 'NodeSocketFloat', 0.5, 0.0, 1.0, "Smooth and soft, or bumpy with small detail"),
     ("Warp", 'NodeSocketFloat', 0.2, 0.0, 2.0, "Bends shapes so they look less regular"),
     ("Sharpness", 'NodeSocketFloat', 1.0, 0.2, 4.0, "Above 1: pointier tops and flatter lows"),
@@ -1154,7 +1162,69 @@ def _build(ng, recipe):
     L.new(here.outputs[0], hz.inputs[0])
     # Push along the surface normal, so steep walls get rough sideways, not just up and down.
     push = math('MULTIPLY', math('SUBTRACT', grain, 0.5), math('MULTIPLY', amount, 2.0))
-    total = math('ADD', hz.outputs["Z"], math('MULTIPLY', nrm.outputs["Z"], push))
+    side, bk_drop = push, 0.0
+    if recipe == 1:  # Mountains first; the other rocky types follow at checkpoint 2
+        # Bedrock breakup (LG-077, review S4): blocks and ledges on steep rock, per-point only so it ports to three.js.
+        # Real meters, shrunk together on small landscapes: the biggest block stays under 1/32 of the width.
+        bk_fit = math('MINIMUM', 1.0, math('DIVIDE', ref, math('MULTIPLY', inp["Block Size"], 32.0)))
+        bk_big = math('MULTIPLY', inp["Block Size"], bk_fit)
+        bk_patch = noise(rock_p.outputs[0], 'FBM', math('DIVIDE', 0.25, bk_big), 1.0, 0.5).outputs["Fac"]
+        # Rock from 40 to 52 deg in patches, not the review's 34-46 (64% of D211 Mountains; Sierra 22% over 46, LG-077).
+        bk_rock = math('MULTIPLY', smooth(nrm.outputs["Z"], 0.766, 0.616), math('ADD', 0.6, math('MULTIPLY', smooth(bk_patch, 0.3, 0.7), 0.4)))
+        bk_rock = math('MULTIPLY', bk_rock, math('MULTIPLY', inp["Breakup"], math('LESS_THAN', inp["Pad Cells"], 0.5)))
+        bk_sum = 0.0
+        for bk_rel in (1.0, 0.37, 0.15):  # 60, 22 and 9 m at the default Block Size
+            bk_size = math('MULTIPLY', bk_big, bk_rel)
+            # 3D cells twice as tall as wide: blocks keep their size on any slope (2D cells made combs, LG-077 draft).
+            bk_q = N.new('ShaderNodeVectorMath')
+            bk_q.operation = 'MULTIPLY'
+            L.new(rock_p.outputs[0], bk_q.inputs[0])
+            L.new(vec(math('DIVIDE', 1.0, bk_size), math('DIVIDE', 1.0, bk_size), math('DIVIDE', 0.5, bk_size)), bk_q.inputs[1])
+            # Smooth cells blend at a bevel: hard jumps left 470 combs over 15 m and a crack net from above (LG-077).
+            bk_cell = N.new('ShaderNodeTexVoronoi')
+            bk_cell.voronoi_dimensions = '3D'
+            bk_cell.feature = 'SMOOTH_F1'
+            bk_cell.inputs["Scale"].default_value = 1.0
+            bk_cell.inputs["Smoothness"].default_value = BK_EDGE
+            L.new(bk_q.outputs[0], bk_cell.inputs["Vector"])
+            bk_rand = N.new('ShaderNodeVectorMath')  # the block's own random numbers, -0.5..0.5
+            bk_rand.operation = 'SUBTRACT'
+            L.new(bk_cell.outputs["Color"], bk_rand.inputs[0])
+            bk_rand.inputs[1].default_value = (0.5, 0.5, 0.5)
+            bk_from = N.new('ShaderNodeVectorMath')
+            bk_from.operation = 'SUBTRACT'
+            L.new(bk_q.outputs[0], bk_from.inputs[0])
+            L.new(bk_cell.outputs["Position"], bk_from.inputs[1])
+            bk_tilt = N.new('ShaderNodeVectorMath')
+            bk_tilt.operation = 'DOT_PRODUCT'
+            L.new(bk_rand.outputs[0], bk_tilt.inputs[0])
+            L.new(bk_from.outputs[0], bk_tilt.inputs[1])
+            bk_set = N.new('ShaderNodeSeparateXYZ')
+            L.new(bk_rand.outputs[0], bk_set.inputs[0])
+            # Each block face is a plane: set proud or back, and tilted its own way (flat plates read as cracked paving).
+            bk_face = math('MULTIPLY', math('ADD', math('MULTIPLY', bk_set.outputs["X"], BK_STEP), math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)), bk_size)
+            # A size the mesh can't draw (under 2.5 to 3 points) is left out: Preview shows the two bigger sizes.
+            bk_sum = math('ADD', bk_sum, math('MULTIPLY', bk_face, smooth(math('DIVIDE', bk_size, spacing), 2.5, 3.0)))
+        # A normal push past cot(slope) folds the surface over: full to about 59 deg, 30% at 80 (LG-077).
+        bk_lean = math('DIVIDE', nrm.outputs["Z"], math('SQRT', math('MAXIMUM', math('SUBTRACT', 1.0, math('MULTIPLY', nrm.outputs["Z"], nrm.outputs["Z"])), 1e-4)))
+        bk_push = math('MULTIPLY', math('MULTIPLY', bk_rock, bk_sum), math('MINIMUM', math('DIVIDE', bk_lean, BK_FOLD), 1.0))
+        # Only up and down within a block of the border: sideways pushes broke the Size X by Size Y outline (LG-077).
+        bk_in = smooth(math('MINIMUM', math('SUBTRACT', math('MULTIPLY', size_x, 0.5), math('ABSOLUTE', inner_at.outputs["X"])),
+                            math('SUBTRACT', math('MULTIPLY', size_y, 0.5), math('ABSOLUTE', inner_at.outputs["Y"]))), 0.0, bk_big)
+        side = math('ADD', push, math('MULTIPLY', bk_push, bk_in))
+        push = math('ADD', push, bk_push)
+        # Beds: a ledge then a riser per layer of height (the Terraces formula), layers dipping and uneven in thickness.
+        bk_bed = math('MULTIPLY', inp["Bed Thickness"], bk_fit)
+        bk_at = N.new('ShaderNodeSeparateXYZ')
+        L.new(rock_p.outputs[0], bk_at.inputs[0])
+        bk_dip = math('MULTIPLY', math('ADD', math('MULTIPLY', bk_at.outputs["X"], 0.87), math('MULTIPLY', bk_at.outputs["Y"], 0.5)),
+                      math('TANGENT', math('RADIANS', inp["Bed Dip"])))
+        bk_lv = math('ADD', math('DIVIDE', math('ADD', bk_at.outputs["Z"], bk_dip), bk_bed), math('MULTIPLY', bk_patch, 3.0))
+        bk_lv = math('ADD', bk_lv, math('MULTIPLY', noise(vec(math('MULTIPLY', bk_lv, 0.6), seed_val, 0.0), 'FBM', 1.0, 0.0, 0.5).outputs["Fac"], 0.5))
+        bk_ledge = math('ADD', math('FLOOR', bk_lv), math('POWER', math('FRACT', bk_lv), 4.0))
+        bk_drop = math('MULTIPLY', math('MULTIPLY', math('SUBTRACT', bk_ledge, bk_lv), math('MULTIPLY', bk_bed, BK_BEDS)),
+                       math('MULTIPLY', bk_rock, smooth(math('DIVIDE', bk_bed, spacing), 2.5, 3.0)))
+    total = math('ADD', math('ADD', hz.outputs["Z"], math('MULTIPLY', nrm.outputs["Z"], push)), bk_drop)
     # Stretch again so Height stays the exact relief.
     stats2 = N.new('GeometryNodeAttributeStatistic')
     stats2.data_type = 'FLOAT'
@@ -1166,8 +1236,8 @@ def _build(ng, recipe):
     final_z = math('MULTIPLY', math('DIVIDE', math('SUBTRACT', total, lo2), math('MAXIMUM', math('SUBTRACT', hi2, lo2), 1e-6)),
                    math('MULTIPLY', inp["Height"], ref))
     offset2 = N.new('ShaderNodeCombineXYZ')
-    L.new(math('MULTIPLY', nrm.outputs["X"], push), offset2.inputs["X"])
-    L.new(math('MULTIPLY', nrm.outputs["Y"], push), offset2.inputs["Y"])
+    L.new(math('MULTIPLY', nrm.outputs["X"], side), offset2.inputs["X"])
+    L.new(math('MULTIPLY', nrm.outputs["Y"], side), offset2.inputs["Y"])
     L.new(math('SUBTRACT', final_z, hz.outputs["Z"]), offset2.inputs["Z"])
     setpos2 = N.new('GeometryNodeSetPosition')
     L.new(shape, setpos2.inputs["Geometry"])

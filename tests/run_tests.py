@@ -615,7 +615,7 @@ def _t30():
     w1 = float(np.linalg.norm(np.ptp(cave, axis=0)))  # its 3D extent: the mouth may face another way at a new size
     set_size(ob, 400.0)
     _p, open2, bad2, cave2, _s = mesh_report(ob)
-    check(open2 > 0 and bad2 == 0 and len(cave2) > 50, "cave lost on a bigger landscape")
+    check(open2 > 0 and bad2 == 0 and len(cave2) > 50, f"cave lost on a bigger landscape: {len(cave2)} cave points (want over 50), {bad2} non-manifold edges (want 0), {open2} open edges")
     w2 = float(np.linalg.norm(np.ptp(cave2, axis=0)))
     check(abs(w2 / w1 - 1.0) < 0.2, f"cave should keep its real size when the landscape doubles: {w1:.1f} m -> {w2:.1f} m")
     return f"12 m entrance, {len(cave)} cave points, only the border open, rest untouched, {dt:.2f} s; {w1:.1f} m -> {w2:.1f} m at 2x size"
@@ -1633,6 +1633,25 @@ def _t41():
         check(abs(est - real) <= 0.02 * real, f"base {base}, water {water}, 300x150 {wide}, cave {cave}, {'High' if final else 'Preview'}: panel says {est:,} faces, the mesh has {real:,}; want within 2%")
         out.append(f"{est:,} vs {real:,}")
     return "; ".join(out)
+
+@test("T42", "Preview and High erode alike")
+def _t42():
+    # LG-078 (Mike: match exactly): both levels erode on the same grid, so the steep ground agrees, measured on the
+    # same spacing (High read every 4th point). Preview on its own 256 grid had Mountains at 14.6% against 17.5%.
+    fresh_scene()
+    ob = add("mountains")
+    ob.lg.size_x = ob.lg.size_y = 2000.0
+    share = []
+    for final in (False, True):
+        ob.lg.final = final
+        lg.sync_object(ob)
+        p = evaluated_points(ob)
+        n = int(round(np.sqrt(len(p))))
+        z = p[:n * n, 2].reshape(n, n)[::4, ::4] if final else p[:n * n, 2].reshape(n, n)
+        gy, gx = np.gradient(z, 2000.0 / (z.shape[0] - 1))
+        share.append(100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60).mean()))
+    check(abs(share[0] - share[1]) <= 1.0, f"over 60 deg: Preview {share[0]:.1f}%, High {share[1]:.1f}%; want within 1 point")
+    return f"over 60 deg: Preview {share[0]:.1f}%, High {share[1]:.1f}%"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

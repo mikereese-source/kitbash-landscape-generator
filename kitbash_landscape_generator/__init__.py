@@ -241,7 +241,7 @@ def sync_object(ob):
 # Erosion (R6, D54): computed on a capped grid from the landscape's own shape, cached per
 # landscape as an image the node tree adds. The shape updates instantly; the eroded version
 # replaces it a moment later (in the background build it runs straight away).
-EROSION_GRID = {False: 256, True: 512}  # Preview / Final and Ultra
+EROSION_GRID = {False: 512, True: 512}  # Preview / Final and Ultra: the same, so Preview erodes exactly as High and shares its result (Mike, LG-078)
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
              "Grain Roughness", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
              "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth",
@@ -321,6 +321,7 @@ def _erosion_settings(recipe, props):
         er.pop(k, None)
     er["seed"] = props.seed  # same seed, same erosion (T7)
     er["scale"] = EROSION_GRID[bool(props.final or props.ultra)] / 512.0  # cell counts are tuned at 512 (LG-078)
+    er["mesh_soften"] = 0 if (props.final or props.ultra) else 2  # Preview's mesh has a point per erosion cell (Mike: option A, LG-078)
     # Amount is erosion time: 0 none, 1 the type's full erosion. Every process scales with it, so a low
     # Amount keeps the shape (only incision scaled before, so 0.03 still melted it), and the drainage
     # stays whole (blending plain and eroded heights dammed rivers into pools; Mike, Pass 3).

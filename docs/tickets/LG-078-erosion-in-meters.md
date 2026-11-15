@@ -1,6 +1,6 @@
 # LG-078 Erosion in meters, the same at Preview and High
 Type: feature | Milestone: Model realism | Phase: B2 Model realism | Size: M | Priority: P2
-Status: todo | Lane: side | Needs Blender: tests only | Mike review: no
+Status: in progress | Lane: side | Needs Blender: tests only | Mike review: no
 Depends on: LG-076 | Blocks: LG-079
 
 ## Why
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-11 created from the realism review (D209)
+- 2026-11-14 (Opus 5.5, branch lg-078-meters) cell counts scale with the grid (ec2ad8c); Mike chose Preview eroding on the 512 grid (exact match, T42: 18.3% both). Full suite 37/38: T30 fails, the cave patch seam goes non-manifold on some landscapes. Probed 6 seeds x 2 sizes: main 0/12 at Preview and High; branch 2-3/12 whatever the change (512 grid, steep skip off, 2 rounds of Preview softening (option A) all still fail), so the seam itself is fragile and any change to the eroded ground moves the failures. Mike: fix the seam itself (option B) next session. Uncommitted WIP committed here (512 grid, mesh_soften 2)

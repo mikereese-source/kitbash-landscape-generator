@@ -1634,8 +1634,8 @@ def _t41():
         out.append(f"{est:,} vs {real:,}")
     return "; ".join(out)
 
-@test("T42", "Bedrock breakup: steep rock breaks into blocks, scree-angle ground stays smooth")
-def _t42():
+@test("T43", "Bedrock breakup: steep rock breaks into blocks, scree-angle ground stays smooth")
+def _t43():
     # LG-077 (review S4): jointed blocks and bedded ledges where Mountains are steeper than scree can lie (34 to 46 deg
     # and up); gentler ground is left alone, no points are added, and the erosion engine never sees it.
     fresh_scene()

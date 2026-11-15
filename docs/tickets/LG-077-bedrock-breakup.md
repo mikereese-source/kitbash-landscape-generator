@@ -7,7 +7,7 @@ Depends on: LG-076 | Blocks: LG-082
 Nothing exists between the 16 m shape floor and the 1 m grain, so rock faces read as pillows. A scratch breakup lifted Mountains from 2.9% to 8.6% over 60 deg and smoothness from 0.99 to 0.89 (real 0.89) (review S4). This is secondary volume (5-60 m), so it belongs in the mesh, not the material (D157, D163).
 
 ## Done when
-- Sharp summits and knife-edge crests (Mike, 2026-11-12: 'we need to resolve getting sharp mountain tops... overall sharper, more realistic mountains'): the highest peaks read as horns and aretes, not domes, in the wide and mid clay shots; crest sharpness measured as in the realism review (today 38, real Sierra 1351) and logged
+- Moved to LG-086 (Mike, 2026-11-15): sharp summits and knife-edge crests (Mike, 2026-11-12: 'we need to resolve getting sharp mountain tops... overall sharper, more realistic mountains'): the highest peaks read as horns and aretes, not domes, in the wide and mid clay shots; crest sharpness measured as in the realism review (today 38, real Sierra 1351) and logged
 - Reference board per rock type first (granite blocks, bedded limestone, sandstone) in `docs/realism/`
 - Jointed blocks at three sizes plus strata benches, masked by slope 34-46 deg and rock patches, in `nodes.py` after the erosion blend
 - Per-type inputs: Breakup amount, bed thickness, bed dip, block size; tooltips (T8)
@@ -37,3 +37,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 - 2026-11-14 sharp summits: NOT reached by the breakup. It only works where the ground is steep, and a dome top is flat. Scratch test on the board (right column, not in the branch): a crest sharpen, lift = (Rc / 2) x (s0 - slope)^2 on high convex ground, slope from the normal and convexity from 4 extra reads of the erosion map. It turns round tops into edges and points but leaves small spikes along ridges. Needs its own ticket or a place in LG-079; Mike decides
 - 2026-11-15 checkpoint 1 finished (Fable 5.2): board, library and log committed (7bb04af). Test renumbered T42 -> T43, LG-078 owns T42 (36584a5). Full suite on Blender 5.2: 38/38 passed, T43 'rock over 50 deg moved 4.4 m rms, ground under 30 deg 0.00 m'
 - 2026-11-15 board c191 top-down tile was half blank: the camera sat on the highest point (x 965, y 778), 59 m from the east edge of the 2048 m mesh, so a 700 m frame showed 58% landscape (computed from the baked points, matches the tile). Not clip distance. Both top-down tiles now frame an inner summit (36584a5)
+- 2026-11-15 Mike on c191: "This is still much better". Crest sharpening broken out into LG-086 (Mike); the sharp-summits line moved there

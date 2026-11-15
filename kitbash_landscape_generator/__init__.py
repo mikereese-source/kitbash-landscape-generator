@@ -312,7 +312,7 @@ def _control_value(props, ctl):
     return getattr(props, ctl["prop"])
 
 
-def _erosion_settings(recipe, props):
+def _erosion_settings(recipe, props, grid):
     er = dict(recipe.get("erosion", {}))
     for st in recipe.get("styles", ()):  # a style can change the erosion (Badlands Mounds: fine rills, not gullies)
         if st["key"] == props.style_key:
@@ -320,7 +320,7 @@ def _erosion_settings(recipe, props):
     for k in ("on", "amount"):
         er.pop(k, None)
     er["seed"] = props.seed  # same seed, same erosion (T7)
-    er["scale"] = EROSION_GRID[bool(props.final or props.ultra)] / 512.0  # cell counts are tuned at 512 (LG-078)
+    er["scale"] = grid / 512.0  # cell counts are tuned at 512 (LG-078)
     # Amount is erosion time: 0 none, 1 the type's full erosion. Every process scales with it, so a low
     # Amount keeps the shape (only incision scaled before, so 0.03 still melted it), and the drainage
     # stays whole (blending plain and eroded heights dammed rivers into pools; Mike, Pass 3).
@@ -348,7 +348,7 @@ def _erosion_update(ob, recipe, values):
     grid = EROSION_GRID[bool(props.final or props.ultra)]
     shape = sorted((k, round(v, 6) if isinstance(v, float) else v) for k, v in values.items() if k not in _KEY_SKIP)
     shape += [("aspect", round(props.size_x / props.size_y, 4)), ("grid", grid),
-              ("erosion", json.dumps(_erosion_settings(recipe, props), sort_keys=True))]
+              ("erosion", json.dumps(_erosion_settings(recipe, props, grid), sort_keys=True))]
     key = hashlib.sha1(repr(shape).encode()).hexdigest()
     img = bpy.data.images.get(ob.get("lg_erosion_img", ""))
     if img and ob.get("lg_erosion_key") == key:
@@ -459,7 +459,7 @@ def _sample_shape(ob, grid):
     nx = int(np.unique(np.round(co[:, 0], 5)).size)
     ny = co.shape[0] // nx
     h = co[:, 2].reshape(ny, nx) / max(props.size_x, props.size_y)
-    settings = _erosion_settings(recipe, props)
+    settings = _erosion_settings(recipe, props, grid)
     settings["edge_blend"] = 0.0  # the padding takes care of the edges
     return h, hard.reshape(ny, nx), settings, pad
 

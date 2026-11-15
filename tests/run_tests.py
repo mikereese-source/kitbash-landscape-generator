@@ -1636,18 +1636,23 @@ def _t41():
 
 @test("T42", "Preview and High erode alike")
 def _t42():
-    # LG-078 (Mike: match exactly): both levels erode on the same grid, so the steep ground agrees, measured on the
-    # same spacing (High read every 4th point). Preview on its own 256 grid had Mountains at 14.6% against 17.5%.
+    # LG-078 (Mike: match exactly): both levels erode on the 512 grid; Preview on its own 256 had 14.6% against 17.5%.
     fresh_scene()
     ob = add("mountains")
     ob.lg.size_x = ob.lg.size_y = 2000.0
-    share = []
+    share, cells = [], 1
     for final in (False, True):
         ob.lg.final = final
         lg.sync_object(ob)
         p = evaluated_points(ob)
         n = int(round(np.sqrt(len(p))))
-        z = p[:n * n, 2].reshape(n, n)[::4, ::4] if final else p[:n * n, 2].reshape(n, n)
+        ix, iy = (np.rint((p[:, k] - p[:, k].min()) / np.ptp(p[:, k]) * (n - 1)).astype(int) for k in (0, 1))
+        z = np.zeros((n, n))
+        z[iy, ix] = p[:, 2]  # binned by position, not point order
+        if final:
+            k = (n - 1) // cells  # High read on Preview's spacing
+            z = z[::k, ::k]
+        cells = n - 1
         gy, gx = np.gradient(z, 2000.0 / (z.shape[0] - 1))
         share.append(100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60).mean()))
     check(abs(share[0] - share[1]) <= 1.0, f"over 60 deg: Preview {share[0]:.1f}%, High {share[1]:.1f}%; want within 1 point")

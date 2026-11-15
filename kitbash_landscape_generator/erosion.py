@@ -446,8 +446,7 @@ def erode(h, settings=None, hard=None, masks=False):
     talus = np.tan(np.radians(s["talus_deg"] + (s["cliff_deg"] - s["talus_deg"]) * r))
     cliff = np.tan(np.radians(s["cliff_deg"] + (86.0 - s["cliff_deg"]) * r))
     soft_w = 1.0 - r
-    # Rounds in cells, read as "at 512": blur-like steps spread as the square root of their rounds, so they scale
-    # with the grid squared; steps that move a cell per round scale with it (LG-078, review S5).
+    # Cell counts read "at 512": blur rounds scale with the grid squared, one-cell-a-round steps with it (LG-078, S5).
     f = float(s["scale"])
     sq = lambda k: max(int(round(k * f * f)), 1) if k > 0 else 0
     ln = lambda k: max(int(round(k * f)), 1) if k > 0 else 0
@@ -553,7 +552,7 @@ def erode(h, settings=None, hard=None, masks=False):
     # Give back the shape's own fine detail (finer than ~3 cells) on slopes and ridges, never in channels
     # or on valley floors: the smoothing above washed every texture away (Mike, Pass 3).
     if s["keep_detail"] > 0:
-        fine = np.asarray(h, dtype=np.float64) - blur(np.asarray(h, dtype=np.float64), 1)
+        fine = np.asarray(h, dtype=np.float64) - blur(np.asarray(h, dtype=np.float64), ln(1))  # 3 cells at 512 (LG-078)
         # At a sheer step (caprock rim, cliff top) height minus its blur is a large spike on the top cells, an
         # unsharp-mask halo that stood up as a serrated lip along every Mesa rim (Mike, Pass 8). Clip it to a
         # few times the typical texture: rough ground keeps its detail, step edges lose the halo.

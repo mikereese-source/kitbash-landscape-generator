@@ -27,6 +27,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Prove a cause by switching it off.** Turn the suspect off in a scratch copy and show that the problem goes. Only then call it the cause and change the code.
 - **Place on cheap stand-ins, show the real meshes.** Scatter and stacking run on the Preview-level rocks (or the coarse space), and each Detail Level swaps in its own meshes. Placement is then the same at every level and costs no extra time.
 - **Measure against main in the same run.** Before and after timings come from one session, on the same caves (the default one and Mike's review cave), at Preview and High.
+- **Probes edit node groups after the build.** The prebuilt library appends its own copies of sub-groups (KB Landscape Cut), so an edit made before the build changes a copy nobody uses: a 40-minute run measured nothing (LG-078).
 - **Measure on the area the artist sees.** Masks and stats come from the visible landscape, never from padded or hidden grids: LG-075's masks, measured with the erosion padding, left a deposit band along every edge.
 
 ## Python and files
@@ -44,6 +45,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Every feature gets a test in `tests/run_tests.py`**, numbered `Tnn`, with a message that says what was wanted and what was found.
 - **The whole suite passes before a commit to main.** Use `LG_ONLY=Tnn,...` while iterating.
 - **After a targeted fix, rerun only what it can reach.** The failed test plus the tests that touch the same code; the full suite runs again only when the fix lands in shared code (Mike, 2026-11-14: a full run takes about 40 minutes).
+- **A test of one stage turns the later stages off.** T42 measured erosion on the finished mesh, and LG-077's breakup broke it after the merge (LG-078).
 - **Tests check the shape by position or attribute, never by point or face order.** Join and merge renumber geometry.
 
 ## Process

@@ -43,6 +43,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **One headless Blender at a time**, through `bash tests/blender.sh` (a shared lock across sessions and worktrees). Never call `blender.exe` directly. Never use Mike's open Blender. One render per process: batches crashed his open Blender through the GPU.
 - **Every feature gets a test in `tests/run_tests.py`**, numbered `Tnn`, with a message that says what was wanted and what was found.
 - **The whole suite passes before a commit to main.** Use `LG_ONLY=Tnn,...` while iterating.
+- **After a targeted fix, rerun only what it can reach.** The failed test plus the tests that touch the same code; the full suite runs again only when the fix lands in shared code (Mike, 2026-11-14: a full run takes about 40 minutes).
 - **Tests check the shape by position or attribute, never by point or face order.** Join and merge renumber geometry.
 
 ## Process

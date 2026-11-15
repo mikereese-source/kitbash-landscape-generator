@@ -66,7 +66,6 @@ DEFAULTS = {
                          # rills curve and merge instead of following the grid in straight rows
     "jitter": 0.5,       # random nudge to water routing, so channels branch instead of running parallel
     "seed": 0,
-    "mesh_soften": 0,    # light smoothing rounds at the very end, for a mesh with about one point per cell (Preview)
     "scale": 1.0,        # this grid against the 512 grid the cell counts above are tuned on (LG-078: the same in meters at every Detail Level)
     "fill_every": 1000,  # full pit passes are slow; pits pass their water on every pass anyway
 }
@@ -567,9 +566,6 @@ def erode(h, settings=None, hard=None, masks=False):
     z = z * (1.0 - w) + target * w
     if s["min_cap"] > 0:  # knife-edge spurs left between alcoves cut into hard cliffs break off too (Mike)
         z = cut_fins(z, max(int(round(s["min_cap"] * max(n, m) / 2)), 1), s["fin_tol"])
-    for _ in range(int(s["mesh_soften"])):  # one-cell detail on a one-point-per-cell mesh broke cave seams (LG-078, T30)
-        p = np.pad(z, 1, mode="edge")
-        z = z + 0.2 * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
     z = fill(z)
     return (z, erosion_masks(h, z)) if masks else z
 

@@ -12,7 +12,7 @@ import math
 import bpy
 
 CUT_GROUP = "KB Landscape Cut"
-CUT_VERSION = 9
+CUT_VERSION = 10
 
 
 def cut_group():
@@ -130,7 +130,7 @@ def cut_group():
     cutter = store(gin.outputs["Cutter"], "lg_cave", True)
     boolean = N.new('GeometryNodeMeshBoolean')
     boolean.operation = 'DIFFERENCE'
-    boolean.solver = 'EXACT'
+    boolean.solver = 'MANIFOLD'  # Exact left a 4-face edge where the cave floor touched the ground (LG-078, T30)
     L.new(grow.outputs["Mesh"], boolean.inputs["Mesh 1"])
     L.new(cutter, boolean.inputs["Mesh 2"])
     # Keep the top and the carved faces; the block's walls and floor go.
@@ -144,7 +144,8 @@ def cut_group():
     tri = N.new('GeometryNodeTriangulate')
     L.new(trim.outputs[0], tri.inputs["Mesh"])
     corners = N.new('GeometryNodeInputMeshFaceNeighbors')  # "Vertex Count": corners per face
-    L.new(math('GREATER_THAN', corners.outputs["Vertex Count"], 4.5), tri.inputs["Selection"])
+    # Ground n-gons only: a cave n-gon sharing a corner with one clipped the same ear twice (3-face edges, LG-078, T30).
+    L.new(math('MULTIPLY', math('GREATER_THAN', corners.outputs["Vertex Count"], 4.5), math('LESS_THAN', named("lg_cave"), 0.5)), tri.inputs["Selection"])
     back = N.new('GeometryNodeJoinGeometry')
     L.new(tri.outputs[0], back.inputs[0])
     L.new(sep.outputs["Inverted"], back.inputs[0])

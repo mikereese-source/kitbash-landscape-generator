@@ -26,3 +26,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-15 created from LG-077 checkpoint 1 (Mike: break crest sharpening out into its own ticket; LG-077 "still much better")
+- 2026-11-15 claimed T44 and GROUP_VERSION 148 (CODING.md rule); brief docs/briefs/fable-LG-086.md. Start after the usage reset (Mike)

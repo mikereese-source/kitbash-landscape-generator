@@ -9,7 +9,7 @@ Nothing exists between the 16 m shape floor and the 1 m grain, so rock faces rea
 ## Done when
 - Moved to LG-086 (Mike, 2026-11-15): sharp summits and knife-edge crests (Mike, 2026-11-12: 'we need to resolve getting sharp mountain tops... overall sharper, more realistic mountains'): the highest peaks read as horns and aretes, not domes, in the wide and mid clay shots; crest sharpness measured as in the realism review (today 38, real Sierra 1351) and logged
 - Reference board per rock type first (granite blocks, bedded limestone, sandstone) in `docs/realism/`
-- Jointed blocks at three sizes plus strata benches, masked by slope 34-46 deg and rock patches, in `nodes.py` after the erosion blend
+- Jointed blocks at three sizes plus strata benches, masked by slope 40-52 deg (was 34-46; Mike, 2026-11-15, from the lidar count logged 2026-11-14) and rock patches, in `nodes.py` after the erosion blend
 - Per-type inputs: Breakup amount, bed thickness, bed dip, block size; tooltips (T8)
 - Blocks tilt and push along the normal: no cracked plates from above, no stretched risers on steep faces
 - Smallest block at least 2.5-3 mesh points; Preview shows the two bigger sizes only
@@ -42,3 +42,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 - 2026-11-15 code review (mattpocock-skills:code-review, Sonnet, both axes): T43 read the grid by point order (now binned by position), long comments trimmed to one line, Log refs added; T43 rerun PASS (4.4 m rms, 0.00 m). Open for Mike: Done when still says 34-46 deg (code uses 40-52, logged 2026-11-14); over 60 deg moved away from real (17.6 -> 19.8%, real 11.7); re-evaluation 5.1 -> 7.0 s. Carried to checkpoint 2: beds skip the fold limiter on walls over 59 deg; the 9 m size dropping out at Preview is untested; rock patches only scale the mask (60% minimum)
 - 2026-11-15 checkpoint 1 merged to main a4596cd (Mike approved). Checkpoint 2 (Glacial, Canyon, Mesa, Cliffs, Badlands) next; sharp summits are LG-086
 - 2026-11-15 lessons: worked: counting before fixing (the 34-46 mask covered 64% against the lidar's 22%; hard block steps made 470 combs, smooth cells 7), and checking the old tiles framed the subject before re-rendering (no new renders needed). Didn't: two parallel lanes both took T42 and GROUP_VERSION 145 (LG-078), costing a renumber and a library rebuild after the second merge; the top-down camera centred on the highest point, which sat 59 m from the edge (half-blank tile); T43 read the grid by point order despite the rule (review caught it). Proposed rule for Mike: lanes claim their test number and GROUP_VERSION when they start
+- 2026-11-15 Done when: slope mask 34-46 deg changed to 40-52 deg, as built (Mike)

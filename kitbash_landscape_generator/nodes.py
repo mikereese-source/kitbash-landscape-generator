@@ -9,8 +9,7 @@ from . import features
 
 GROUP_NAME = "KB Landscape Core"
 GROUP_VERSION = 145  # bump when the tree changes so old files rebuild it
-# Bedrock breakup (LG-077), as shares of a block's width: how far a block face steps out or back, how far it tilts,
-# and the width of the bevel where two blocks meet.
+# Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
 BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
@@ -1165,28 +1164,23 @@ def _build(ng, recipe):
     push = math('MULTIPLY', math('SUBTRACT', grain, 0.5), math('MULTIPLY', amount, 2.0))
     side, bk_drop = push, 0.0
     if recipe == 1:  # Mountains first; the other rocky types follow at checkpoint 2
-        # Bedrock breakup (LG-077, review S4): the 5 to 60 m forms between the erosion grid and the grain. Where the
-        # ground is steeper than scree can lie, the surface becomes joint-bounded blocks at three sizes and bedded
-        # ledges. Per-point fields only (noise, slope), so it ports to three.js as vertex displacement.
+        # Bedrock breakup (LG-077, review S4): blocks and ledges on steep rock, per-point only so it ports to three.js.
         # Real meters, shrunk together on small landscapes: the biggest block stays under 1/32 of the width.
         bk_fit = math('MINIMUM', 1.0, math('DIVIDE', ref, math('MULTIPLY', inp["Block Size"], 32.0)))
         bk_big = math('MULTIPLY', inp["Block Size"], bk_fit)
         bk_patch = noise(rock_p.outputs[0], 'FBM', math('DIVIDE', 0.25, bk_big), 1.0, 0.5).outputs["Fac"]
-        # Bare rock from 40 to 52 degrees, in patches; never while the erosion engine samples the shape. The review's
-        # 34 to 46 covered 64% of the D211 Mountains (the Sierra lidar has 22% over 46 degrees; ours rests near 40).
+        # Rock from 40 to 52 deg in patches, not the review's 34-46 (64% of D211 Mountains; Sierra 22% over 46, LG-077).
         bk_rock = math('MULTIPLY', smooth(nrm.outputs["Z"], 0.766, 0.616), math('ADD', 0.6, math('MULTIPLY', smooth(bk_patch, 0.3, 0.7), 0.4)))
         bk_rock = math('MULTIPLY', bk_rock, math('MULTIPLY', inp["Breakup"], math('LESS_THAN', inp["Pad Cells"], 0.5)))
         bk_sum = 0.0
         for bk_rel in (1.0, 0.37, 0.15):  # 60, 22 and 9 m at the default Block Size
             bk_size = math('MULTIPLY', bk_big, bk_rel)
-            # 3D cells on the surface, twice as tall as wide: blocks keep their size on any slope (2D cells
-            # stretched into combs on steep faces in the numpy draft) and stand as ribs, as vertical joints cut them.
+            # 3D cells twice as tall as wide: blocks keep their size on any slope (2D cells made combs, LG-077 draft).
             bk_q = N.new('ShaderNodeVectorMath')
             bk_q.operation = 'MULTIPLY'
             L.new(rock_p.outputs[0], bk_q.inputs[0])
             L.new(vec(math('DIVIDE', 1.0, bk_size), math('DIVIDE', 1.0, bk_size), math('DIVIDE', 0.5, bk_size)), bk_q.inputs[1])
-            # Smooth cells: a block's numbers blend into its neighbour's over a short bevel at the joint, so the
-            # surface never jumps. Jumps stretched single faces into combs and drew a crack net from above.
+            # Smooth cells blend at a bevel: hard jumps left 470 combs over 15 m and a crack net from above (LG-077).
             bk_cell = N.new('ShaderNodeTexVoronoi')
             bk_cell.voronoi_dimensions = '3D'
             bk_cell.feature = 'SMOOTH_F1'
@@ -1211,12 +1205,10 @@ def _build(ng, recipe):
             bk_face = math('MULTIPLY', math('ADD', math('MULTIPLY', bk_set.outputs["X"], BK_STEP), math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)), bk_size)
             # A size the mesh can't draw (under 2.5 to 3 points) is left out: Preview shows the two bigger sizes.
             bk_sum = math('ADD', bk_sum, math('MULTIPLY', bk_face, smooth(math('DIVIDE', bk_size, spacing), 2.5, 3.0)))
-        # A push along the normal folds the surface over once it changes faster than the face leans back (cot of
-        # the slope), so the blocks flatten on the steepest walls: full to about 59 degrees, 30% at 80.
+        # A normal push past cot(slope) folds the surface over: full to about 59 deg, 30% at 80 (LG-077).
         bk_lean = math('DIVIDE', nrm.outputs["Z"], math('SQRT', math('MAXIMUM', math('SUBTRACT', 1.0, math('MULTIPLY', nrm.outputs["Z"], nrm.outputs["Z"])), 1e-4)))
         bk_push = math('MULTIPLY', math('MULTIPLY', bk_rock, bk_sum), math('MINIMUM', math('DIVIDE', bk_lean, BK_FOLD), 1.0))
-        # Within a block of the border the breakup only moves points up and down: sideways it left a ragged outline
-        # that no longer matched Size X by Size Y.
+        # Only up and down within a block of the border: sideways pushes broke the Size X by Size Y outline (LG-077).
         bk_in = smooth(math('MINIMUM', math('SUBTRACT', math('MULTIPLY', size_x, 0.5), math('ABSOLUTE', inner_at.outputs["X"])),
                             math('SUBTRACT', math('MULTIPLY', size_y, 0.5), math('ABSOLUTE', inner_at.outputs["Y"]))), 0.0, bk_big)
         side = math('ADD', push, math('MULTIPLY', bk_push, bk_in))

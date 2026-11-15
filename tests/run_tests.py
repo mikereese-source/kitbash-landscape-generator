@@ -1636,8 +1636,7 @@ def _t41():
 
 @test("T43", "Bedrock breakup: steep rock breaks into blocks, scree-angle ground stays smooth")
 def _t43():
-    # LG-077 (review S4): jointed blocks and bedded ledges where Mountains are steeper than scree can lie (34 to 46 deg
-    # and up); gentler ground is left alone, no points are added, and the erosion engine never sees it.
+    # LG-077 (review S4): blocks and ledges on Mountains steeper than 40 to 52 deg; gentler ground left alone, no points added.
     fresh_scene()
     ob = add("mountains")
     set_size(ob, 2000.0)
@@ -1651,9 +1650,14 @@ def _t43():
     finally:
         lg.TYPES["mountains"]["breakup"] = kept
     check(len(on) == len(off), f"breakup must not add points: {len(off):,} without, {len(on):,} with")
+    # Slope from the unbroken grid, binned by position; on and off are one mesh before and after a per-point push (no join or merge), so index i is the same point.
     n = int(round(math.sqrt(len(off))))
-    gy, gx = np.gradient(off[:, 2].reshape(n, n), 2000.0 / (n - 1))
-    deg = np.degrees(np.arctan(np.hypot(gx, gy))).ravel()
+    ix, iy = (np.rint((off[:, k] - off[:, k].min()) / np.ptp(off[:, k]) * (n - 1)).astype(int) for k in (0, 1))
+    check(len(set(zip(ix.tolist(), iy.tolist()))) == len(off), "Mountains without breakup should be one point per grid cell")
+    grid = np.zeros((n, n))
+    grid[iy, ix] = off[:, 2]
+    gy, gx = np.gradient(grid, 2000.0 / (n - 1))
+    deg = np.degrees(np.arctan(np.hypot(gx, gy)))[iy, ix]
     gentle, steep = deg < 30.0, deg > 50.0
     check(gentle.mean() > 0.05 and steep.mean() > 0.02, f"need both kinds of ground: {gentle.mean():.0%} under 30 deg, {steep.mean():.0%} over 50 deg")
     # Height is stretched back to the exact relief after the breakup, so take that stretch out before comparing.

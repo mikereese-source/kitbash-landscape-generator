@@ -46,6 +46,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **The whole suite passes before a commit to main.** Use `LG_ONLY=Tnn,...` while iterating.
 - **After a targeted fix, rerun only what it can reach.** The failed test plus the tests that touch the same code; the full suite runs again only when the fix lands in shared code (Mike, 2026-11-14: a full run takes about 40 minutes).
 - **A test of one stage turns the later stages off.** T42 measured erosion on the finished mesh, and LG-077's breakup broke it after the merge (LG-078).
+- **A ticket's test checks its Done-when measure, not a stand-in.** T44 checked how fast the lift fell instead of counting teeth with the breakup on, so the teeth rising 12 -> 30 failed no test (LG-086).
 - **Tests check the shape by position or attribute, never by point or face order.** Join and merge renumber geometry.
 
 ## Process
@@ -53,4 +54,5 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Work from a ticket** (`docs/TICKETS.md`). New ideas go to `PARKING.md`, not into the ticket in hand.
 - **Side-lane work happens in its own git worktree** and gets `mattpocock-skills:code-review` before merge. Gates get `ponytail:ponytail-review`. Log every review in TICKETS.md.
 - **Parallel lanes claim their test number and `GROUP_VERSION` in the ticket when they start.** Two side lanes both took T42 and 145 (LG-077, LG-078): a renumber and a library rebuild after the second merge. The second to merge still rebuilds `node_groups.blend` on main.
+- **Scratch stays on the branch.** Probes, logs and scratch renders go in `docs/realism/<ticket>_scratch/`; merges to main are squashes that leave that folder out (LG-086 carried 12 MB).
 - **Commit at each checkpoint.** Messages end with the Co-Authored-By line. Claude never pushes; Mike runs `git push`.

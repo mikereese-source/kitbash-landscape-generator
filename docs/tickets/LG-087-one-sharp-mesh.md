@@ -26,3 +26,4 @@ Follow the save-as-you-go rules: WIP commits, findings in the Log, Blender outpu
 
 ## Log
 - 2026-11-16 created from Mike's question on one mesh without Detail Levels (discussion in the main session); start when usage resets
+- 2026-11-16 Mike: run next after the reset, before LG-086 and LG-077 checkpoint 2 ("it could help us quite a bit with the realism and overall mesh optimization"). Fable; if Fable is unavailable, Opus 5.5 at high effort

@@ -31,7 +31,7 @@ TYPE_GROUPS = TYPES_FILE.get("groups", [])  # picker order and headers (by setti
 # types.json key -> node group input, for the parts of a recipe the panel doesn't expose
 TYPE_INPUTS = {"recipe": "Recipe", "detail": "Detail", "warp": "Warp", "rock": "Rock",
                "grain_roughness": "Grain Roughness", "breakup": "Breakup", "block_size": "Block Size",
-               "bed_thickness": "Bed Thickness", "bed_dip": "Bed Dip"}
+               "bed_thickness": "Bed Thickness", "bed_dip": "Bed Dip", "crest": "Crest"}
 # Shape settings: the panel edits these; picking a type or Reset loads them from types.json.
 LOOK_INPUTS = {"height": "Height", "feature_scale": "Feature Scale", "roughness": "Roughness",
                "sharpness": "Sharpness"}
@@ -244,7 +244,7 @@ def sync_object(ob):
 # replaces it a moment later (in the background build it runs straight away).
 EROSION_GRID = {False: 512, True: 512}  # Preview / Final and Ultra: the same, so Preview erodes exactly as High and shares its result (Mike, LG-078)
 _KEY_SKIP = {"Final", "Ultra", "Preview Resolution", "Final Resolution", "Ultra Resolution", "Rock",
-             "Grain Roughness", "Breakup", "Block Size", "Bed Thickness", "Bed Dip", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
+             "Grain Roughness", "Breakup", "Block Size", "Bed Thickness", "Bed Dip", "Crest", "Size X", "Size Y", "Erosion", "Erosion Map", "Detail Floor", "Show Mask", "Mask Heatmap",
              "Water", "Water Level", "Cave", "Cave X", "Cave Y", "Cave Size", "Cave Height", "Cave Depth",
              "Base", "Base Depth"}  # water, caves and the base never change the eroded terrain: no re-erosion
 _pending = {}

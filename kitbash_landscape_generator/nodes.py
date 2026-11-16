@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 147  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 148  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -38,6 +38,7 @@ INPUTS = (
     ("Block Size", 'NodeSocketFloat', 60.0, 1.0, 500.0, "Width of the biggest rock blocks in meters; two smaller sizes follow it (per type)"),
     ("Bed Thickness", 'NodeSocketFloat', 14.0, 0.5, 200.0, "Height of one rock layer in meters: each layer makes a ledge and a riser (per type)"),
     ("Bed Dip", 'NodeSocketFloat', 4.0, 0.0, 45.0, "How many degrees the rock layers tilt from level (per type)"),
+    ("Crest", 'NodeSocketFloat', 0.0, 0.0, 2.0, "How much round summits and ridge tops are drawn up to points and edges: 0 none (per type)"),
     ("Roughness", 'NodeSocketFloat', 0.5, 0.0, 1.0, "Smooth and soft, or bumpy with small detail"),
     ("Warp", 'NodeSocketFloat', 0.2, 0.0, 2.0, "Bends shapes so they look less regular"),
     ("Sharpness", 'NodeSocketFloat', 1.0, 0.2, 4.0, "Above 1: pointier tops and flatter lows"),
@@ -1100,6 +1101,34 @@ def _build(ng, recipe):
     L.new(er_tex.outputs["Color"], er_r.inputs[0])
     eroded_z = math('MULTIPLY', er_r.outputs[0], math('MULTIPLY', inp["Height"], ref))
     z = math('ADD', z, math('MULTIPLY', math('SUBTRACT', eroded_z, z), inp["Erosion"]))
+    if recipe == 1:  # Mountains first; the other peaked types follow at checkpoint 2
+        # Crest sharpen (LG-086): round tops of radius Rc become 50 deg tents, before the normals so the breakup covers them.
+        cr_big = math('MINIMUM', inp["Block Size"], math('DIVIDE', ref, 32.0))  # shrinks with the breakup on small landscapes
+        cr_r = math('MULTIPLY', cr_big, 0.75)
+        cr_h = []
+        for cr_dx, cr_dy in ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)):
+            cr_tex = N.new('GeometryNodeImageTexture')
+            cr_tex.interpolation = 'Cubic'
+            cr_tex.extension = 'EXTEND'
+            L.new(inp["Erosion Map"], cr_tex.inputs["Image"])
+            L.new(vec(texel(math('ADD', at.outputs["X"], math('MULTIPLY', cr_r, cr_dx)), size_x, tex_w),
+                      texel(math('ADD', at.outputs["Y"], math('MULTIPLY', cr_r, cr_dy)), size_y, tex_h), 0.0), cr_tex.inputs["Vector"])
+            cr_c = N.new('FunctionNodeSeparateColor')
+            L.new(cr_tex.outputs["Color"], cr_c.inputs[0])
+            cr_h.append(math('MULTIPLY', cr_c.outputs[0], math('MULTIPLY', inp["Height"], ref)))
+        # Slope and curvature from one 45 m ring: the normal or a 30 m ring turned 1 m lumps into 29-124 teeth (LG-086 Log).
+        cr_gx = math('DIVIDE', math('SUBTRACT', cr_h[0], cr_h[1]), math('MULTIPLY', cr_r, 2.0))
+        cr_gy = math('DIVIDE', math('SUBTRACT', cr_h[2], cr_h[3]), math('MULTIPLY', cr_r, 2.0))
+        cr_s = math('SQRT', math('ADD', math('MULTIPLY', cr_gx, cr_gx), math('MULTIPLY', cr_gy, cr_gy)))
+        cr_k = math('DIVIDE', math('SUBTRACT', math('MULTIPLY', eroded_z, 4.0), math('ADD', math('ADD', cr_h[0], cr_h[1]), math('ADD', cr_h[2], cr_h[3]))),
+                    math('MULTIPLY', math('MULTIPLY', cr_r, cr_r), 1.5))
+        cr_rc = math('MINIMUM', math('DIVIDE', 1.0, math('MAXIMUM', cr_k, 1e-4)), cr_big)  # radius capped at 60 m: lifts up to 43 m
+        # Convex upper half only (frost, review section 4); ramp full at Rc 60 m, a short one made 11 m walls (LG-086 Log).
+        cr_on = math('MULTIPLY', smooth(math('MULTIPLY', cr_k, cr_big), 0.0, 1.0), smooth(er_r.outputs[0], 0.45, 0.7))
+        cr_gap = math('MAXIMUM', math('SUBTRACT', 1.2, cr_s), 0.0)  # 50 deg: inside the breakup's 40-52 deg rock mask
+        cr_lift = math('MULTIPLY', math('MULTIPLY', cr_on, math('MULTIPLY', cr_rc, 0.5)), math('MULTIPLY', cr_gap, cr_gap))
+        # Never while the erosion engine samples the padded grid: the map is the old one then (LG-086, as the breakup).
+        z = math('ADD', z, math('MULTIPLY', cr_lift, math('MULTIPLY', math('MULTIPLY', inp["Crest"], inp["Erosion"]), math('LESS_THAN', inp["Pad Cells"], 0.5))))
 
     offset = N.new('ShaderNodeCombineXYZ')
     L.new(z, offset.inputs["Z"])

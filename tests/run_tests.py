@@ -1643,6 +1643,8 @@ def _t42():
     share, cells = [], 1
     kept = lg.TYPES["mountains"]["breakup"]
     lg.TYPES["mountains"]["breakup"] = 0.0  # erosion only: the breakup shows fewer block sizes at Preview on purpose (LG-077)
+    kept_crest = lg.TYPES["mountains"]["crest"]
+    lg.TYPES["mountains"]["crest"] = 0.0  # nor the crest lift: it comes after erosion too (LG-086)
     try:
         for final in (False, True):
             ob.lg.final = final
@@ -1660,6 +1662,7 @@ def _t42():
             share.append(100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60).mean()))
     finally:
         lg.TYPES["mountains"]["breakup"] = kept
+        lg.TYPES["mountains"]["crest"] = kept_crest
     check(abs(share[0] - share[1]) <= 1.0, f"over 60 deg: Preview {share[0]:.1f}%, High {share[1]:.1f}%; want within 1 point")
     return f"over 60 deg: Preview {share[0]:.1f}%, High {share[1]:.1f}%"
 
@@ -1696,6 +1699,52 @@ def _t43():
     check(calm < 0.5, f"ground under 30 deg should stay as it was: 95% of it moved up to {calm:.2f} m (limit 0.5 m)")
     check(broken > 1.5, f"rock over 50 deg should break into blocks meters deep: it moved {broken:.2f} m rms (want over 1.5 m)")
     return f"2 km Mountains, Preview: rock over 50 deg moved {broken:.1f} m rms, ground under 30 deg {calm:.2f} m; {len(on):,} points both ways"
+
+@test("T44", "Crest sharpen: round tops rise to points with no teeth, other ground stays, Preview and High alike")
+def _t44():
+    # LG-086 (Mike: sharp mountain tops, no small spikes along ridges): the lift alone, breakup off (a later stage).
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2000.0)
+    kept = {k: lg.TYPES["mountains"][k] for k in ("breakup", "rock", "crest")}
+    check(kept["crest"] > 0, "Mountains should ship with Crest on")
+    lift, counts = [], []
+    try:
+        lg.TYPES["mountains"].update(breakup=0.0, rock=0.0)  # grain and breakup come after the lift
+        for final in (False, True):
+            ob.lg.final = final
+            grids = []
+            for crest in (0.0, kept["crest"]):
+                lg.TYPES["mountains"]["crest"] = crest
+                lg.sync_object(ob)
+                p = evaluated_points(ob)
+                counts.append(len(p))
+                n = int(round(math.sqrt(len(p))))
+                ix, iy = (np.rint((p[:, k] - p[:, k].min()) / np.ptp(p[:, k]) * (n - 1)).astype(int) for k in (0, 1))
+                z = np.zeros((n, n))
+                z[iy, ix] = p[:, 2]  # binned by position, not point order
+                grids.append(z)
+            off, on = grids
+            # Height is stretched back to the exact relief after the lift: take that out on the lower third, which is never lifted.
+            low = off < off.min() + np.ptp(off) / 3.0
+            a, c = np.polyfit(off[low], on[low], 1)
+            lift.append(((on - c) / a - off, low, 2000.0 / (n - 1)))
+    finally:
+        lg.TYPES["mountains"].update(kept)
+    check(counts[0] == counts[1] and counts[2] == counts[3], f"the lift must not add points: {counts}")
+    (pv, low, step), (hi, _, _) = lift
+    k = (hi.shape[0] - 1) // (pv.shape[0] - 1)
+    calm, top, share = float(np.percentile(np.abs(pv[low]), 99)), float(pv.max()), float((pv > 1.0).mean())
+    check(calm < 0.3, f"the lower third should stay as it was: 99% of it moved up to {calm:.2f} m (limit 0.3 m)")
+    check(top > 15.0 and 0.03 < share < 0.3, f"round tops should rise by tens of meters on a small share of the ground: highest lift {top:.1f} m, {share:.0%} lifted over 1 m")
+    check(float(pv.min()) > -0.5, f"the lift should never dig: lowest {pv.min():.2f} m")
+    # Teeth and walls come from a lift that falls away much faster than its 50 deg tent, tan 1.2 (LG-086 Log: the old scratch reached 6.7).
+    gy, gx = np.gradient(pv, step)
+    fall = float(np.hypot(gx, gy).max())
+    check(fall < 4.5, f"the lift should fall away little faster than its tent sides (1.2): steepest {fall:.2f} m per m (limit 4.5)")
+    gap = float(np.percentile(np.abs(hi[::k, ::k] - pv), 99))
+    check(gap < 1.0, f"Preview and High should lift alike: 99% within {gap:.2f} m (limit 1.0 m)")
+    return f"2 km Mountains: highest lift {top:.1f} m, {share:.0%} of the ground over 1 m, lift slope {fall:.2f}, lower third moved {calm:.2f} m, Preview against High {gap:.2f} m"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

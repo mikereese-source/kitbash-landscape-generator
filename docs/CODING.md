@@ -55,4 +55,4 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Side-lane work happens in its own git worktree** and gets `mattpocock-skills:code-review` before merge. Gates get `ponytail:ponytail-review`. Log every review in TICKETS.md.
 - **Parallel lanes claim their test number and `GROUP_VERSION` in the ticket when they start.** Two side lanes both took T42 and 145 (LG-077, LG-078): a renumber and a library rebuild after the second merge. The second to merge still rebuilds `node_groups.blend` on main.
 - **Scratch stays on the branch.** Probes, logs and scratch renders go in `docs/realism/<ticket>_scratch/`; merges to main are squashes that leave that folder out (LG-086 carried 12 MB).
-- **Commit at each checkpoint.** Messages end with the Co-Authored-By line. Claude never pushes; Mike runs `git push`.
+- **Commit at each checkpoint.** Messages end with the Co-Authored-By line. After each merge Mike approves, the main session pushes `main` to `origin` (his merge OK covers the push; Mike, 2026-11-16). Never push branches, never force-push; subagents never push.

@@ -120,7 +120,7 @@ Models before materials (D208). Order is the review's, most lift first: masks, e
 | [LG-081](tickets/LG-081-finer-erosion-grid.md) | Finer erosion grid at High and Ultra | B2 Model realism | Realism | todo | M | P3 | side | tests only | erosion.py; __init__.py; run_tests.py | LG-077, LG-078, LG-079, LG-080 |
 | [LG-082](tickets/LG-082-per-type-realism.md) | Per-type realism pass (all 13 types) | B2 Model realism | Realism | todo | L | P2 | main | yes | types.json; nodes.py; run_tests.py | LG-077, LG-079, LG-080 |
 | [LG-086](tickets/LG-086-crest-sharpen.md) | Crest sharpen: sharp summits and knife-edge crests | B2 Model realism | Realism | review | M | P1 | side | yes | nodes.py; types.json; __init__.py; node_groups.blend; run_tests.py | LG-077 |
-| [LG-087](tickets/LG-087-one-sharp-mesh.md) | Spike: one sharp mesh instead of Detail Levels | B2 Model realism | Realism | todo | M | P1 | research | yes | docs/realism/ (board, scratch only) | - |
+| [LG-087](tickets/LG-087-one-sharp-mesh.md) | Spike: one sharp mesh instead of Detail Levels | B2 Model realism | Realism | done | M | P1 | research | yes | docs/realism/ (board, scratch only) | - |
 | [LG-083](tickets/LG-083-materials-return.md) | Back to materials: re-shoot checkpoint 1, rework checkpoint 2 | B2 Model realism | Realism | todo | S-M | P1 | main | yes | render_m7.py; fable-M7-spike.md | LG-075, LG-076, LG-077 |
 
 ## Code reviews (D202)

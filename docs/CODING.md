@@ -28,6 +28,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Place on cheap stand-ins, show the real meshes.** Scatter and stacking run on the Preview-level rocks (or the coarse space), and each Detail Level swaps in its own meshes. Placement is then the same at every level and costs no extra time.
 - **Measure against main in the same run.** Before and after timings come from one session, on the same caves (the default one and Mike's review cave), at Preview and High.
 - **Probes edit node groups after the build.** The prebuilt library appends its own copies of sub-groups (KB Landscape Cut), so an edit made before the build changes a copy nobody uses: a 40-minute run measured nothing (LG-078).
+- **Prototype a new field in numpy and measure its seams before building it in nodes.** LG-088's plane cells went into nodes first; neighbouring planes missed each other by 3-12 m on gullied ground (968 teeth).
 - **Measure on the area the artist sees.** Masks and stats come from the visible landscape, never from padded or hidden grids: LG-075's masks, measured with the erosion padding, left a deposit band along every edge.
 
 ## Python and files

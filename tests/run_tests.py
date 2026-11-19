@@ -1746,6 +1746,79 @@ def _t44():
     check(gap < 1.0, f"Preview and High should lift alike: 99% within {gap:.2f} m (limit 1.0 m)")
     return f"2 km Mountains: highest lift {top:.1f} m, {share:.0%} of the ground over 1 m, lift slope {fall:.2f}, lower third moved {calm:.2f} m, Preview against High {gap:.2f} m"
 
+def face_share(z, step, D=5.0, k=3, deg=5.0, margin=5.0, steep=45.0, edge=40):
+    """LG-089: share of ground over 45 deg on flat faces: normals within 5 deg rms over D, and a face, not a pillow
+    (the window k times as wide spreads more than k times as much plus 5 deg; a soft surface spreads in proportion)."""
+    gy, gx = np.gradient(z, step)
+    ln = np.sqrt(gx * gx + gy * gy + 1.0)
+    nrm = (-gx / ln, -gy / ln, 1.0 / ln)
+    def spread(w):
+        cs = [np.pad(a, ((w // 2 + 1, w // 2), (w // 2 + 1, w // 2))).cumsum(0).cumsum(1) for a in nrm]
+        mean = [(c[w:, w:] - c[:-w, w:] - c[w:, :-w] + c[:-w, :-w]) / (w * w) for c in cs]
+        return np.degrees(np.sqrt(np.maximum(2.0 * (1.0 - np.sqrt(mean[0] ** 2 + mean[1] ** 2 + mean[2] ** 2)), 0.0)))
+    w = max(3, int(round(D / step)) | 1)
+    sp, wide = spread(w), spread((w * k) | 1)
+    on = nrm[2] < math.cos(math.radians(steep))
+    on[:edge] = on[-edge:] = False
+    on[:, :edge] = on[:, -edge:] = False
+    return 100.0 * float(((sp < deg) & (wide > k * sp + margin))[on].mean())
+
+
+def t45_facets(n=400, cell=15.0, seed=0):
+    """A 55 deg slope cut into planar facets: the upper envelope of tilted planes, each kept near its own site."""
+    rng = np.random.default_rng(seed)
+    y, x = np.mgrid[0:n, 0:n].astype(np.float64)
+    h = np.full(x.shape, -1e9)
+    for j in range(-1, int(n / cell) + 2):
+        for i in range(-1, int(n / cell) + 2):
+            cx, cy = (i + rng.random()) * cell, (j + rng.random()) * cell
+            a, b = rng.uniform(-0.35, 0.35, 2)
+            h = np.maximum(h, np.where((x - cx) ** 2 + (y - cy) ** 2 > (1.2 * cell) ** 2, -1e9, a * (x - cx) + b * (y - cy)))
+    return h + 1.43 * x
+
+
+def top_grid(ob):
+    """The top surface on a 1 m grid by rays from above, as the board's measure (LG-087 prep.py): the breakup pushes points sideways."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    bvh = BVHTree.FromObject(ob, dg)
+    half = ob.lg.size_x / 2.0
+    n = int(ob.lg.size_x) + 1
+    z, down = np.empty((n, n)), Vector((0.0, 0.0, -1.0))
+    for j in range(n):
+        y = min(max(j - half, 0.01 - half), half - 0.01)
+        for i in range(n):
+            x = min(max(i - half, 0.01 - half), half - 0.01)
+            hit = bvh.ray_cast(Vector((x, y, 5000.0)), down)[0] or bvh.find_nearest(Vector((x, y, 0.0)))[0]
+            z[j, i] = hit.z
+    return z, 1.0
+
+@test("T45", "Flat faces: steep rock blocks take their own plane; a soft surface does not count as flat")
+def _t45():
+    # LG-089 (c197: the granite scan is flat planes meeting at hard steps): the Done-when measure itself, the two-window face share.
+    y, x = np.mgrid[0:400, 0:400].astype(np.float64)
+    plane, dome, facets = (face_share(h, 1.0) for h in (1.5 * x + 0.2 * y, 1.5 * x - ((x - 200) ** 2 + (y - 200) ** 2) / 2000.0, t45_facets()))
+    check(plane == 0.0 and dome < 2.0 and facets > 15.0, f"the measure: a lone plane {plane:.1f}% and a soft dome {dome:.1f}% should not count (0, under 2%), planar facets {facets:.1f}% should (over 15%)")
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2048.0)
+    ob.lg.final = True
+    kept = lg.TYPES["mountains"]["breakup"]
+    check(kept > 0, "Mountains should ship with Breakup on")
+    share = []
+    try:
+        for b in (0.0, kept):
+            lg.TYPES["mountains"]["breakup"] = b
+            lg.sync_object(ob)
+            share.append(face_share(*top_grid(ob)))
+    finally:
+        lg.TYPES["mountains"]["breakup"] = kept
+    check(share[0] < 4.0, f"the soft surface (breakup off) should not count as flat faces: {share[0]:.1f}% (limit 4%)")
+    check(share[1] > max(2.5, share[0]), f"steep rock should carry flat faces bounded by creases, more than the soft surface: {share[1]:.1f}% of ground over 45 deg (want over 2.5% and over {share[0]:.1f}%; main before LG-089 0.8%, granite scan 8.6%)")
+    return f"2 km Mountains, High: flat faces {share[1]:.1f}% with the breakup, {share[0]:.1f}% without; measure self-check plane {plane:.1f}%, dome {dome:.1f}%, facets {facets:.1f}%"
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")

@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 148  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 149  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -1201,7 +1201,7 @@ def _build(ng, recipe):
         # Rock from 40 to 52 deg in patches, not the review's 34-46 (64% of D211 Mountains; Sierra 22% over 46, LG-077).
         bk_rock = math('MULTIPLY', smooth(nrm.outputs["Z"], 0.766, 0.616), math('ADD', 0.6, math('MULTIPLY', smooth(bk_patch, 0.3, 0.7), 0.4)))
         bk_rock = math('MULTIPLY', bk_rock, math('MULTIPLY', inp["Breakup"], math('LESS_THAN', inp["Pad Cells"], 0.5)))
-        bk_sum = 0.0
+        bk_sum, bk_rep = 0.0, 0.0
         for bk_rel in (1.0, 0.37, 0.15):  # 60, 22 and 9 m at the default Block Size
             bk_size = math('MULTIPLY', bk_big, bk_rel)
             # 3D cells twice as tall as wide: blocks keep their size on any slope (2D cells made combs, LG-077 draft).
@@ -1230,10 +1230,49 @@ def _build(ng, recipe):
             L.new(bk_from.outputs[0], bk_tilt.inputs[1])
             bk_set = N.new('ShaderNodeSeparateXYZ')
             L.new(bk_rand.outputs[0], bk_set.inputs[0])
-            # Each block face is a plane: set proud or back, and tilted its own way (flat plates read as cracked paving).
-            bk_face = math('MULTIPLY', math('ADD', math('MULTIPLY', bk_set.outputs["X"], BK_STEP), math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)), bk_size)
             # A size the mesh can't draw (under 2.5 to 3 points) is left out: Preview shows the two bigger sizes.
-            bk_sum = math('ADD', bk_sum, math('MULTIPLY', bk_face, smooth(math('DIVIDE', bk_size, spacing), 2.5, 3.0)))
+            bk_draw = smooth(math('DIVIDE', bk_size, spacing), 2.5, 3.0)
+            if bk_rel == 0.37:
+                # 22 m blocks replace the soft surface with their own plane: added planes left pillows, flat faces 0.8% (LG-089 Log).
+                bk_site = N.new('ShaderNodeSeparateXYZ')
+                L.new(bk_cell.outputs["Position"], bk_site.inputs[0])
+                bk_sx = math('SUBTRACT', math('MULTIPLY', bk_site.outputs["X"], bk_size), math('MULTIPLY', seed_val, 13.0))
+                bk_sy = math('SUBTRACT', math('MULTIPLY', bk_site.outputs["Y"], bk_size), math('MULTIPLY', seed_val, 7.9))
+                bk_r = math('MULTIPLY', bk_size, 0.3)
+                bk_h = []
+                for bk_dx, bk_dy in ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)):
+                    bk_tex = N.new('GeometryNodeImageTexture')
+                    bk_tex.interpolation = 'Cubic'
+                    bk_tex.extension = 'EXTEND'
+                    L.new(inp["Erosion Map"], bk_tex.inputs["Image"])
+                    L.new(vec(texel(math('ADD', bk_sx, math('MULTIPLY', bk_r, bk_dx)), size_x, tex_w),
+                              texel(math('ADD', bk_sy, math('MULTIPLY', bk_r, bk_dy)), size_y, tex_h), 0.0), bk_tex.inputs["Vector"])
+                    bk_c = N.new('FunctionNodeSeparateColor')
+                    L.new(bk_tex.outputs["Color"], bk_c.inputs[0])
+                    bk_h.append(math('MULTIPLY', bk_c.outputs[0], math('MULTIPLY', inp["Height"], ref)))
+                # The block's plane: mean height and slope of a ring at its site, plus its own tilt and step (as the added faces).
+                bk_gx = math('DIVIDE', math('SUBTRACT', bk_h[0], bk_h[1]), math('MULTIPLY', bk_r, 2.0))
+                bk_gy = math('DIVIDE', math('SUBTRACT', bk_h[2], bk_h[3]), math('MULTIPLY', bk_r, 2.0))
+                bk_pl = math('ADD', math('MULTIPLY', math('ADD', math('ADD', bk_h[0], bk_h[1]), math('ADD', bk_h[2], bk_h[3])), 0.25),
+                             math('MULTIPLY', bk_set.outputs["Z"], math('MULTIPLY', bk_size, BK_STEP)))
+                bk_pl = math('ADD', bk_pl, math('MULTIPLY', math('ADD', bk_gx, math('MULTIPLY', bk_set.outputs["X"], BK_TILT)), math('SUBTRACT', hz.outputs["X"], bk_sx)))
+                bk_pl = math('ADD', bk_pl, math('MULTIPLY', math('ADD', bk_gy, math('MULTIPLY', bk_set.outputs["Y"], BK_TILT)), math('SUBTRACT', hz.outputs["Y"], bk_sy)))
+                bk_miss = math('SUBTRACT', bk_pl, eroded_z)
+                # Faced whole by the site's slope (40-52 deg, LG-077); out where the plane cuts 2-4 m or raises 0.7-1.3 m: raised corners were teeth (LG-089 Log).
+                bk_on = smooth(math('DIVIDE', 1.0, math('SQRT', math('ADD', 1.0, math('ADD', math('MULTIPLY', bk_gx, bk_gx), math('MULTIPLY', bk_gy, bk_gy))))), 0.766, 0.616)
+                bk_hold = math('MULTIPLY', bk_on, math('SUBTRACT', 1.0, smooth(math('MAXIMUM', math('MULTIPLY', bk_miss, 3.0), math('MULTIPLY', bk_miss, -1.0)), math('MULTIPLY', bk_size, 0.09), math('MULTIPLY', bk_size, 0.18))))
+                # Gated as the plane is, so the 9 m tilt and beds only go where a plane replaces them (LG-089 code review).
+                bk_hold = math('MULTIPLY', math('MULTIPLY', bk_hold, bk_draw), math('MULTIPLY', math('MINIMUM', inp["Breakup"], 1.0), math('MULTIPLY', inp["Erosion"], math('LESS_THAN', inp["Pad Cells"], 0.5))))
+                bk_rep = math('MULTIPLY', bk_hold, bk_miss)
+            # Each block face is a plane: set proud or back, and tilted its own way (flat plates read as cracked paving).
+            bk_face = math('MULTIPLY', bk_set.outputs["X"], BK_STEP)
+            bk_tl = math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)
+            if bk_rel == 0.15:  # off the 22 m faces only: on them the 9 m tilt cut every face into 9 m pieces, off them it keeps the creases (LG-089 Log)
+                bk_tl = math('MULTIPLY', bk_tl, math('SUBTRACT', 1.0, bk_hold))
+            bk_face = math('ADD', bk_face, bk_tl)
+            if bk_rel == 0.37:  # added as before where its plane leaves the ground: dropping it there cost creases 48.7 -> 34.7% (LG-089 Log)
+                bk_face = math('MULTIPLY', bk_face, math('SUBTRACT', 1.0, bk_hold))
+            bk_sum = math('ADD', bk_sum, math('MULTIPLY', math('MULTIPLY', bk_face, bk_size), bk_draw))
         # A normal push past cot(slope) folds the surface over: full to about 59 deg, 30% at 80 (LG-077).
         bk_lean = math('DIVIDE', nrm.outputs["Z"], math('SQRT', math('MAXIMUM', math('SUBTRACT', 1.0, math('MULTIPLY', nrm.outputs["Z"], nrm.outputs["Z"])), 1e-4)))
         bk_push = math('MULTIPLY', math('MULTIPLY', bk_rock, bk_sum), math('MINIMUM', math('DIVIDE', bk_lean, BK_FOLD), 1.0))
@@ -1253,6 +1292,7 @@ def _build(ng, recipe):
         bk_ledge = math('ADD', math('FLOOR', bk_lv), math('POWER', math('FRACT', bk_lv), 4.0))
         bk_drop = math('MULTIPLY', math('MULTIPLY', math('SUBTRACT', bk_ledge, bk_lv), math('MULTIPLY', bk_bed, BK_BEDS)),
                        math('MULTIPLY', bk_rock, smooth(math('DIVIDE', bk_bed, spacing), 2.5, 3.0)))
+        bk_drop = math('ADD', math('MULTIPLY', bk_drop, math('SUBTRACT', 1.0, bk_hold)), bk_rep)  # no beds across a face; the plane is a height, it never folds over
     total = math('ADD', math('ADD', hz.outputs["Z"], math('MULTIPLY', nrm.outputs["Z"], push)), bk_drop)
     # Stretch again so Height stays the exact relief.
     stats2 = N.new('GeometryNodeAttributeStatistic')

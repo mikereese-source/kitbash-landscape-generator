@@ -8,11 +8,13 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 149  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 150  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
 BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
+# Crest sharpen: tent tan 50 deg, slope rings (block shares; one 4-read ring passed 1 m lumps as teeth), height ramp, tent gap for no 60 m tilt (LG-086 cp2 Log).
+CR_TENT, CR_RINGS, CR_HIGH, CR_TOP = 1.2, (0.5, 0.75, 1.0), (0.45, 0.7), (0.45, 1.0)
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -1091,44 +1093,63 @@ def _build(ng, recipe):
         frac = math('ADD', math('DIVIDE', coord, size), 0.5)
         return math('DIVIDE', math('ADD', math('MULTIPLY', frac, math('SUBTRACT', count, 1.0)), 0.5), count)
 
-    uv = vec(texel(at.outputs["X"], size_x, tex_w), texel(at.outputs["Y"], size_y, tex_h), 0.0)
-    er_tex = N.new('GeometryNodeImageTexture')
-    er_tex.interpolation = 'Cubic'  # no crease at every texel (5.7 m spectral spike, Pass 2); floors are wide enough now not to fill into pits
-    er_tex.extension = 'EXTEND'
-    L.new(inp["Erosion Map"], er_tex.inputs["Image"])
-    L.new(uv, er_tex.inputs["Vector"])
-    er_r = N.new('FunctionNodeSeparateColor')
-    L.new(er_tex.outputs["Color"], er_r.inputs[0])
-    eroded_z = math('MULTIPLY', er_r.outputs[0], math('MULTIPLY', inp["Height"], ref))
+    def er_read(x, y):
+        """The erosion map's channels at (x, y) in meters."""
+        er_tex = N.new('GeometryNodeImageTexture')
+        er_tex.interpolation = 'Cubic'  # no crease at every texel (5.7 m spectral spike, Pass 2); floors are wide enough now not to fill into pits
+        er_tex.extension = 'EXTEND'
+        L.new(inp["Erosion Map"], er_tex.inputs["Image"])
+        L.new(vec(texel(x, size_x, tex_w), texel(y, size_y, tex_h), 0.0), er_tex.inputs["Vector"])
+        er_c = N.new('FunctionNodeSeparateColor')
+        L.new(er_tex.outputs["Color"], er_c.inputs[0])
+        return er_c
+
+    er_m = math('MULTIPLY', inp["Height"], ref)  # the map is in units of Height
+
+    def er_ring(x, y, r, dirs):
+        """Eroded heights (m) at r times each direction (dx, dy) from (x, y)."""
+        return [math('MULTIPLY', er_read(math('ADD', x, math('MULTIPLY', r, dx)), math('ADD', y, math('MULTIPLY', r, dy))).outputs[0], er_m)
+                for dx, dy in dirs]
+
+    AXES = ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0))
+    DIAGS = ((0.7071, 0.7071), (-0.7071, -0.7071), (0.7071, -0.7071), (-0.7071, 0.7071))
+    er_r = er_read(at.outputs["X"], at.outputs["Y"])
+    eroded_z = math('MULTIPLY', er_r.outputs[0], er_m)
     z = math('ADD', z, math('MULTIPLY', math('SUBTRACT', eroded_z, z), inp["Erosion"]))
     if recipe == 1:  # Mountains first; the other peaked types follow at checkpoint 2
         # Crest sharpen (LG-086): round tops of radius Rc become 50 deg tents, before the normals so the breakup covers them.
         cr_big = math('MINIMUM', inp["Block Size"], math('DIVIDE', ref, 32.0))  # shrinks with the breakup on small landscapes
-        cr_r = math('MULTIPLY', cr_big, 0.75)
-        cr_h = []
-        for cr_dx, cr_dy in ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)):
-            cr_tex = N.new('GeometryNodeImageTexture')
-            cr_tex.interpolation = 'Cubic'
-            cr_tex.extension = 'EXTEND'
-            L.new(inp["Erosion Map"], cr_tex.inputs["Image"])
-            L.new(vec(texel(math('ADD', at.outputs["X"], math('MULTIPLY', cr_r, cr_dx)), size_x, tex_w),
-                      texel(math('ADD', at.outputs["Y"], math('MULTIPLY', cr_r, cr_dy)), size_y, tex_h), 0.0), cr_tex.inputs["Vector"])
-            cr_c = N.new('FunctionNodeSeparateColor')
-            L.new(cr_tex.outputs["Color"], cr_c.inputs[0])
-            cr_h.append(math('MULTIPLY', cr_c.outputs[0], math('MULTIPLY', inp["Height"], ref)))
-        # Slope and curvature from one 45 m ring: the normal or a 30 m ring turned 1 m lumps into 29-124 teeth (LG-086 Log).
-        cr_gx = math('DIVIDE', math('SUBTRACT', cr_h[0], cr_h[1]), math('MULTIPLY', cr_r, 2.0))
-        cr_gy = math('DIVIDE', math('SUBTRACT', cr_h[2], cr_h[3]), math('MULTIPLY', cr_r, 2.0))
-        cr_s = math('SQRT', math('ADD', math('MULTIPLY', cr_gx, cr_gx), math('MULTIPLY', cr_gy, cr_gy)))
-        cr_k = math('DIVIDE', math('SUBTRACT', math('MULTIPLY', eroded_z, 4.0), math('ADD', math('ADD', cr_h[0], cr_h[1]), math('ADD', cr_h[2], cr_h[3]))),
-                    math('MULTIPLY', math('MULTIPLY', cr_r, cr_r), 1.5))
+        cr_s = 0.0
+        for cr_rel in CR_RINGS:
+            cr_r = math('MULTIPLY', cr_big, cr_rel)
+            cr_h = er_ring(at.outputs["X"], at.outputs["Y"], cr_r, AXES + DIAGS)
+            # Mean of the axis pairs and the diagonal pairs (a diagonal pair spans r x sqrt 2 along each axis; LG-086 cp2 Log).
+            cr_gx = math('DIVIDE', math('ADD', math('SUBTRACT', cr_h[0], cr_h[1]), math('MULTIPLY', math('ADD', math('SUBTRACT', cr_h[4], cr_h[5]), math('SUBTRACT', cr_h[6], cr_h[7])), 0.7071)),
+                         math('MULTIPLY', cr_r, 4.0))
+            cr_gy = math('DIVIDE', math('ADD', math('SUBTRACT', cr_h[2], cr_h[3]), math('MULTIPLY', math('SUBTRACT', math('SUBTRACT', cr_h[4], cr_h[5]), math('SUBTRACT', cr_h[6], cr_h[7])), 0.7071)),
+                         math('MULTIPLY', cr_r, 4.0))
+            cr_s = math('ADD', cr_s, math('DIVIDE', math('SQRT', math('ADD', math('MULTIPLY', cr_gx, cr_gx), math('MULTIPLY', cr_gy, cr_gy))), len(CR_RINGS)))
+            if cr_rel == CR_RINGS[1]:
+                # Curvature from the 45 m ring only: the normal or a 30 m ring turned 1 m lumps into 29-124 teeth (LG-086 Log).
+                cr_sum = math('ADD', math('ADD', math('ADD', cr_h[0], cr_h[1]), math('ADD', cr_h[2], cr_h[3])), math('ADD', math('ADD', cr_h[4], cr_h[5]), math('ADD', cr_h[6], cr_h[7])))
+                cr_k = math('DIVIDE', math('SUBTRACT', math('MULTIPLY', eroded_z, 8.0), cr_sum), math('MULTIPLY', math('MULTIPLY', cr_r, cr_r), 3.0))
         cr_rc = math('MINIMUM', math('DIVIDE', 1.0, math('MAXIMUM', cr_k, 1e-4)), cr_big)  # radius capped at 60 m: lifts up to 43 m
         # Convex upper half only (frost, review section 4); ramp full at Rc 60 m, a short one made 11 m walls (LG-086 Log).
-        cr_on = math('MULTIPLY', smooth(math('MULTIPLY', cr_k, cr_big), 0.0, 1.0), smooth(er_r.outputs[0], 0.45, 0.7))
-        cr_gap = math('MAXIMUM', math('SUBTRACT', 1.2, cr_s), 0.0)  # 50 deg: inside the breakup's 40-52 deg rock mask
+        cr_on = math('MULTIPLY', smooth(math('MULTIPLY', cr_k, cr_big), 0.0, 1.0), smooth(er_r.outputs[0], *CR_HIGH))
+        cr_gap = math('MAXIMUM', math('SUBTRACT', CR_TENT, cr_s), 0.0)
         cr_lift = math('MULTIPLY', math('MULTIPLY', cr_on, math('MULTIPLY', cr_rc, 0.5)), math('MULTIPLY', cr_gap, cr_gap))
         # Never while the erosion engine samples the padded grid: the map is the old one then (LG-086, as the breakup).
-        z = math('ADD', z, math('MULTIPLY', cr_lift, math('MULTIPLY', math('MULTIPLY', inp["Crest"], inp["Erosion"]), math('LESS_THAN', inp["Pad Cells"], 0.5))))
+        cr_amt = math('MULTIPLY', math('MULTIPLY', inp["Crest"], inp["Erosion"]), math('LESS_THAN', inp["Pad Cells"], 0.5))
+        # Captured once on the flat grid: the restretch reads it again, and 24 map reads per point are not free (cp2).
+        cr_cap = N.new('GeometryNodeCaptureAttribute')
+        cr_cap.domain = 'POINT'
+        cr_cap.capture_items.new('FLOAT', "Lift")
+        L.new(grid.outputs["Mesh"], cr_cap.inputs["Geometry"])
+        L.new(math('MULTIPLY', cr_lift, cr_amt), cr_cap.inputs["Lift"])
+        # The tent's upper part, gated as the lift (LG-086 cp2 Log, f14): the breakup drops its 60 m tilt there.
+        cr_cap.capture_items.new('FLOAT', "Tent")
+        L.new(math('MULTIPLY', math('MULTIPLY', cr_on, smooth(cr_gap, *CR_TOP)), math('MINIMUM', cr_amt, 1.0)), cr_cap.inputs["Tent"])
+        z = math('ADD', z, cr_cap.outputs["Lift"])
 
     offset = N.new('ShaderNodeCombineXYZ')
     L.new(z, offset.inputs["Z"])
@@ -1139,7 +1160,7 @@ def _build(ng, recipe):
     store.data_type = 'FLOAT'
     store.domain = 'POINT'
     store.inputs["Name"].default_value = "lg_hard"
-    L.new(grid.outputs["Mesh"], store.inputs["Geometry"])
+    L.new(cr_cap.outputs["Geometry"] if recipe == 1 else grid.outputs["Mesh"], store.inputs["Geometry"])
     if recipe in hard_by_recipe:
         L.new(hard_by_recipe[recipe], store.inputs["Value"])
     else:
@@ -1239,17 +1260,7 @@ def _build(ng, recipe):
                 bk_sx = math('SUBTRACT', math('MULTIPLY', bk_site.outputs["X"], bk_size), math('MULTIPLY', seed_val, 13.0))
                 bk_sy = math('SUBTRACT', math('MULTIPLY', bk_site.outputs["Y"], bk_size), math('MULTIPLY', seed_val, 7.9))
                 bk_r = math('MULTIPLY', bk_size, 0.3)
-                bk_h = []
-                for bk_dx, bk_dy in ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)):
-                    bk_tex = N.new('GeometryNodeImageTexture')
-                    bk_tex.interpolation = 'Cubic'
-                    bk_tex.extension = 'EXTEND'
-                    L.new(inp["Erosion Map"], bk_tex.inputs["Image"])
-                    L.new(vec(texel(math('ADD', bk_sx, math('MULTIPLY', bk_r, bk_dx)), size_x, tex_w),
-                              texel(math('ADD', bk_sy, math('MULTIPLY', bk_r, bk_dy)), size_y, tex_h), 0.0), bk_tex.inputs["Vector"])
-                    bk_c = N.new('FunctionNodeSeparateColor')
-                    L.new(bk_tex.outputs["Color"], bk_c.inputs[0])
-                    bk_h.append(math('MULTIPLY', bk_c.outputs[0], math('MULTIPLY', inp["Height"], ref)))
+                bk_h = er_ring(bk_sx, bk_sy, bk_r, AXES)
                 # The block's plane: mean height and slope of a ring at its site, plus its own tilt and step (as the added faces).
                 bk_gx = math('DIVIDE', math('SUBTRACT', bk_h[0], bk_h[1]), math('MULTIPLY', bk_r, 2.0))
                 bk_gy = math('DIVIDE', math('SUBTRACT', bk_h[2], bk_h[3]), math('MULTIPLY', bk_r, 2.0))
@@ -1269,6 +1280,8 @@ def _build(ng, recipe):
             bk_tl = math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)
             if bk_rel == 0.15:  # off the 22 m faces only: on them the 9 m tilt cut every face into 9 m pieces, off them it keeps the creases (LG-089 Log)
                 bk_tl = math('MULTIPLY', bk_tl, math('SUBTRACT', 1.0, bk_hold))
+            if bk_rel == 1.0:  # 60 m tilts (up to 7 m) stood as teeth on the tent crests; the step stays for the block edges (LG-086 cp2 Log, f14)
+                bk_tl = math('MULTIPLY', bk_tl, math('SUBTRACT', 1.0, cr_cap.outputs["Tent"]))
             bk_face = math('ADD', bk_face, bk_tl)
             if bk_rel == 0.37:  # added as before where its plane leaves the ground: dropping it there cost creases 48.7 -> 34.7% (LG-089 Log)
                 bk_face = math('MULTIPLY', bk_face, math('SUBTRACT', 1.0, bk_hold))
@@ -1304,6 +1317,20 @@ def _build(ng, recipe):
     lo2, hi2 = stats2.outputs["Min"], stats2.outputs["Max"]
     final_z = math('MULTIPLY', math('DIVIDE', math('SUBTRACT', total, lo2), math('MAXIMUM', math('SUBTRACT', hi2, lo2), 1e-6)),
                    math('MULTIPLY', inp["Height"], ref))
+    if recipe == 1:
+        # Stretch as without the lift, then ease only the ground above its height ramp back to Height: stretching it all squeezed the rest 3% (LG-086 cp2 Log).
+        stats3 = N.new('GeometryNodeAttributeStatistic')
+        stats3.data_type = 'FLOAT'
+        stats3.domain = 'POINT'
+        L.new(shape, stats3.inputs["Geometry"])
+        L.new(math('SUBTRACT', total, cr_cap.outputs["Lift"]), stats3.inputs["Attribute"])
+        L.new(inner, stats3.inputs["Selection"])
+        hi3 = math('MAXIMUM', stats3.outputs["Max"], math('ADD', lo2, 1e-6))
+        z_free = math('MULTIPLY', math('DIVIDE', math('SUBTRACT', total, lo2), math('SUBTRACT', hi3, lo2)), er_m)
+        z_over = math('MULTIPLY', math('DIVIDE', math('SUBTRACT', hi2, lo2), math('SUBTRACT', hi3, lo2)), er_m)
+        cr_knee = math('MULTIPLY', er_m, CR_HIGH[0])
+        cr_u = math('MINIMUM', math('MAXIMUM', math('DIVIDE', math('SUBTRACT', z_free, cr_knee), math('MAXIMUM', math('SUBTRACT', z_over, cr_knee), 1e-6)), 0.0), 1.0)
+        final_z = math('SUBTRACT', z_free, math('MULTIPLY', math('SUBTRACT', z_over, er_m), math('MULTIPLY', cr_u, cr_u)))
     offset2 = N.new('ShaderNodeCombineXYZ')
     L.new(math('MULTIPLY', nrm.outputs["X"], side), offset2.inputs["X"])
     L.new(math('MULTIPLY', nrm.outputs["Y"], side), offset2.inputs["Y"])

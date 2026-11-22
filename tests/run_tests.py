@@ -1725,26 +1725,28 @@ def _t44():
                 z[iy, ix] = p[:, 2]  # binned by position, not point order
                 grids.append(z)
             off, on = grids
-            # Height is stretched back to the exact relief after the lift: take that out on the lower third, which is never lifted.
-            low = off < off.min() + np.ptp(off) / 3.0
-            a, c = np.polyfit(off[low], on[low], 1)
-            lift.append(((on - c) / a - off, low, 2000.0 / (n - 1)))
+            # The lifted tops take their room above the lift's height ramp, so no line fit: one hid a 3% squeeze (LG-086 cp2).
+            low = off < off.min() + np.ptp(off) * (lg.nodes.CR_HIGH[0] - 0.05)
+            lift.append((on - off, low, 2000.0 / (n - 1), off > off.min() + np.ptp(off) * lg.nodes.CR_HIGH[0]))
     finally:
         lg.TYPES["mountains"].update(kept)
     check(counts[0] == counts[1] and counts[2] == counts[3], f"the lift must not add points: {counts}")
-    (pv, low, step), (hi, _, _) = lift
+    (pv, low, step, above), (hi, _, _, _) = lift
     k = (hi.shape[0] - 1) // (pv.shape[0] - 1)
     calm, top, share = float(np.percentile(np.abs(pv[low]), 99)), float(pv.max()), float((pv > 1.0).mean())
-    check(calm < 0.3, f"the lower third should stay as it was: 99% of it moved up to {calm:.2f} m (limit 0.3 m)")
+    check(calm < 0.3, f"the ground below the lift's height ramp should stay exactly as it was, unsqueezed: 99% of it moved up to {calm:.2f} m (limit 0.3 m)")
     check(top > 15.0 and 0.03 < share < 0.3, f"round tops should rise by tens of meters on a small share of the ground: highest lift {top:.1f} m, {share:.0%} lifted over 1 m")
-    check(float(pv.min()) > -0.5, f"the lift should never dig: lowest {pv.min():.2f} m")
+    # The lift never digs; the restretch eases only the ground above the lift's height ramp down to make room (LG-086 cp2a).
+    dug = pv < -0.5
+    check(not (dug & ~above).any(), f"only ground above the lift's height ramp may come down: {int((dug & ~above).sum())} points below it dropped over 0.5 m")
+    check(-float(pv.min()) <= top, f"the top should come down no further than the highest lift goes up: lowest {pv.min():.2f} m, highest lift {top:.1f} m")
     # Teeth and walls come from a lift that falls away much faster than its 50 deg tent, tan 1.2 (LG-086 Log: the old scratch reached 6.7).
     gy, gx = np.gradient(pv, step)
     fall = float(np.hypot(gx, gy).max())
     check(fall < 4.5, f"the lift should fall away little faster than its tent sides (1.2): steepest {fall:.2f} m per m (limit 4.5)")
     gap = float(np.percentile(np.abs(hi[::k, ::k] - pv), 99))
     check(gap < 1.0, f"Preview and High should lift alike: 99% within {gap:.2f} m (limit 1.0 m)")
-    return f"2 km Mountains: highest lift {top:.1f} m, {share:.0%} of the ground over 1 m, lift slope {fall:.2f}, lower third moved {calm:.2f} m, Preview against High {gap:.2f} m"
+    return f"2 km Mountains: highest lift {top:.1f} m, {share:.0%} of the ground over 1 m, lift slope {fall:.2f}, lower 40% moved {calm:.2f} m, top eased down up to {-pv.min():.1f} m, Preview against High {gap:.2f} m"
 
 def face_share(z, step, D=5.0, k=3, deg=5.0, margin=5.0, steep=45.0, edge=40):
     """LG-089: share of ground over 45 deg on flat faces: normals within 5 deg rms over D, and a face, not a pillow
@@ -1818,6 +1820,70 @@ def _t45():
     check(share[0] < 4.0, f"the soft surface (breakup off) should not count as flat faces: {share[0]:.1f}% (limit 4%)")
     check(share[1] > max(2.5, share[0]), f"steep rock should carry flat faces bounded by creases, more than the soft surface: {share[1]:.1f}% of ground over 45 deg (want over 2.5% and over {share[0]:.1f}%; main before LG-089 0.8%, granite scan 8.6%)")
     return f"2 km Mountains, High: flat faces {share[1]:.1f}% with the breakup, {share[0]:.1f}% without; measure self-check plane {plane:.1f}%, dome {dome:.1f}%, facets {facets:.1f}%"
+
+def t46_teeth(h, edge=40):
+    """LG-086's counter (lib86.py): a spike stands 3 m or more above every 24 m line through it (8 directions), one per 24 m;
+    a tooth ends on its ridge (under twice that height above 80 m lines), a horn keeps widening downward (a summit)."""
+    def shift(a, dy, dx, fill):
+        out = np.full_like(a, fill)
+        H, W = a.shape
+        ys, yd = (slice(dy, H), slice(0, H - dy)) if dy >= 0 else (slice(0, H + dy), slice(-dy, H))
+        xs, xd = (slice(dx, W), slice(0, W - dx)) if dx >= 0 else (slice(0, W + dx), slice(-dx, W))
+        out[yd, xd] = a[ys, xs]
+        return out
+
+    def line_open(half):  # ridges survive (long one way), spikes don't
+        best = np.full_like(h, -1e9)
+        for dx, dy in ((1, 0), (0, 1), (1, 1), (1, -1), (2, 1), (1, 2), (2, -1), (1, -2)):
+            k = max(1, int(round(half / math.hypot(dx, dy))))
+            ero = h.copy()
+            for i in range(1, k + 1):
+                ero = np.minimum(ero, np.minimum(shift(h, dy * i, dx * i, 1e9), shift(h, -dy * i, -dx * i, 1e9)))
+            dil = ero.copy()
+            for i in range(1, k + 1):
+                dil = np.maximum(dil, np.maximum(shift(ero, dy * i, dx * i, -1e9), shift(ero, -dy * i, -dx * i, -1e9)))
+            best = np.maximum(best, dil)
+        return best
+    th = h - line_open(12.0)
+    th[:edge] = th[-edge:] = 0
+    th[:, :edge] = th[:, -edge:] = 0
+    mx = th.copy()
+    for ax in (0, 1):
+        m2 = mx.copy()
+        for i in range(1, 13):
+            m2 = np.maximum(m2, np.maximum(np.roll(mx, i, ax), np.roll(mx, -i, ax)))
+        mx = m2
+    ys, xs = np.nonzero((th >= mx) & (th >= 3.0))
+    keep, seen = [], np.zeros(h.shape, bool)
+    for y, x in sorted(zip(ys, xs), key=lambda q: -th[q]):
+        if not seen[y, x]:
+            keep.append((y, x))
+            seen[max(0, y - 12):y + 13, max(0, x - 12):x + 13] = True
+    big = h - line_open(40.0)
+    teeth = sum(1 for y, x in keep if big[y, x] < 2.0 * th[y, x])
+    return teeth, len(keep) - teeth
+
+@test("T46", "Crest sharpen with the breakup on: summits become horns, no more added ridge teeth than accepted")
+def _t46():
+    # LG-086 (Done when: no small spikes along ridges), the Done-when measure on the finished High mesh, not a stand-in (LG-086 cp2 Log).
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2048.0)
+    ob.lg.final = True
+    kept = lg.TYPES["mountains"]["crest"]
+    check(kept > 0 and lg.TYPES["mountains"]["breakup"] > 0, "Mountains should ship with Crest and Breakup on")
+    counts = []
+    try:
+        for c in (0.0, kept):
+            lg.TYPES["mountains"]["crest"] = c
+            lg.sync_object(ob)
+            counts.append(t46_teeth(top_grid(ob)[0]))
+    finally:
+        lg.TYPES["mountains"]["crest"] = kept
+    (t0, h0), (t1, h1) = counts
+    check(t1 - t0 <= 11, f"the crest sharpen should add no more ridge teeth than Mike accepted (24 -> 35, +11; checkpoint 1 added 23, LG-086 Log): {t0} without it, {t1} with")
+    check(h1 >= h0 + 15, f"round summits should become horns: {h0} without the crest sharpen, {h1} with (want 15 more)")
+    return f"2 km Mountains, High, breakup on: teeth / horns {t0} / {h0} without the crest sharpen, {t1} / {h1} with"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

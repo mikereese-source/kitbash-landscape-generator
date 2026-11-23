@@ -156,6 +156,10 @@
       "warp": 0.35,
       "rock": 1.0,
       "grain_roughness": 0.62,
+      "breakup": 0.8,
+      "block_size": 20.0,
+      "bed_thickness": 5.0,
+      "bed_dip": 2.0,
       "sharpness": 1.0,
       "erosion": {
         "on": true,
@@ -189,6 +193,10 @@
       "warp": 0.3,
       "rock": 1.6,
       "grain_roughness": 0.66,
+      "breakup": 1.0,
+      "block_size": 30.0,
+      "bed_thickness": 12.0,
+      "bed_dip": 1.0,
       "sharpness": 1.0,
       "controls": [
         {
@@ -227,6 +235,10 @@
       "warp": 0.3,
       "rock": 1.2,
       "grain_roughness": 0.7,
+      "breakup": 1.0,
+      "block_size": 40.0,
+      "bed_thickness": 20.0,
+      "bed_dip": 1.0,
       "sharpness": 1.0,
       "controls": [
         {
@@ -491,6 +503,10 @@
       "warp": 0.3,
       "rock": 0.9,
       "grain_roughness": 0.53,
+      "breakup": 1.0,
+      "block_size": 60.0,
+      "bed_thickness": 6.0,
+      "bed_dip": 4.0,
       "sharpness": 1.0,
       "controls": [
         {

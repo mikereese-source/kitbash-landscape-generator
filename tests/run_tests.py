@@ -1779,23 +1779,23 @@ def t45_facets(n=400, cell=15.0, seed=0):
     return h + 1.43 * x
 
 
-def top_grid(ob):
-    """The top surface on a 1 m grid by rays from above, as the board's measure (LG-087 prep.py): the breakup pushes points sideways."""
+def top_grid(ob, step=1.0):
+    """The top surface on a grid of `step` m (1 m by default) by rays from above, as the board's measure (LG-087 prep.py): the breakup pushes points sideways."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     dg = bpy.context.evaluated_depsgraph_get()
     dg.update()
     bvh = BVHTree.FromObject(ob, dg)
     half = ob.lg.size_x / 2.0
-    n = int(ob.lg.size_x) + 1
+    n = int(ob.lg.size_x / step) + 1
     z, down = np.empty((n, n)), Vector((0.0, 0.0, -1.0))
     for j in range(n):
-        y = min(max(j - half, 0.01 - half), half - 0.01)
+        y = min(max(j * step - half, 0.01 - half), half - 0.01)
         for i in range(n):
-            x = min(max(i - half, 0.01 - half), half - 0.01)
+            x = min(max(i * step - half, 0.01 - half), half - 0.01)
             hit = bvh.ray_cast(Vector((x, y, 5000.0)), down)[0] or bvh.find_nearest(Vector((x, y, 0.0)))[0]
             z[j, i] = hit.z
-    return z, 1.0
+    return z, step
 
 @test("T45", "Flat faces: steep rock blocks take their own plane; a soft surface does not count as flat")
 def _t45():
@@ -1884,6 +1884,38 @@ def _t46():
     check(t1 - t0 <= 11, f"the crest sharpen should add no more ridge teeth than Mike accepted (24 -> 35, +11; checkpoint 1 added 23, LG-086 Log): {t0} without it, {t1} with")
     check(h1 >= h0 + 15, f"round summits should become horns: {h0} without the crest sharpen, {h1} with (want 15 more)")
     return f"2 km Mountains, High, breakup on: teeth / horns {t0} / {h0} without the crest sharpen, {t1} / {h1} with"
+
+@test("T47", "Bedrock breakup on Glacial, Canyon, Mesa and Cliffs: steep rock breaks up, scree-angle ground stays")
+def _t47():
+    # LG-077 cp2 (Done when: the other rocky types), T43's measure on each type by position: rays on the Preview's 4 m grid, breakup on and off.
+    out = []
+    for kind in ("glacial", "canyon", "mesa", "cliffs"):
+        t = lg.TYPES[kind]
+        kept = t.get("breakup", 0.0)
+        check(kept > 0 and t["recipe"] in lg.nodes.BK_RECIPES, f"{kind} should ship with Breakup on and its recipe in nodes.BK_RECIPES")
+        fresh_scene()
+        ob = add(kind)
+        set_size(ob, 2048.0)
+        try:
+            on = top_grid(ob, 4.0)[0]
+            t["breakup"] = 0.0
+            lg.sync_object(ob)
+            off = top_grid(ob, 4.0)[0]
+        finally:
+            t["breakup"] = kept
+        gy, gx = np.gradient(off, 4.0)
+        deg = np.degrees(np.arctan(np.hypot(gx, gy)))
+        inner = np.zeros(off.shape, bool)
+        inner[10:-10, 10:-10] = True  # 40 m in: within a block of the border the breakup only moves up and down
+        scree, rock = inner & (deg < 35.0), inner & (deg > 50.0)
+        check(scree.mean() > 0.05 and rock.mean() > 0.005, f"{kind}: need both kinds of ground: {scree.mean():.0%} under 35 deg, {rock.mean():.1%} over 50 deg")
+        a, c = np.polyfit(off[scree], on[scree], 1)  # Height is stretched back to the exact relief after the breakup
+        e = np.abs(on - (a * off + c))
+        calm, broken, want = float(np.percentile(e[scree], 95)), float(np.sqrt((e[rock] ** 2).mean())), 0.025 * t["block_size"]
+        check(calm < 0.5, f"{kind}: ground under 35 deg (scree and flats) should stay as it was: 95% of it moved up to {calm:.2f} m (limit 0.5 m)")
+        check(broken > want, f"{kind}: rock over 50 deg should break into blocks: it moved {broken:.2f} m rms (want over {want:.2f} m, T43's 1.5 m at a 60 m block)")
+        out.append(f"{kind} {broken:.1f} / {calm:.2f} m")
+    return "2 km, Preview, rock over 50 deg moved (rms) / ground under 35 deg (95%): " + ", ".join(out)
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

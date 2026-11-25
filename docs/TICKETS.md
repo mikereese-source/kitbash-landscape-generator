@@ -123,6 +123,7 @@ Models before materials (D208). Order is the review's, most lift first: masks, e
 | [LG-087](tickets/LG-087-one-sharp-mesh.md) | Spike: one sharp mesh instead of Detail Levels | B2 Model realism | Realism | done | M | P1 | research | yes | docs/realism/ (board, scratch only) | - |
 | [LG-088](tickets/LG-088-faceted-fields.md) | Spike 2: faceted shape fields | B2 Model realism | Realism | done | M-L | P1 | side | yes | nodes.py; types.json; node_groups.blend; run_tests.py (branch only) | LG-087 |
 | [LG-089](tickets/LG-089-blocks-replace-surface.md) | Breakup blocks replace the surface with their plane | B2 Model realism | Realism | done | M | P1 | side | yes | nodes.py; node_groups.blend; run_tests.py | LG-077, LG-088 |
+| [LG-090](tickets/LG-090-mountain-valley-walls.md) | Glacial-style valley walls on Mountains | B2 Model realism | Realism | todo | L | P2 | side | yes | nodes.py; node_groups.blend; types.json; run_tests.py | LG-079, LG-080 |
 | [LG-083](tickets/LG-083-materials-return.md) | Back to materials: re-shoot checkpoint 1, rework checkpoint 2 | B2 Model realism | Realism | todo | S-M | P1 | main | yes | render_m7.py; fable-M7-spike.md | LG-075, LG-076, LG-077 |
 
 ## Code reviews (D202)

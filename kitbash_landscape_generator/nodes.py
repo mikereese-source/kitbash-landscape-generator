@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 151  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 152  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -16,6 +16,7 @@ BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
 BK_RECIPES = (1, 4, 5, 6, 9)  # rocky types with a breakup in types.json; Badlands' soft beds left off (LG-077 cp2 Log)
 # Crest sharpen: tent tan 50 deg, slope rings (block shares; one 4-read ring passed 1 m lumps as teeth), height ramp, tent gap for no 60 m tilt (LG-086 cp2 Log).
 CR_TENT, CR_RINGS, CR_HIGH, CR_TOP = 1.2, (0.5, 0.75, 1.0), (0.45, 0.7), (0.45, 1.0)
+CR_RECIPES = (1, 9)  # types with a Crest in types.json, one gate for the lift, its capture, 60 m tilt-off and restretch; Volcano has no erosion map (LG-086 cp2b)
 
 # (name, socket type, default, min, max, description)
 INPUTS = (
@@ -1117,7 +1118,8 @@ def _build(ng, recipe):
     er_r = er_read(at.outputs["X"], at.outputs["Y"])
     eroded_z = math('MULTIPLY', er_r.outputs[0], er_m)
     z = math('ADD', z, math('MULTIPLY', math('SUBTRACT', eroded_z, z), inp["Erosion"]))
-    if recipe == 1:  # Mountains only; Glacial and Volcano follow at LG-086 checkpoint 2b
+    cr_type = recipe in CR_RECIPES
+    if cr_type:
         # Crest sharpen (LG-086): round tops of radius Rc become 50 deg tents, before the normals so the breakup covers them.
         cr_big = math('MINIMUM', inp["Block Size"], math('DIVIDE', ref, 32.0))  # shrinks with the breakup on small landscapes
         cr_s = 0.0
@@ -1161,7 +1163,7 @@ def _build(ng, recipe):
     store.data_type = 'FLOAT'
     store.domain = 'POINT'
     store.inputs["Name"].default_value = "lg_hard"
-    L.new(cr_cap.outputs["Geometry"] if recipe == 1 else grid.outputs["Mesh"], store.inputs["Geometry"])
+    L.new(cr_cap.outputs["Geometry"] if cr_type else grid.outputs["Mesh"], store.inputs["Geometry"])
     if recipe in hard_by_recipe:
         L.new(hard_by_recipe[recipe], store.inputs["Value"])
     else:
@@ -1281,7 +1283,7 @@ def _build(ng, recipe):
             bk_tl = math('MULTIPLY', bk_tilt.outputs["Value"], BK_TILT)
             if bk_rel == 0.15:  # off the 22 m faces only: on them the 9 m tilt cut every face into 9 m pieces, off them it keeps the creases (LG-089 Log)
                 bk_tl = math('MULTIPLY', bk_tl, math('SUBTRACT', 1.0, bk_hold))
-            if bk_rel == 1.0 and recipe == 1:  # 60 m tilts (up to 7 m) stood as teeth on the tent crests; the step stays for the block edges (LG-086 cp2 Log, f14)
+            if bk_rel == 1.0 and cr_type:  # 60 m tilts (up to 7 m) stood as teeth on the tent crests; the step stays for the block edges (LG-086 cp2 Log, f14)
                 bk_tl = math('MULTIPLY', bk_tl, math('SUBTRACT', 1.0, cr_cap.outputs["Tent"]))
             bk_face = math('ADD', bk_face, bk_tl)
             if bk_rel == 0.37:  # added as before where its plane leaves the ground: dropping it there cost creases 48.7 -> 34.7% (LG-089 Log)
@@ -1318,7 +1320,7 @@ def _build(ng, recipe):
     lo2, hi2 = stats2.outputs["Min"], stats2.outputs["Max"]
     final_z = math('MULTIPLY', math('DIVIDE', math('SUBTRACT', total, lo2), math('MAXIMUM', math('SUBTRACT', hi2, lo2), 1e-6)),
                    math('MULTIPLY', inp["Height"], ref))
-    if recipe == 1:
+    if cr_type:
         # Stretch as without the lift, then ease only the ground above its height ramp back to Height: stretching it all squeezed the rest 3% (LG-086 cp2 Log).
         stats3 = N.new('GeometryNodeAttributeStatistic')
         stats3.data_type = 'FLOAT'

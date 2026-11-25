@@ -1860,27 +1860,32 @@ def t46_teeth(h, edge=40):
             keep.append((y, x))
             seen[max(0, y - 12):y + 13, max(0, x - 12):x + 13] = True
     big = h - line_open(40.0)
-    teeth = sum(1 for y, x in keep if big[y, x] < 2.0 * th[y, x])
-    return teeth, len(keep) - teeth
+    teeth = [(y, x) for y, x in keep if big[y, x] < 2.0 * th[y, x]]
+    return len(teeth), len(keep) - len(teeth), teeth
+
+def crest_grids(kind):
+    """T46, T48: the finished 2 km High top grid, breakup on, with Crest off and at the type's own (LG-086 Done when)."""
+    fresh_scene()
+    ob = add(kind)
+    set_size(ob, 2048.0)
+    ob.lg.final = True
+    t = lg.TYPES[kind]
+    kept = t.get("crest", 0.0)
+    check(kept > 0 and t.get("breakup", 0.0) > 0 and t["recipe"] in lg.nodes.CR_RECIPES, f"{kind} should ship with Crest and Breakup on and its recipe in nodes.CR_RECIPES")
+    grids = []
+    try:
+        for c in (0.0, kept):
+            t["crest"] = c
+            lg.sync_object(ob)
+            grids.append(top_grid(ob)[0])
+    finally:
+        t["crest"] = kept
+    return grids
 
 @test("T46", "Crest sharpen with the breakup on: summits become horns, no more added ridge teeth than accepted")
 def _t46():
     # LG-086 (Done when: no small spikes along ridges), the Done-when measure on the finished High mesh, not a stand-in (LG-086 cp2 Log).
-    fresh_scene()
-    ob = add("mountains")
-    set_size(ob, 2048.0)
-    ob.lg.final = True
-    kept = lg.TYPES["mountains"]["crest"]
-    check(kept > 0 and lg.TYPES["mountains"]["breakup"] > 0, "Mountains should ship with Crest and Breakup on")
-    counts = []
-    try:
-        for c in (0.0, kept):
-            lg.TYPES["mountains"]["crest"] = c
-            lg.sync_object(ob)
-            counts.append(t46_teeth(top_grid(ob)[0]))
-    finally:
-        lg.TYPES["mountains"]["crest"] = kept
-    (t0, h0), (t1, h1) = counts
+    (t0, h0, _), (t1, h1, _) = (t46_teeth(g) for g in crest_grids("mountains"))
     check(t1 - t0 <= 11, f"the crest sharpen should add no more ridge teeth than Mike accepted (24 -> 35, +11; checkpoint 1 added 23, LG-086 Log): {t0} without it, {t1} with")
     check(h1 >= h0 + 15, f"round summits should become horns: {h0} without the crest sharpen, {h1} with (want 15 more)")
     return f"2 km Mountains, High, breakup on: teeth / horns {t0} / {h0} without the crest sharpen, {t1} / {h1} with"
@@ -1916,6 +1921,25 @@ def _t47():
         check(broken > want, f"{kind}: rock over 50 deg should break into blocks: it moved {broken:.2f} m rms (want over {want:.2f} m, T43's 1.5 m at a 60 m block)")
         out.append(f"{kind} {broken:.1f} / {calm:.2f} m")
     return "2 km, Preview, rock over 50 deg moved (rms) / ground under 35 deg (95%): " + ", ".join(out)
+
+@test("T48", "Crest sharpen on Glacial: summits sharpen, no more ridge teeth added than accepted (by position); Crest and CR_RECIPES agree")
+def _t48():
+    # LG-086 cp2b (Done when: the other peaked types), T46's measure on Glacial; Volcano left off, it has no erosion map to read (LG-086 Log).
+    crest = {t["recipe"] for t in lg.TYPES.values() if t.get("crest", 0.0) > 0}
+    check(crest == set(lg.nodes.CR_RECIPES), f"types.json Crest and nodes.CR_RECIPES should agree: recipes {sorted(crest)} against {lg.nodes.CR_RECIPES}")
+    off, on = crest_grids("glacial")
+    (t0, h0, p0), (t1, h1, p1) = t46_teeth(off), t46_teeth(on)
+    added = sum(1 for y, x in p1 if not any(abs(y - v) <= 12 and abs(x - u) <= 12 for v, u in p0))  # matched within 12 m, as T46's teeth window (LG-086 cp2b Log)
+
+    def tops(h):  # upper-third crest sharpness: 1st percentile of the 1 m curvature x relief, on the top third (LG-087 measure.py)
+        gy, gx = np.gradient(h)
+        lap = np.gradient(gy, axis=0) + np.gradient(gx, axis=1)
+        lo, hi = np.percentile(h, [1, 99])
+        return float(-np.percentile(lap[h > lo + 0.67 * (hi - lo)], 1)) * (hi - lo)
+    k0, k1 = tops(off), tops(on)
+    check(added <= 1, f"the crest sharpen should add no more ridge teeth than measured at cp2b (+1, from the lift): {added} new by position ({t0} without it, {t1} with)")
+    check(k1 > 4.0 * k0 and h1 >= h0 + 4, f"Glacial summits should sharpen as Mike accepted at cp2b (67 -> 293, 4.3 times; horns 0 -> 4): upper-third crest {k0:.0f} -> {k1:.0f} (want over 4 times), horns {h0} -> {h1} (want 4 more)")
+    return f"2 km Glacial, High, breakup on: teeth / horns {t0} / {h0} -> {t1} / {h1}, {added} new by position, upper-third crest {k0:.0f} -> {k1:.0f}"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

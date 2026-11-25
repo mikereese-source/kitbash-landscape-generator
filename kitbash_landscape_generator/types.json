@@ -507,6 +507,7 @@
       "block_size": 60.0,
       "bed_thickness": 6.0,
       "bed_dip": 4.0,
+      "crest": 2.0,
       "sharpness": 1.0,
       "controls": [
         {

@@ -62,10 +62,6 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-033](tickets/LG-033-climate-switch.md) | Climate switch | F M7 rest | M7 | todo | M | P2 | main | yes | materials.py; __init__.py | LG-028, LG-029, LG-030 |
 | [LG-034](tickets/LG-034-8k-texture-test.md) | 8K texture test | F M7 rest | M7 | todo | S | P3 | research | yes | - | LG-028 |
 | [LG-035](tickets/LG-035-m7-gate.md) | M7 gate | F M7 rest | M7 | todo | M | P1 | main | yes | run_tests.py | LG-031, LG-032, LG-033 |
-| [LG-071](tickets/LG-071-tiles-design.md) | Multi-tile landscapes: design | F2 Multi-tile | M7b | todo | S | P2 | main | no | PLAN-tiles.md | LG-035 |
-| [LG-072](tickets/LG-072-tiles-build.md) | Multi-tile landscapes: tiles and seams | F2 Multi-tile | M7b | todo | L | P2 | main | yes | nodes.py; __init__.py; types.json; run_tests.py | LG-071 |
-| [LG-073](tickets/LG-073-tiles-erosion.md) | Multi-tile landscapes: erosion across tiles | F2 Multi-tile | M7b | todo | M | P2 | main | yes | erosion.py; nodes.py; run_tests.py | LG-072 |
-| [LG-074](tickets/LG-074-m7b-gate.md) | M7b multi-tile gate | F2 Multi-tile | M7b | todo | S-M | P1 | main | yes | run_tests.py | LG-073 |
 | [LG-036](tickets/LG-036-orbit-check.md) | Check Orbit's stack | D three.js spike | Project 2 prep | ready | S | P2 | research | no | RESEARCH-engines.md | - |
 | [LG-037](tickets/LG-037-threejs-spike-plan.md) | three.js spike plan | D three.js spike | Project 2 spike | todo | S | P1 | main | no | PLAN-threejs-spike.md | LG-028, LG-036 |
 | [LG-038](tickets/LG-038-threejs-mountains-shape.md) | three.js spike: Mountains shape and erosion | D three.js spike | Project 2 spike | todo | M-L | P1 | side | no | landscape-spike-threejs | LG-037 |
@@ -125,7 +121,11 @@ Models before materials (D208). Order is the review's, most lift first: masks, e
 | [LG-089](tickets/LG-089-blocks-replace-surface.md) | Breakup blocks replace the surface with their plane | B2 Model realism | Realism | done | M | P1 | side | yes | nodes.py; node_groups.blend; run_tests.py | LG-077, LG-088 |
 | [LG-090](tickets/LG-090-mountain-valley-walls.md) | Glacial-style valley walls on Mountains | B2 Model realism | Realism | todo | L | P2 | side | yes | nodes.py; node_groups.blend; types.json; run_tests.py | LG-079, LG-080 |
 | [LG-091](tickets/LG-091-one-level-decimate.md) | One detail level and a decimation pass | B2 Model realism | Realism | todo | L | P1 | main | yes | __init__.py; nodes.py; node_groups.blend; export.py; run_tests.py | LG-090, LG-082 |
-| [LG-083](tickets/LG-083-materials-return.md) | Back to materials: re-shoot checkpoint 1, rework checkpoint 2 | B2 Model realism | Realism | todo | S-M | P1 | main | yes | render_m7.py; fable-M7-spike.md | LG-075, LG-076, LG-077 |
+| [LG-071](tickets/LG-071-tiles-design.md) | Multi-tile landscapes: design | F2 Multi-tile | M7b | todo | S | P2 | main | no | PLAN-tiles.md | LG-091 |
+| [LG-072](tickets/LG-072-tiles-build.md) | Multi-tile landscapes: tiles and seams | F2 Multi-tile | M7b | todo | L | P2 | main | yes | nodes.py; __init__.py; types.json; run_tests.py | LG-071 |
+| [LG-073](tickets/LG-073-tiles-erosion.md) | Multi-tile landscapes: erosion across tiles | F2 Multi-tile | M7b | todo | M | P2 | main | yes | erosion.py; nodes.py; run_tests.py | LG-072 |
+| [LG-074](tickets/LG-074-m7b-gate.md) | M7b multi-tile gate | F2 Multi-tile | M7b | todo | S-M | P1 | main | yes | run_tests.py | LG-073 |
+| [LG-083](tickets/LG-083-materials-return.md) | Back to materials: re-shoot checkpoint 1, rework checkpoint 2 | B2 Model realism | Realism | todo | S-M | P1 | main | yes | render_m7.py; fable-M7-spike.md | LG-075, LG-076, LG-077, LG-074 |
 
 ## Code reviews (D202)
 

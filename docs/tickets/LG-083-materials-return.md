@@ -1,7 +1,7 @@
 # LG-083 Back to materials: re-shoot checkpoint 1, rework checkpoint 2
 Type: spike | Milestone: Model realism | Phase: B2 Model realism | Size: S-M | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
-Depends on: LG-075, LG-076, LG-077 | Blocks: LG-028
+Depends on: LG-075, LG-076, LG-077, LG-074 | Blocks: LG-028
 
 ## Why
 Fable's view: return to materials once the masks, the erosion retune and the breakup are in on Mountains (D209).
@@ -22,3 +22,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 ## Log
 - 2026-11-11 created from the realism review (D209)
 - 2026-11-25 Megascans survey (apps/megascans-library/docs/lg083-materials-survey-2026-11-25.md): 8 tileable surfaces (7 rock, 1 snow), 103 rock models, no ground surfaces (soil, grass, sand, scree, mud, ash, ice). Mike's decision: Megascans are look-dev only. Use them in Blender to set and calibrate the look; never ship or copy their files into the add-on
+- 2026-11-25 Mike: multi-tile (LG-071 to LG-074) moves before materials, after LG-091

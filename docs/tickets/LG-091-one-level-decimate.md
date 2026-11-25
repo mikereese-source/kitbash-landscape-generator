@@ -10,7 +10,7 @@ Mike, 2026-11-25: after the geometry look pass and before materials, come back t
 - One build resolution replaces the Detail Level menu for landscapes; a face budget control (slider or a few presets) sets the decimated count, default near the LG-087 1M finding
 - A fast editing view stays (a proxy while sliders move), with the full build and decimation on demand, not on every slider change
 - Decimation keeps crests, breakup blocks and cliff bands (measured: crest sharpness, teeth/horns, over 60 deg within 1% of the full build at the default budget); masks (lg_wear, lg_deposit, lg_talus, lg_hard and the rest) survive on the decimated mesh or are baked to textures for LG-083
-- Heightmap export unchanged; old .blend files with a Detail Level open and rebuild cleanly; caves (LG-054's separate levels) decided and noted
+- Heightmap export unchanged; old .blend files with a Detail Level open and rebuild cleanly. Landscapes only: caves keep their own Detail Levels (LG-054) and become their own project after the look pass (Mike, 2026-11-25)
 - Build time and memory measured before and after; board at shot distance beside the full build; T42 and the Detail Level tests replaced; suite passes; code review
 
 ## Files
@@ -20,9 +20,10 @@ Mike, 2026-11-25: after the geometry look pass and before materials, come back t
 - `tests/run_tests.py`
 
 ## Agent brief
-Read LG-087's Log first (both recommendations, boards c195 and c196) and the LG-087_scratch scripts on branch lg-087-mesh (bake, Decimate, measure). Read the Detail Level code in __init__.py (around `detail: EnumProperty` and the "Faces per Detail Level" panel) and LG-085's face counts. Decide with Mike: Blender's Decimate modifier vs. a geometry-nodes or numpy step, where masks live after decimation, and what the editing proxy is.
+Read LG-087's Log first (both recommendations, boards c195 and c196) and the LG-087_scratch scripts on branch lg-087-mesh (bake, Decimate, measure). Read the Detail Level code in __init__.py (around `detail: EnumProperty` and the "Faces per Detail Level" panel) and LG-085's face counts. Decide with Mike: Blender's Decimate modifier vs. a geometry-nodes or numpy step, where masks live after decimation, and what the editing proxy is. Caves are out of scope.
 Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md.
 
 ## Log
 - 2026-11-25 created (Mike: after the geometry look pass, before materials). From PARKING.md (2026-10-22) and LG-087's findings
 - 2026-11-25 Mike: the geometry look pass includes LG-090, the Badlands rill ticket and LG-082; this runs after all three, before LG-083
+- 2026-11-25 Mike: caves are their own project after the look pass ("Caves have turned into a huge project unto themselves"); LG-091 covers landscapes only

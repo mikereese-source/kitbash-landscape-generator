@@ -1,7 +1,7 @@
 # LG-091 One detail level and a decimation pass
 Type: feature | Milestone: Model realism | Phase: B2 Model realism | Size: L | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
-Depends on: the geometry look pass (LG-090 and whatever Mike counts in it) | Blocks: LG-083
+Depends on: the geometry look pass: LG-090, the Badlands rill ticket, LG-082 | Blocks: LG-083
 
 ## Why
 Mike, 2026-11-25: after the geometry look pass and before materials, come back to one detail level instead of three (Preview / High / Ultra) plus a decimation pass. Parked since 2026-10-22 ("build at Ultra, then decimate to a target polygon count (slider)", PARKING.md). LG-087's spike measured it: High's 8.4M triangles are about 8 times what its forms need; Decimate (collapse) to about 1M triangles matches High within 1% on every measure at wide and mid shot distance (height error 0.42 m rms), 500k holds for wide shots only, and taking the grain out of the mesh saves only about 5% (boards c195, c196). Materials (LG-083) should be built on the mesh we keep, so this goes first.
@@ -25,3 +25,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-25 created (Mike: after the geometry look pass, before materials). From PARKING.md (2026-10-22) and LG-087's findings
+- 2026-11-25 Mike: the geometry look pass includes LG-090, the Badlands rill ticket and LG-082; this runs after all three, before LG-083

@@ -21,3 +21,4 @@ Also read docs/tickets/README.md (rules every ticket follows) and docs/CODING.md
 
 ## Log
 - 2026-11-11 created from the realism review (D209)
+- 2026-11-25 Megascans survey (apps/megascans-library/docs/lg083-materials-survey-2026-11-25.md): 8 tileable surfaces (7 rock, 1 snow), 103 rock models, no ground surfaces (soil, grass, sand, scree, mud, ash, ice). Mike's decision: Megascans are look-dev only. Use them in Blender to set and calibrate the look; never ship or copy their files into the add-on

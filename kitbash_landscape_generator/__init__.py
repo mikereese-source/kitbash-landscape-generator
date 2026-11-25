@@ -333,6 +333,7 @@ def _erosion_settings(recipe, props, grid):
     er["final_slump"] = max(int(round(er.get("final_slump", d["final_slump"]) * a)), 1)
     er["floor_width"] = int(round(er.get("floor_width", d["floor_width"]) * a))
     er["floor_carve"] = int(round(er.get("floor_carve", d["floor_carve"]) * min(a * 2.0, 1.0)))
+    er["scree"] = er.get("scree", d["scree"]) * a  # less erosion time, less rockfall (LG-080)
     for c in recipe.get("controls", ()):  # a slider can stretch an erosion setting: {"apron": [at 0, at 1]}
         for k, (lo, hi) in c.get("erosion", {}).items():
             er[k] = er.get(k, d[k]) * (lo + (hi - lo) * _control_value(props, c))
@@ -467,10 +468,11 @@ def _sample_shape(ob, grid):
 
 def _compute_erosion(h, hard, settings, pad):
     """Pure numpy: safe on a worker thread."""
-    z, (flow, _change) = erosion.erode(h, settings, hard, masks=True)
+    z, (flow, cut, filled, landed) = erosion.erode(h, settings, hard, masks=True)
     crop = (slice(pad, -pad), slice(pad, -pad))
-    # Wear and deposit from the visible part only: the padding's lift skewed the scale and the edge band (LG-075 review).
-    return z[crop], flow[crop], erosion.change_mask(h[crop], z[crop])
+    # Wear and deposit scaled on the visible part only: the padding skewed the scale and the edge band (LG-075 review).
+    return (z[crop], flow[crop], erosion.change_mask(cut[crop], filled[crop], float(np.ptp(z[crop]))),
+            erosion.talus_mask(landed[crop]))
 
 
 def _apply_erosion(ob, eroded, key, seconds):
@@ -482,21 +484,23 @@ def _apply_erosion(ob, eroded, key, seconds):
     # cliff (Catmull-Rom): 4 m and false 114 m spectrum spikes on Badlands and Mesa (Pass 6). (Storing only
     # the change kept the shape's fine detail everywhere and lost the smooth-floor / rough-rock contrast:
     # rough split 0.68 vs 1.27 real, Pass 2.)
-    eroded, flow, change = eroded  # heights, plus the flow and wear/deposit masks (M3) in G and B
+    eroded, flow, change, talus = eroded  # heights, plus the flow, wear/deposit (M3) and talus (LG-080) masks in G, B, A
     delta = eroded / max(props.height, 1e-6)
     ny, nx = delta.shape
     name = f"LG Erosion {ob.name}"
     img = bpy.data.images.get(ob.get("lg_erosion_img", "")) or bpy.data.images.get(name)
-    if img is None or tuple(img.size) != (nx, ny):
+    # Alpha carries lg_talus, so it must be a stored channel and never multiply the heights (channel packed; LG-080).
+    if img is None or tuple(img.size) != (nx, ny) or img.alpha_mode != 'CHANNEL_PACKED':
         if img is not None:
             bpy.data.images.remove(img)
-        img = bpy.data.images.new(name, nx, ny, float_buffer=True, alpha=False)
+        img = bpy.data.images.new(name, nx, ny, float_buffer=True, alpha=True)
         img.colorspace_settings.name = "Non-Color"
+        img.alpha_mode = 'CHANNEL_PACKED'
     rgba = np.zeros((ny, nx, 4), dtype=np.float32)
     rgba[..., 0] = delta
     rgba[..., 1] = flow
     rgba[..., 2] = change
-    rgba[..., 3] = 1.0
+    rgba[..., 3] = talus
     img.pixels.foreach_set(rgba.ravel())
     img.file_format = 'OPEN_EXR'
     try:

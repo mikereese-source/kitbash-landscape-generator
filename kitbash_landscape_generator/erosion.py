@@ -41,6 +41,9 @@ DEFAULTS = {
     "channel": 0.0005,   # share of the landscape that must drain through a cell before water cuts it;
                          # above it channels incise, below it hillslopes stay smooth and rounded
     "final_slump": 20,   # talus rounds after the last pass
+    "scree": 0.0,        # rockfall at the end: steep hard rock sheds up to this share of the width as loose debris (0 = none; LG-080)...
+    "scree_deg": 34.0,   # ...which slides until the ground is under this angle: cones and aprons (real talus 32-38 deg, review S6)
+    "scree_rounds": 96,  # ...over this many cell-to-cell steps (cells at 512)
     "protect": 4.0,      # channels this many times the cutting threshold shed hillslope debris (rills below fill in)
     "floor_width": 16,   # rounds of channel-floor widening at the end (cells)
     "finish_blur": 16,   # rounds of smoothing at the very end (rounds off one-cell stair steps; dams are cut after)
@@ -241,6 +244,41 @@ def slump(z, talus, dx, rounds, cliff=None):
         z = np.minimum(z, np.min([p[1 + di:1 + di + n, 1 + dj:1 + dj + m] + cliff * dx * d
                                   for (di, dj), d in zip(D8, DIST)], axis=0))
     return z
+
+
+def rockfall(z, shed, dx, rounds, rest, sink):
+    """Rockfall (review S6, Musgrave et al. 1989): `shed` (a height per cell) comes off the rock as loose debris, which
+    slides to lower neighbours while the ground is steeper than `rest` and settles where it is not: cones under gullies,
+    aprons under walls. Debris reaching `sink` (rivers, the border) is carried off. Only loose debris moves, so bedrock
+    keeps its shape. Returns the new heights and the debris left on each cell."""
+    n, m = z.shape
+    bed = z
+    loose = shed.copy()
+    thr = [rest * dx * d for d in DIST]
+    pb = np.pad(bed, 1, mode="edge")
+    # Debris on bedrock steeper than scree can lie slides on by up to half its largest drop, but never more than its total
+    # excess, so a pile at rest stays put; elsewhere it builds its pile by slump()'s rule (half the largest excess). With
+    # that rule alone chutes choked; moving the whole load stacked towers (Cliffs relief 102 -> 128 m), and half the drop
+    # alone rippled the cones (LG-080 Log).
+    chute = np.max([bed - pb[1 + di:1 + di + n, 1 + dj:1 + dj + m] - t for (di, dj), t in zip(D8, thr)], axis=0) > 0.0
+    ex = np.empty((8, n, m))
+    for i in range(rounds):
+        s = bed + loose
+        p = np.pad(s, 1, mode="edge")
+        for k, (di, dj) in enumerate(D8):
+            np.subtract(s, p[1 + di:1 + di + n, 1 + dj:1 + dj + m], out=ex[k])
+            ex[k] -= thr[k]
+        np.maximum(ex, 0.0, out=ex)
+        total = ex.sum(axis=0)
+        drop = np.max([ex[k] + thr[k] for k in range(8)], axis=0)  # max over neighbours of max(drop, threshold): at least the diagonal threshold
+        fast = chute if i < rounds * 3 // 4 else False  # the last quarter settles by slump()'s rule: fast moves left hatching (LG-080 Log)
+        move = np.minimum(loose, np.where(fast, np.minimum(0.5 * drop, total), 0.5 * ex.max(axis=0)))
+        share = move / np.maximum(total, 1e-30)
+        recv = np.zeros((n + 2, m + 2))
+        for k, (di, dj) in enumerate(D8):
+            recv[1 + di:1 + di + n, 1 + dj:1 + dj + m] += ex[k] * share
+        loose = np.where(sink, 0.0, loose - move + recv[1:-1, 1:-1])
+    return bed + loose, loose
 
 
 def widen_floors(z, dx, rounds, low=1e-4):
@@ -461,8 +499,11 @@ def erode(h, settings=None, hard=None, masks=False):
     if s["meander"] > 0:  # one smooth random field per direction, the same every pass
         mrng = np.random.default_rng(int(s["seed"]) + 11)
         bias = [np.exp(s["meander"] * (g := blur(mrng.standard_normal(z.shape), 3)) / max(g.std(), 1e-12)) for _ in D8]
+    # Mask fix B (review section 5): wear and deposit are what the engine cut and filled, added up over the passes.
+    cut_acc, fill_acc = np.zeros(z.shape), np.zeros(z.shape)
     for step in range(int(s["passes"])):
         z = z + rise
+        z_in = z
         if step % s["fill_every"] == 0 and (step > 0 or s["start"] < 1.0):  # the target is already filled
             z = fill(z) if s["pit_mode"] == "fill" else breach(z)
         # Route on slightly jittered heights: on even slopes the steepest neighbor is then a coin
@@ -510,6 +551,8 @@ def erode(h, settings=None, hard=None, masks=False):
         # gentle, concavity 1.3 against 0.44 real; Pass 2.)
         chan = (a_rel > s["channel"] * s["protect"]).reshape(n, m)
         z = np.where(chan, np.minimum(z, cut), z)
+        cut_acc += np.maximum(z_in - z, 0.0)
+        fill_acc += np.maximum(z - z_in, 0.0)
     sea_z = z.copy()  # the sea floor as the passes left it (the finishing steps below don't know the sea)
     if s["edge_lift"]:
         z = z + edge_lift(target - z, edge)  # bring the edges back up to the shape, smoothly
@@ -527,6 +570,8 @@ def erode(h, settings=None, hard=None, masks=False):
         before = z
         z = slump(z, talus, dx, ln(s["final_slump"]), cliff)
         z = np.where(chan, np.minimum(z, before), z)
+        cut_acc += np.maximum(before - z, 0.0)
+        fill_acc += np.maximum(z - before, 0.0)
         if np.ptp(z) > 0.98 * span:
             break
     z = carve_floors(z, dx, ln(s["floor_carve"]), s["bank_deg"], s["channel"])
@@ -540,15 +585,33 @@ def erode(h, settings=None, hard=None, masks=False):
             z = z + 0.2 * w * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
         return z
     z = smooth_rounds(z, s["finish_blur"], finish_w)
+    landed = np.zeros(z.shape)
+    if s["scree"] > 0:
+        # Rockfall (S6): rock steeper than 45 deg sheds, more the harder and steeper it is (the hard map where the type has
+        # one, else every steep cell), after the smoothing so the talus is never blurred, and before the breach below, which
+        # cuts exits through the dams it builds (the ponds behind them filled flat). The debris goes on top: the walls'
+        # retreat already happened in slump(), and lowering them again roughened every rim (LG-080 Log).
+        gy, gx = np.gradient(z, dx)
+        steep = np.clip((np.degrees(np.arctan(np.hypot(gx, gy))) - 45.0) / 20.0, 0.0, 1.0)
+        shed = s["scree"] * steep * (1.0 - soft_w if soft_w.min() < 1.0 else 1.0)
+        # Rivers carry it off, as in the passes: with only the trunks as sinks it filled valleys 80 m deep and stood up as teeth;
+        # rills under 0.1% of the landscape do not, or they cut Mesa's cones into strips (LG-080 Log).
+        sink = chan & (a_rel > 1e-3).reshape(n, m)  # a_rel and chan from the last pass; _erosion_settings keeps passes >= 1
+        sink[0, :] = sink[-1, :] = sink[:, 0] = sink[:, -1] = True
+        z, loose = rockfall(z, shed, dx, ln(s["scree_rounds"]), math.tan(math.radians(s["scree_deg"])), sink)
+        landed = np.maximum(loose - shed, 0.0)  # shed and received totals, net per cell
+        # The walls it came off count as wear; the talus keeps its own mask: in the fill it set deposit's scale and left
+        # deposit over 0.5 on 1.2% of Mountains (LG-080 Log).
+        cut_acc += np.maximum(shed - loose, 0.0)
     if s["finish_blur"] > 3:
         # Heavy smoothing dams channels into chains of flat pools: cut each dam back to a downhill
         # exit, widen the cut, and smooth lightly once more.
         z = breach(z, s["exit_slope"] / (max(n, m) - 1))
         z = carve_floors(z, dx, ln(s["floor_carve"]), s["bank_deg"], s["channel"])
-        z = smooth_rounds(z, 4)
+        z = smooth_rounds(z, 4, soft_w * (1.0 - talus_mask(landed)))  # not the talus (review S6)
     if sea is not None:
         z = np.where(sea, np.maximum(z, sea_z), z)
-        z = smooth_rounds(z, 2)  # soften the step along the shore
+        z = smooth_rounds(z, 2, soft_w * (1.0 - talus_mask(landed)))  # soften the step along the shore, not the talus
     # Give back the shape's own fine detail (finer than ~3 cells) on slopes and ridges, never in channels
     # or on valley floors: the smoothing above washed every texture away (Mike, Pass 3).
     if s["keep_detail"] > 0:
@@ -558,7 +621,8 @@ def erode(h, settings=None, hard=None, masks=False):
         # few times the typical texture: rough ground keeps its detail, step edges lose the halo.
         lim = 4.0 * float(np.median(np.abs(fine))) + 1e-12
         fine = np.clip(fine, -lim, lim)
-        z = z + fine * (1.0 - wetness(z, s["channel"])) * s["keep_detail"]
+        # Not on talus either: scree is smooth at 10 m (review section 4).
+        z = z + fine * (1.0 - wetness(z, s["channel"])) * (1.0 - talus_mask(landed)) * s["keep_detail"]
     # Fade back to the plain shape over the outer `edge_blend` of the width: the fixed edges left
     # notches and drips along every border (the "edge frame", Pass 1-3).
     w = np.clip(1.0 - d_edge / max(s["edge_blend"], 1e-6), 0.0, 1.0) if s["edge_blend"] > 0 else 0.0
@@ -566,13 +630,12 @@ def erode(h, settings=None, hard=None, masks=False):
     if s["min_cap"] > 0:  # knife-edge spurs left between alcoves cut into hard cliffs break off too (Mike)
         z = cut_fins(z, max(int(round(s["min_cap"] * max(n, m) / 2)), 1), s["fin_tol"])
     z = fill(z)
-    return (z, erosion_masks(h, z)) if masks else z
+    return (z, (erosion_masks(z), cut_acc, fill_acc, landed)) if masks else z
 
 
-def erosion_masks(before, after):
-    """(flow, change), both 0..1, for materials and scatter (M3): flow is how much water drains through
-    each cell (log of drainage area, 1 on the trunks); change is 0.5 where erosion left the ground alone,
-    toward 0 where it cut (wear) and toward 1 where it filled (deposits), at 1 for the strongest 3% of changes."""
+def erosion_masks(after):
+    """Flow, 0..1, for materials and scatter (M3): how much water drains through each cell (log of drainage
+    area, 1 on the trunks)."""
     n, m = after.shape
     dx = 1.0 / (max(n, m) - 1)
     rcv, _ = routing(after, dx)
@@ -583,16 +646,21 @@ def erosion_masks(before, after):
         np.add.at(area, r[ok], area[lv][ok])
     a_rel = (area / (n * m * dx * dx)).reshape(n, m)
     flow = np.clip(np.log10(np.maximum(a_rel, 1e-12) * n * m) / np.log10(n * m), 0.0, 1.0)  # one cell 0, all 1
-    return flow, change_mask(before, after)
+    return flow
 
 
-def change_mask(before, after):
-    """0.5 untouched, toward 0 where erosion cut, toward 1 where it filled, at the ends for the strongest 3%."""
-    dz = after - fill(before)
-    # The uplift and the stretch lift every cell: without this, deposit was 1 on 89% of Mountains (LG-075).
-    dz = dz - blur(dz, max(int(round(0.05 * max(dz.shape))), 1))
-    k = max(float(np.percentile(np.abs(dz), 97)), 0.005 * float(np.ptp(after)), 1e-12)  # floor: no noise blown up to full range
-    return np.clip(0.5 + 0.5 * dz / k, 0.0, 1.0)
+def change_mask(cut, filled, relief):
+    """0.5 untouched, toward 0 where erosion cut (wear), toward 1 where it filled (deposit): the cut and fill added up
+    over the passes (fix B, review section 5), each at 1 for its strongest 3%; the stronger of the two takes the cell
+    (net of each other, cells cut and filled on alternate passes read as neither; LG-080 Log)."""
+    k = lambda a: max(float(np.percentile(a, 97)), 0.002 * relief, 1e-12)  # floor: no noise blown up to full range
+    wear, dep = np.clip(cut / k(cut), 0.0, 1.0), np.clip(filled / k(filled), 0.0, 1.0)
+    return np.where(dep >= wear, 0.5 + 0.5 * dep, 0.5 - 0.5 * wear)
+
+
+def talus_mask(loose):
+    """0..1 debris left by the rockfall: 1 from a meter-scale cover at 2 km (1/2000 of the width) up, fading to 0 at the toe."""
+    return np.clip(loose / 5e-4, 0.0, 1.0)
 
 
 if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, loses its pits
@@ -620,7 +688,8 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     step += 0.002 * np.random.default_rng(2).standard_normal(step.shape)
     out_step = erode(step, {"passes": 2, "keep_detail": 1.0, "edge_blend": 0.0})
     assert out_step[:, 34:].max() < 1.0 + 0.05, "rim halo: detail stood up along the step edge"
-    z2, (fl, ch) = erode(h, masks=True)
+    z2, (fl, cut_t, fill_t, loose_t) = erode(h, masks=True)
+    ch = change_mask(cut_t, fill_t, float(np.ptp(z2)))
     assert fl.shape == h.shape and 0.0 <= fl.min() and fl.max() <= 1.0 and 0.0 <= ch.min() and ch.max() <= 1.0, "masks out of range"
     assert fl[-2, :].mean() > fl[1, :].mean(), "flow should gather downhill"
     assert ((ch < 0.01) | (ch > 0.99)).mean() < 0.6, "change mask saturated (LG-075)"
@@ -634,4 +703,13 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     ridge[30:32, 0:20] = 1.0    # a 2-cell fin off its side
     cf = cut_fins(ridge, 3, 0.06)
     assert cf[10, 30] == 1.0 and cf[31, 5] <= 0.07, "fins should drop, the plateau stay"
+    wall = np.zeros((96, 96))
+    wall[:, 48:] = 0.3  # a sheer wall with a 52 deg chute cut into its face
+    wall[44:52, 48:70] = np.linspace(0.0, 0.3, 22)
+    zt, lt = rockfall(wall, 0.004 * (wall > 0.0), 1.0 / 95, 60, math.tan(math.radians(34.0)), np.zeros(wall.shape, bool))
+    gy_t, gx_t = np.gradient(zt[:, :47], 1.0 / 95)
+    assert 0.95 < lt.sum() / (0.004 * (wall > 0.0).sum()) <= 1.0 + 1e-9, "rockfall lost or made debris (only the border may take some)"
+    assert np.degrees(np.arctan(np.hypot(gx_t, gy_t)[2:-2, 2:-1])).max() < 36.0, "talus steeper than its angle"
+    assert lt[44:52, 56:69].max() < 1e-6, "debris stuck in the chute (its foot may fill)"
+    assert lt[44:52, :48].sum() > 5.0 * lt[16:24, :48].sum(), "no cone under the chute"
     print("erosion self-check OK")

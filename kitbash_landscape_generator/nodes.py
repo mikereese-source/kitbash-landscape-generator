@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 153  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 155  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -1461,7 +1461,8 @@ def _build(ng, recipe):
     # Data masks (M3, D74), 0..1 named attributes on the final mesh for materials and scatter (M5):
     # lg_height (0 lowest, 1 highest), lg_slope (0 flat, 1 vertical), lg_curvature (0.5 even, toward 1 in
     # hollows and valleys, toward 0 on ridges), lg_flow (water draining through, from the erosion engine),
-    # lg_wear and lg_deposit (where erosion cut and where it filled). Engine masks are 0 when not eroded.
+    # lg_wear and lg_deposit (where erosion cut and where it filled), lg_talus (where rockfall debris came to rest:
+    # cones and aprons, for scree; LG-080). Engine masks are 0 when not eroded.
     m_pos = N.new('ShaderNodeSeparateXYZ')
     L.new(N.new('GeometryNodeInputPosition').outputs[0], m_pos.inputs[0])
     m_stats = N.new('GeometryNodeAttributeStatistic')
@@ -1485,6 +1486,7 @@ def _build(ng, recipe):
     m_change = math('MULTIPLY', math('SUBTRACT', er_r.outputs[2], 0.5), math('MULTIPLY', inp["Erosion"], 2.0))  # -1 cut .. 1 filled
     m_wear = math('MINIMUM', math('MAXIMUM', math('MULTIPLY', m_change, -1.0), 0.0), 1.0)
     m_dep = math('MINIMUM', math('MAXIMUM', m_change, 0.0), 1.0)
+    m_talus = math('MINIMUM', math('MAXIMUM', math('MULTIPLY', er_r.outputs[3], inp["Erosion"]), 0.0), 1.0)  # the map's alpha; the cubic read undershoots (LG-080)
     # lg_depth: water depth under the water level, 0 on land and at the shoreline, 1 at a quarter of the relief
     # deep; 0 everywhere with Water off. For shore foam, ripples, shallow/deep colour in the M5 water shaders.
     m_wz = math('MULTIPLY', inp["Water Level"], math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"]))
@@ -1492,7 +1494,7 @@ def _build(ng, recipe):
                    math('MAXIMUM', math('MULTIPLY', math('SUBTRACT', m_stats.outputs["Max"], m_stats.outputs["Min"]), 0.25), 1e-6))
     m_depth = math('MULTIPLY', math('MINIMUM', math('MAXIMUM', m_depth, 0.0), 1.0), inp["Water"])
     for m_name, m_val in (("lg_height", m_height), ("lg_slope", m_slope), ("lg_curvature", m_curv),
-                          ("lg_flow", m_flow), ("lg_wear", m_wear), ("lg_deposit", m_dep), ("lg_depth", m_depth)):
+                          ("lg_flow", m_flow), ("lg_wear", m_wear), ("lg_deposit", m_dep), ("lg_talus", m_talus), ("lg_depth", m_depth)):
         st = N.new('GeometryNodeStoreNamedAttribute')
         st.data_type = 'FLOAT'
         st.domain = 'POINT'

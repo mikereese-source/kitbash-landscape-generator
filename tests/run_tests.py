@@ -374,7 +374,7 @@ def _t25():
     return "volcano caldera look saved, loaded onto a Hills landscape, renamed, deleted; saved in a picked folder, 5 most recent listed"
 
 
-MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_depth")
+MASKS = ("lg_height", "lg_slope", "lg_curvature", "lg_flow", "lg_wear", "lg_deposit", "lg_talus", "lg_depth")
 
 
 def masks_of(ob):
@@ -415,6 +415,11 @@ def _t9():
                 check(full < 0.2, f"{key}: {n} at 1 on {full:.0%} of the surface, want under 20%")
                 mid |= (m[n] > 0.1) & (m[n] < 0.9)
             check(mid.mean() > 0.1, f"{key}: wear or deposit in 0.1-0.9 on {mid.mean():.0%} of the surface, want over 10%")
+            check(m["lg_talus"].min() >= 0.0, f"{key}: lg_talus under 0 ({m['lg_talus'].min():.4f}): the cubic read undershoots unless clamped")
+            if rec["erosion"].get("scree"):  # rockfall debris marked where it came to rest (LG-080)
+                check(m["lg_talus"].max() > 0.99, f"{key}: lg_talus never reaches 1 ({m['lg_talus'].max():.2f}): no talus")
+        if not (rec.get("erosion") or {}).get("scree"):
+            check(m["lg_talus"].max() == 0.0, f"{key}: lg_talus should be 0 without rockfall, up to {m['lg_talus'].max():.2f}")
     fresh_scene()
     ob = add("mountains")
     m = masks_of(ob)
@@ -423,7 +428,7 @@ def _t9():
     fresh_scene()
     ob = add("mesa")
     check((masks_of(ob)["lg_slope"] > 0.6).mean() > 0.01, "Mesa cliffs should be steep in the slope mask")
-    return f"7 masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
+    return f"{len(MASKS)} masks on all {len(lg.TYPES)} types, in 0-1; flow in hollows; {eroded} eroded types have flow and wear/deposit"
 
 
 @test("T28", "Mask viewer colours the landscape by the picked mask")
@@ -1976,10 +1981,74 @@ def _t49():
     lo, hi = np.percentile(z, [1, 99])
     tops = float(-np.percentile(lap[z > lo + 0.67 * (hi - lo)], 1)) * (hi - lo)  # upper-third crest sharpness (LG-087 measure.py)
     over60 = 100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60.0).mean())
-    check(tops > 1095 and horns >= 17, f"summits should sharpen as on c202 at Crest 0.5 (upper-third crest on this full grid 1019 -> 1123, 2.5% slack; horns 17): {tops:.0f}, horns {horns} (want over 1095 and 17)")
+    check(tops > 1095 and horns >= 17, f"summits should sharpen as on c202 at Crest 0.5 (upper-third crest on this full grid 1019 -> 1123 with the hard map, 1098 with the talus, LG-080, Mike approved c203; horns 17): {tops:.0f}, horns {horns} (want over 1095 and 17)")
     check(teeth <= 38, f"ridge teeth should stay at c202's 38 (main 35; the Sierra squeezed to our relief has 49; at Crest 1.0 the lift on the new crests made 74, LG-079 Log): {teeth}")
     check(over60 <= 19.8, f"steep ground should stay at c202's 19.8% over 60 deg (main 21.2%, real Sierra 11.7%): {over60:.1f}%")
     return f"2 km Mountains, High: hard over 0.5 on {(hard > 0.5).mean():.1%}, {soft:.0%} of rock soft; upper-third crest {tops:.0f}, teeth / horns {teeth} / {horns}, over 60 deg {over60:.1f}%"
+
+T50_LIMITS = {  # LG-080 tests_t50b.log (breakup, crest and rock grain off): talus cover %, its median slope range, 30-38 deg points added,
+    # over 60 deg points dropped. Measured 7.3% / 33.0 deg / +0.6 / -0.7, 3.6% / 30.3 / +0.6 / -0.4, 2.5% / 30.5 / +0.7 / -0.2; limits 0.1 point
+    # under for the cover, slope +-1.5 deg (debris rests at 34 deg, scree_deg; the concave toe pulls the median down); the gain and drop
+    # floors are guard floors, 0.1 point under the measured values (Cliffs' drop 0.1 against 0.2 measured).
+    "mountains": (7.2, 31.5, 34.5, 0.5, 0.6),
+    "mesa": (3.5, 28.8, 31.8, 0.5, 0.3),
+    "cliffs": (2.4, 29.0, 32.0, 0.6, 0.1),
+}
+
+
+@test("T50", "Talus: rockfall debris rests at the scree angle under walls on Mountains, Mesa and Cliffs, marked by lg_talus")
+def _t50():
+    # LG-080 (review S6; Done when: shed stops at 33-36 deg, scree share against real): the talus stage at 2 km High, breakup, crest and
+    # rock grain off (later stages; the grain moves points sideways), against the same landscape with the rockfall off, by position.
+    # Mask fix B (review section 5): the rockfall runs after every fill is counted, so the talus never enters deposit's fill,
+    # and in the one channel the stronger of wear and deposit takes the cell.
+    er = lg.erosion
+    yy, xx = np.mgrid[0:96, 0:96] / 95.0
+    ramp = 0.3 * xx + 0.25 * (xx > 0.6) + 0.004 * np.sin(40 * yy)
+    hard = (xx > 0.6).astype(float)
+    _z0, (_f0, cut0, fill0, land0) = er.erode(ramp, {"scree": 0.0, "passes": 4}, hard, masks=True)
+    _z1, (_f1, cut1, fill1, land1) = er.erode(ramp, {"scree": 0.02, "passes": 4}, hard, masks=True)
+    check(land0.max() == 0.0 and land1.max() > 0.0, f"fix B: talus should land only with the rockfall on ({land0.max():.2g} off, {land1.max():.2g} on)")
+    check(np.array_equal(fill0, fill1) and (cut1 >= cut0).all(), "fix B: the rockfall should add to wear (its walls) and never to deposit's fill")
+    c = er.change_mask(np.array([1.0, 0.2, 0.0]), np.array([0.2, 1.0, 0.0]), 1.0)
+    check(c[0] < 0.5 < c[1] and c[2] == 0.5, f"fix B: the stronger of wear and deposit should take the cell, untouched 0.5: {c}")
+    out = []
+    for kind, (cover_min, lo, hi, gain_min, drop_min) in T50_LIMITS.items():
+        rec = lg.TYPES[kind]
+        kept = {k: rec[k] for k in ("breakup", "crest", "rock") if k in rec}
+        scree = rec["erosion"]["scree"]
+        check(scree > 0, f"{kind} should ship with rockfall on (types.json scree)")
+        res = {}
+        try:
+            rec.update(breakup=0.0, crest=0.0, rock=0.0)
+            for on in (True, False):
+                rec["erosion"]["scree"] = scree if on else 0.0
+                fresh_scene()
+                ob = add(kind)
+                set_size(ob, 2048.0)
+                ob.lg.final = True
+                m = masks_of(ob)
+                p = evaluated_points(ob)
+                res[on] = {k: (s, t) for k, s, t in zip(map(tuple, np.rint(p[:, :2] * 4.0).astype(int).tolist()), m["lg_slope"] * 90.0, m["lg_talus"])}
+        finally:
+            rec["erosion"]["scree"] = scree
+            for k in ("breakup", "crest", "rock"):
+                rec.pop(k, None)
+            rec.update(kept)
+        keys = sorted(set(res[True]) & set(res[False]))
+        check(len(keys) > 0.99 * len(res[True]), f"{kind}: with and without rockfall should be the same points by position ({len(keys):,} of {len(res[True]):,})")
+        s_on, t_on = (np.array([res[True][k][i] for k in keys]) for i in (0, 1))
+        s_off, t_off = (np.array([res[False][k][i] for k in keys]) for i in (0, 1))
+        cover, rest = 100.0 * float((t_on > 0.5).mean()), float(np.median(s_on[t_on > 0.5]))
+        scree_on, scree_off = (100.0 * float(((s >= 30.0) & (s < 38.0)).mean()) for s in (s_on, s_off))
+        o60_on, o60_off = (100.0 * float((s > 60.0).mean()) for s in (s_on, s_off))
+        check(t_off.max() == 0.0, f"{kind}: lg_talus should be 0 with the rockfall off, up to {t_off.max():.2f}")
+        check(cover >= cover_min, f"{kind}: talus (lg_talus over 0.5) should cover {cover_min}% as on c203: {cover:.1f}%")
+        check(lo <= rest <= hi, f"{kind}: talus should rest at the scree angle (c203 median {lo}-{hi} deg): {rest:.1f} deg")
+        check(scree_on - scree_off >= gain_min, f"{kind}: ground at 30-38 deg should grow by {gain_min} points as on c203: {scree_off:.1f} -> {scree_on:.1f}%")
+        check(o60_off - o60_on >= drop_min, f"{kind}: ground over 60 deg should drop by {drop_min} points as on c203: {o60_off:.1f} -> {o60_on:.1f}%")
+        out.append(f"{kind} talus {cover:.1f}% at {rest:.1f} deg, 30-38 deg {scree_off:.1f} -> {scree_on:.1f}%, over 60 {o60_off:.1f} -> {o60_on:.1f}%")
+    return "; ".join(out)
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

@@ -3,6 +3,7 @@
 Every ticket in plan order (D201). Rules and template: [tickets/README.md](tickets/README.md). Phases follow the demo path
 (D199, D200): A cave fixes, B M5 finish, C material spike (week of 2026-11-23), D three.js spike, E M6, F rest of M7, F2 multi-tile (M7b),
 G M8, H Final. Phase E (M6) may move before C or D; Mike decides.
+**Caves are a separate track (Mike, 2026-11-25):** cave tickets (phases A, B, E, plus LG-031, LG-032, LG-040) no longer block the landscape Alpha (LG-048) or the three.js move (LG-049).
 
 **Can run now in parallel with main-lane LG-001:** LG-022 package spec (research), LG-018 cave realism refs (research),
 LG-043 checker-note fixes and LG-044 realism output folder (side, Blender for tests only, so not while main is testing).
@@ -61,7 +62,7 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-032](tickets/LG-032-rock-uvs-texel.md) | Rock UVs and texel density | F M7 rest | M7 | todo | M | P3 | side | yes | rocks.py | LG-031 |
 | [LG-033](tickets/LG-033-climate-switch.md) | Climate switch | F M7 rest | M7 | todo | M | P2 | main | yes | materials.py; __init__.py | LG-028, LG-029, LG-030 |
 | [LG-034](tickets/LG-034-8k-texture-test.md) | 8K texture test | F M7 rest | M7 | todo | S | P3 | research | yes | - | LG-028 |
-| [LG-035](tickets/LG-035-m7-gate.md) | M7 gate | F M7 rest | M7 | todo | M | P1 | main | yes | run_tests.py | LG-031, LG-032, LG-033 |
+| [LG-035](tickets/LG-035-m7-gate.md) | M7 gate | F M7 rest | M7 | todo | M | P1 | main | yes | run_tests.py | LG-033 |
 | [LG-036](tickets/LG-036-orbit-check.md) | Check Orbit's stack | D three.js spike | Project 2 prep | ready | S | P2 | research | no | RESEARCH-engines.md | - |
 | [LG-037](tickets/LG-037-threejs-spike-plan.md) | three.js spike plan | D three.js spike | Project 2 spike | todo | S | P1 | main | no | PLAN-threejs-spike.md | LG-028, LG-036 |
 | [LG-038](tickets/LG-038-threejs-mountains-shape.md) | three.js spike: Mountains shape and erosion | D three.js spike | Project 2 spike | todo | M-L | P1 | side | no | landscape-spike-threejs | LG-037 |
@@ -74,8 +75,8 @@ Quality first, then speed (D196). Main lane runs top to bottom; the parallel ite
 | [LG-045](tickets/LG-045-m8-edge-cases.md) | M8 edge cases and gate | G M8 | M8 | todo | M | P2 | main | yes | __init__.py; run_tests.py | LG-041, LG-042, LG-043 |
 | [LG-046](tickets/LG-046-shipped-presets.md) | Shipped KitBash presets | H Final | Final | todo | S-M | P2 | main | yes | presets | LG-035 |
 | [LG-047](tickets/LG-047-thumbnails.md) | Re-render gallery thumbnails | H Final | Final | todo | S | P3 | side | yes | thumbs | LG-035 |
-| [LG-048](tickets/LG-048-final-alpha.md) | Final check and Alpha package | H Final | Final | todo | M | P1 | main | yes | PROJECT.md | LG-026, LG-045, LG-046, LG-047 |
-| [LG-049](tickets/LG-049-project2-plan.md) | Project 2 plan | H Final | Project 2 | todo | M | P2 | main | no | PLAN-threejs.md | LG-039, LG-040, LG-048 |
+| [LG-048](tickets/LG-048-final-alpha.md) | Final check and Alpha package | H Final | Final | todo | M | P1 | main | yes | PROJECT.md | LG-045, LG-046, LG-047 |
+| [LG-049](tickets/LG-049-project2-plan.md) | Project 2 plan | H Final | Project 2 | todo | M | P2 | main | no | PLAN-threejs.md | LG-039, LG-048 |
 | [LG-050](tickets/LG-050-blender-writeup.md) | Blender milestone write-up | H Final | Final | todo | S-M | P3 | research | no | - | LG-048 |
 
 ## From Mike's review 2026-11-09 (prioritize when the review is done)

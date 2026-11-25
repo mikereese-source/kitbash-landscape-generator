@@ -1,7 +1,7 @@
 # LG-035 M7 gate
 Type: gate | Milestone: M7 | Phase: F M7 rest | Size: M | Priority: P1
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
-Depends on: LG-031, LG-032, LG-033 | Blocks: LG-046, LG-047
+Depends on: LG-033 | Blocks: LG-046, LG-047
 
 ## Why
 Close M7.
@@ -20,3 +20,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 ## Log
 - 2026-11-08 created (D201)
 - 2026-11-08 code review step added (D202)
+- 2026-11-25 Mike: caves are a separate track; landscapes go to Alpha and the three.js move without waiting on cave tickets

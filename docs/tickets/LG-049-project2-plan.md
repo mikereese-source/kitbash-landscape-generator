@@ -1,7 +1,7 @@
 # LG-049 Project 2 plan
 Type: docs | Milestone: Project 2 | Phase: H Final | Size: M | Priority: P2
 Status: todo | Lane: main | Needs Blender: no | Mike review: yes
-Depends on: LG-039, LG-040, LG-048 | Blocks: none
+Depends on: LG-039, LG-048 | Blocks: none
 
 ## Why
 Write the three.js/Cargo plan from everything learned (Mike, 2026-10-25).
@@ -18,3 +18,4 @@ Also read docs/tickets/README.md (rules every ticket follows).
 
 ## Log
 - 2026-11-08 created (D201)
+- 2026-11-25 Mike: caves are a separate track; landscapes go to Alpha and the three.js move without waiting on cave tickets

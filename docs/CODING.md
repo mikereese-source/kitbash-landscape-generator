@@ -32,6 +32,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **A mask that turns a feature off where another takes over carries the same gates as the one taking over** (settings, Detail Level, sampling pass). LG-089's hold dropped the 9 m tilt and beds on steep rock, but the plane replacing them also needed Breakup, Erosion and the 22 m size drawn, so with Erosion 0 the ground lost both (code review, 0fab7e5).
 - **When Mike accepts a result that misses a test, move the test's limit to the accepted value, not to the old failure,** so it still guards what he approved. LG-086 cp2a: T46 was first loosened to checkpoint 1's +23 teeth, which would have passed 46; the review set it to the accepted +11 (fe04e14).
 - **When a checkpoint drops or changes a Done-when item, amend the Done when line in the same commit, naming who decided and why.** LG-077 cp2 left Badlands off with evidence but kept it in Done when; the review caught the mismatch (70d09ce).
+- **A new test's limits sit at the measured values on the board Mike signs off, with any slack stated, not at loose floors.** LG-086 cp2b's T48 first wanted the upper third doubled and 3 more horns against a measured 4.3 times and 4; it would have missed a slide back (review, f891a8f).
 - **Measure on the area the artist sees.** Masks and stats come from the visible landscape, never from padded or hidden grids: LG-075's masks, measured with the erosion padding, left a deposit band along every edge.
 
 ## Python and files

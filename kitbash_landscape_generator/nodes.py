@@ -8,7 +8,7 @@ import bpy
 from . import features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 152  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 153  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -16,6 +16,9 @@ BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
 BK_RECIPES = (1, 4, 5, 6, 9)  # rocky types with a breakup in types.json; Badlands' soft beds left off (LG-077 cp2 Log)
 # Crest sharpen: tent tan 50 deg, slope rings (block shares; one 4-read ring passed 1 m lumps as teeth), height ramp, tent gap for no 60 m tilt (LG-086 cp2 Log).
 CR_TENT, CR_RINGS, CR_HIGH, CR_TOP = 1.2, (0.5, 0.75, 1.0), (0.45, 0.7), (0.45, 1.0)
+# Hard-rock map (LG-079): noise stretch, ridged share of the relief, beds over the relief, strata blend, soft bed and joint (REVIEW-realism-2026-11 S2).
+HR_STRETCH, HR_RUGGED, HR_BEDS, HR_STRATA, HR_SOFT = 2.5, 0.11, 14.0, 0.55, (0.25, 0.35)
+HR_RECIPES = (1,)  # types with the hard-rock map and bedrock structure before erosion (LG-079)
 CR_RECIPES = (1, 9)  # types with a Crest in types.json, one gate for the lift, its capture, 60 m tilt-off and restretch; Volcano has no erosion map (LG-086 cp2b)
 
 # (name, socket type, default, min, max, description)
@@ -1078,6 +1081,77 @@ def _build(ng, recipe):
     sharp_lo = math('SUBTRACT', 1.0, math('POWER', math('MAXIMUM', math('SUBTRACT', 1.0, unit), 0.0), math('DIVIDE', 1.0, math('MAXIMUM', inp["Sharpness"], 0.05))))
     lo_side = math('LESS_THAN', inp["Sharpness"], 1.0)
     shaped = math('ADD', math('MULTIPLY', sharp_lo, lo_side), math('MULTIPLY', sharp_hi, math('SUBTRACT', 1.0, lo_side)))
+    base_geo = grid.outputs["Mesh"]
+    if recipe in HR_RECIPES:
+        # Hard-rock map and bedrock structure, only while erosion samples or is off: a lazy switch skips the slope pass on the eroded mesh (LG-079 Log).
+        hr_need = N.new('GeometryNodeSwitch')
+        hr_need.input_type = 'GEOMETRY'
+        L.new(math('MAXIMUM', math('GREATER_THAN', inp["Pad Cells"], 0.5), math('LESS_THAN', inp["Erosion"], 0.999)), hr_need.inputs["Switch"])
+        L.new(base_geo, hr_need.inputs["False"])
+        # Slope of the big shape, not its texture: 3 blur rounds, then the normal (REVIEW-realism-2026-11 appendix, hard_mountains).
+        hr_blur = N.new('GeometryNodeBlurAttribute')
+        hr_blur.data_type = 'FLOAT'
+        hr_blur.inputs["Iterations"].default_value = 3
+        L.new(math('MULTIPLY', shaped, math('MULTIPLY', inp["Height"], ref)), hr_blur.inputs["Value"])
+        hr_up = N.new('GeometryNodeSetPosition')
+        L.new(base_geo, hr_up.inputs["Geometry"])
+        L.new(vec(0.0, 0.0, hr_blur.outputs["Value"]), hr_up.inputs["Offset"])
+        hr_cap = N.new('GeometryNodeCaptureAttribute')
+        hr_cap.domain = 'POINT'
+        hr_cap.capture_items.new('FLOAT', "Steep")
+        L.new(hr_up.outputs[0], hr_cap.inputs["Geometry"])
+        hr_nrm = N.new('ShaderNodeSeparateXYZ')
+        L.new(N.new('GeometryNodeInputNormal').outputs[0], hr_nrm.inputs[0])
+        L.new(smooth(hr_nrm.outputs["Z"], 0.9135, 0.788), hr_cap.inputs["Steep"])  # 24 to 38 deg
+        hr_flat = N.new('GeometryNodeSetPosition')  # back to the flat grid: the shape goes on as an offset below
+        L.new(hr_cap.outputs["Geometry"], hr_flat.inputs["Geometry"])
+        hr_at = N.new('ShaderNodeSeparateXYZ')
+        L.new(N.new('GeometryNodeInputPosition').outputs[0], hr_at.inputs[0])
+        L.new(vec(hr_at.outputs["X"], hr_at.outputs["Y"], 0.0), hr_flat.inputs["Position"])
+        L.new(hr_flat.outputs[0], hr_need.inputs["True"])
+        base_geo = hr_need.outputs[0]
+
+        def hr_noise(scale):
+            """One octave of Perlin, stretched to about the spread of the prototype's value noise (0..1)."""
+            return math('MINIMUM', math('MAXIMUM', math('ADD', math('MULTIPLY', math('SUBTRACT', noise(p, 'FBM', scale, 0.0, 0.5).outputs["Fac"], 0.5), HR_STRETCH), 0.5), 0.0), 1.0)
+
+        def hr_ridged(scale, octaves, gain):
+            """Ridged multifractal, each octave weighted by the one above (Musgrave; review appendix)."""
+            out, amp, w, tot = 0.0, 1.0, 1.0, 0.0
+            for o in range(octaves):
+                r = math('SUBTRACT', 1.0, math('ABSOLUTE', math('SUBTRACT', math('MULTIPLY', hr_noise(scale * 2 ** o), 2.0), 1.0)))
+                r = math('MULTIPLY', math('MULTIPLY', r, r), w)
+                out, tot = math('ADD', out, math('MULTIPLY', r, amp)), tot + amp
+                w, amp = math('MINIMUM', math('MULTIPLY', r, 2.0), 1.0), amp * gain
+            return math('DIVIDE', out, tot)
+
+        hr_lith = math('ADD', 0.55, math('MULTIPLY', smooth(hr_noise(5.0), 0.3, 0.7), 0.45))  # rock type patches, 1/5 of the width
+        hr_rock = math('MULTIPLY', math('MULTIPLY', math('MAXIMUM', hr_cap.outputs["Steep"], math('MULTIPLY', smooth(shaped, 0.55, 0.85), 0.6)),
+                                              smooth(shaped, 0.25, 0.55)), hr_lith)
+        hr_dip = math('ADD', math('ADD', math('MULTIPLY', pm.outputs["X"], 2.5), math('MULTIPLY', pm.outputs["Y"], 1.2)), math('MULTIPLY', math('SUBTRACT', hr_noise(6.0), 0.5), 1.2))
+        # Ridged blocks at 1/12, 1/24 and 1/48 of the width, then dipping strata steps (Gaea Rugged and Stratify; REVIEW-realism-2026-11 S2).
+        hr_z = math('ADD', shaped, math('MULTIPLY', hr_rock, math('MULTIPLY', math('SUBTRACT', hr_ridged(12.0, 3, 0.55), 0.45), HR_RUGGED)))
+        hr_lv = math('ADD', math('MULTIPLY', hr_z, HR_BEDS), hr_dip)
+        hr_zs = math('DIVIDE', math('SUBTRACT', math('ADD', math('FLOOR', hr_lv), math('POWER', math('FRACT', hr_lv), 5.0)), hr_dip), HR_BEDS)
+        hr_shaped = math('ADD', hr_z, math('MULTIPLY', math('SUBTRACT', hr_zs, hr_z), math('MULTIPLY', hr_rock, HR_STRATA)))
+        # Soft beds about one in three, soft joints in the valleys of a ridged noise at 1/23 of the width (Voronoi borders drew a polygon net).
+        hr_band = N.new('ShaderNodeTexWhiteNoise')
+        hr_band.noise_dimensions = '1D'
+        L.new(math('ADD', math('FLOOR', hr_lv), math('MULTIPLY', seed_val, 13.7)), hr_band.inputs["W"])
+        hr_bed = math('ADD', HR_SOFT[0], math('MULTIPLY', math('GREATER_THAN', hr_band.outputs["Value"], 0.33), 1.0 - HR_SOFT[0]))
+        hr_joint = math('ADD', HR_SOFT[1], math('MULTIPLY', smooth(hr_ridged(23.3, 2, 0.5), 0.06, 0.22), 1.0 - HR_SOFT[1]))
+        hr_sw = []
+        for off, on in ((shaped, hr_shaped), (0.0, math('MINIMUM', math('MULTIPLY', math('MULTIPLY', hr_rock, hr_bed), hr_joint), 1.0))):
+            sw = N.new('GeometryNodeSwitch')  # the same lazy switch: no noise evaluated on the finished mesh
+            sw.input_type = 'FLOAT'
+            L.new(hr_need.inputs["Switch"].links[0].from_socket, sw.inputs["Switch"])
+            if isinstance(off, float):
+                sw.inputs["False"].default_value = off
+            else:
+                L.new(off, sw.inputs["False"])
+            L.new(on, sw.inputs["True"])
+            hr_sw.append(sw.outputs[0])
+        shaped, hard_rock = hr_sw
     z = math('MULTIPLY', shaped, math('MULTIPLY', inp["Height"], ref))
     # Erosion (R6): the engine's eroded heights, stored per landscape as an image across the
     # landscape (in units of Height), blended in here so rock grain stays live on top (D54).
@@ -1147,7 +1221,7 @@ def _build(ng, recipe):
         cr_cap = N.new('GeometryNodeCaptureAttribute')
         cr_cap.domain = 'POINT'
         cr_cap.capture_items.new('FLOAT', "Lift")
-        L.new(grid.outputs["Mesh"], cr_cap.inputs["Geometry"])
+        L.new(base_geo, cr_cap.inputs["Geometry"])
         L.new(math('MULTIPLY', cr_lift, cr_amt), cr_cap.inputs["Lift"])
         # The tent's upper part, gated as the lift (LG-086 cp2 Log, f14): the breakup drops its 60 m tilt there.
         cr_cap.capture_items.new('FLOAT', "Tent")
@@ -1159,11 +1233,13 @@ def _build(ng, recipe):
     # Hard rock (0..1) for the erosion engine, stored on the flat grid so it samples the same points as
     # the shape: cliff bands, caprock and crests erode slower and stand steeper (Pass 3).
     hard_by_recipe = {4: hard_cliffs, 5: hard_canyon, 6: hard_mesa, 7: hard_bad, 9: hard_glacial}
+    if recipe in HR_RECIPES:
+        hard_by_recipe[recipe] = hard_rock
     store = N.new('GeometryNodeStoreNamedAttribute')
     store.data_type = 'FLOAT'
     store.domain = 'POINT'
     store.inputs["Name"].default_value = "lg_hard"
-    L.new(cr_cap.outputs["Geometry"] if cr_type else grid.outputs["Mesh"], store.inputs["Geometry"])
+    L.new(cr_cap.outputs["Geometry"] if cr_type else base_geo, store.inputs["Geometry"])
     if recipe in hard_by_recipe:
         L.new(hard_by_recipe[recipe], store.inputs["Value"])
     else:

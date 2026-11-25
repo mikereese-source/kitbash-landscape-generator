@@ -1325,7 +1325,9 @@ def _t34():
     check(ob.lg.bl_rna.properties["base"].default, "Base should be on by default (Mike, 2026-11-11)")
     co0, flag0, _w, h0, ef0, faces0 = look()
     check(not flag0.any() and min(ef0) == 1, "Base off should leave the open landscape sheet")
-    top0 = {key(p): (p[2], hh) for p, hh in zip(co0, h0)}
+    top0 = {}
+    for p, hh in zip(co0, h0):  # a list per position: the breakup can stack two points within 1 mm on a sheer wall (LG-079 Log)
+        top0.setdefault(key(p), []).append((p[2], hh))
     ob.lg.base, ob.lg.base_depth = True, 15.0
     co, flag, _w, h, ef, faces = look()
     bottom = co0[:, 2].min() - 15.0
@@ -1338,8 +1340,11 @@ def _t34():
     check(top.sum() == len(co0), f"{top.sum()} top points, Base off had {len(co0)}")
     moved = 0
     for p, hh in zip(co[top], h[top]):
-        z0, h_0 = top0.get(key(p), (None, None))
-        moved += z0 is None or abs(p[2] - z0) > 1e-4 or abs(hh - h_0) > 1e-5
+        cand = top0.get(key(p), [])
+        hit = next((i for i, (z0, h_0) in enumerate(cand) if abs(p[2] - z0) <= 1e-4 and abs(hh - h_0) <= 1e-5), None)
+        moved += hit is None
+        if hit is not None:
+            cand.pop(hit)  # each stacked point matches once, so one moving onto its neighbour still counts (LG-079 code review)
     check(moved == 0, f"the base moved or re-masked {moved} top points")
     low = np.abs(co[:, 2] - bottom) < 1e-3
     check(np.array_equal(low, ~top), f"base points should all sit flat at lowest - depth ({bottom:.2f} m)")
@@ -1887,7 +1892,7 @@ def _t46():
     # LG-086 (Done when: no small spikes along ridges), the Done-when measure on the finished High mesh, not a stand-in (LG-086 cp2 Log).
     (t0, h0, _), (t1, h1, _) = (t46_teeth(g) for g in crest_grids("mountains"))
     check(t1 - t0 <= 11, f"the crest sharpen should add no more ridge teeth than Mike accepted (24 -> 35, +11; checkpoint 1 added 23, LG-086 Log): {t0} without it, {t1} with")
-    check(h1 >= h0 + 15, f"round summits should become horns: {h0} without the crest sharpen, {h1} with (want 15 more)")
+    check(h1 >= h0 + 9, f"round summits should become horns, as Mike accepted at Crest 0.5 on the hard-rock map (8 -> 17, +9; LG-079 Log): {h0} without the crest sharpen, {h1} with (want 9 more)")
     return f"2 km Mountains, High, breakup on: teeth / horns {t0} / {h0} without the crest sharpen, {t1} / {h1} with"
 
 @test("T47", "Bedrock breakup on Glacial, Canyon, Mesa and Cliffs: steep rock breaks up, scree-angle ground stays")
@@ -1940,6 +1945,41 @@ def _t48():
     check(added <= 1, f"the crest sharpen should add no more ridge teeth than measured at cp2b (+1, from the lift): {added} new by position ({t0} without it, {t1} with)")
     check(k1 > 4.0 * k0 and h1 >= h0 + 4, f"Glacial summits should sharpen as Mike accepted at cp2b (67 -> 293, 4.3 times; horns 0 -> 4): upper-third crest {k0:.0f} -> {k1:.0f} (want over 4 times), horns {h0} -> {h1} (want 4 more)")
     return f"2 km Glacial, High, breakup on: teeth / horns {t0} / {h0} -> {t1} / {h1}, {added} new by position, upper-third crest {k0:.0f} -> {k1:.0f}"
+
+@test("T49", "Hard-rock map on Mountains: rock on steep high ground with soft beds and joints; summits sharpen, steep share not raised")
+def _t49():
+    # LG-079 (review S2; Done when: horns and aretes, crest sharpness measured): the Done-when measure on the finished 2 km High mesh, at the values on board c202.
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2048.0)
+    ob.lg.final = True
+    check(lg.TYPES["mountains"]["recipe"] in lg.nodes.HR_RECIPES, "Mountains should be in nodes.HR_RECIPES")
+    lg.sync_object(ob)
+    er = lg.nodes.input_socket(lg.landscape_modifier(ob), "Erosion")
+    kept_er = er.value
+    h, hard, _s, pad = lg._sample_shape(ob, 512)  # the engine's input, as erosion reads it
+    er.value = kept_er  # _sample_shape leaves Erosion at 0 for the engine to set: put the eroded map back before measuring
+    ob.update_tag()
+    h, hard = h[pad:-pad, pad:-pad], hard[pad:-pad, pad:-pad]
+    u = (h - h.min()) / np.ptp(h)
+    gy, gx = np.gradient(h * 2048.0, 2048.0 / (h.shape[0] - 1))
+    steep_high = (u > 0.55) & (np.degrees(np.arctan(np.hypot(gx, gy))) > 30.0)
+    rock, low = hard[steep_high], hard[u < 0.2]
+    soft = float((rock[rock > 0.05] < 0.45).mean())  # soft beds (0.25) and joints (0.35) inside the rock, by attribute
+    check(0.07 < (hard > 0.5).mean() < 0.10, f"hard rock (over 0.5) should cover 8.6% of the shape as on c202 (limits 7-10%): {(hard > 0.5).mean():.1%}")
+    check(rock.mean() > 0.45 and low.max() < 0.01, f"hard rock should sit on steep high ground, none on the low third: mean {rock.mean():.2f} there (c202 0.47, want over 0.45), low ground up to {low.max():.2f}")
+    check(0.4 < soft < 0.6, f"soft beds and joints should break the rock up (beds about one in three, plus joints; c202 49%, limits 40-60%): {soft:.0%} of the rock under 0.45")
+    z = top_grid(ob)[0]
+    teeth, horns, _p = t46_teeth(z)
+    gy, gx = np.gradient(z)
+    lap = np.gradient(gy, axis=0) + np.gradient(gx, axis=1)
+    lo, hi = np.percentile(z, [1, 99])
+    tops = float(-np.percentile(lap[z > lo + 0.67 * (hi - lo)], 1)) * (hi - lo)  # upper-third crest sharpness (LG-087 measure.py)
+    over60 = 100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60.0).mean())
+    check(tops > 1095 and horns >= 17, f"summits should sharpen as on c202 at Crest 0.5 (upper-third crest on this full grid 1019 -> 1123, 2.5% slack; horns 17): {tops:.0f}, horns {horns} (want over 1095 and 17)")
+    check(teeth <= 38, f"ridge teeth should stay at c202's 38 (main 35; the Sierra squeezed to our relief has 49; at Crest 1.0 the lift on the new crests made 74, LG-079 Log): {teeth}")
+    check(over60 <= 19.8, f"steep ground should stay at c202's 19.8% over 60 deg (main 21.2%, real Sierra 11.7%): {over60:.1f}%")
+    return f"2 km Mountains, High: hard over 0.5 on {(hard > 0.5).mean():.1%}, {soft:.0%} of rock soft; upper-third crest {tops:.0f}, teeth / horns {teeth} / {horns}, over 60 deg {over60:.1f}%"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

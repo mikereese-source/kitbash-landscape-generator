@@ -1,7 +1,7 @@
 # LG-082 Per-type realism pass (all 13 types)
 Type: feature | Milestone: Model realism | Phase: B2 Model realism | Size: L | Priority: P2
 Status: todo | Lane: main | Needs Blender: yes | Mike review: yes
-Depends on: LG-077, LG-079, LG-080 | Blocks: LG-083
+Depends on: LG-077, LG-079, LG-080, LG-090, LG-092 | Blocks: LG-083
 
 ## Why
 Each type keeps its own tells after the shared fixes (review section 3 and S8).

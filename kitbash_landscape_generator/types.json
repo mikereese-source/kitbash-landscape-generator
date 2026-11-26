@@ -56,6 +56,17 @@
           "prop": "ridge_width",
           "slot": "P1",
           "default": 0.6
+        },
+        {
+          "prop": "wall_depth",
+          "slot": "P2",
+          "default": 0.5,
+          "erosion": {
+            "trough": [
+              0.0,
+              2.5
+            ]
+          }
         }
       ],
       "erosion": {
@@ -63,6 +74,7 @@
         "amount": 0.8,
         "talus_deg": 35.0,
         "scree": 0.02,
+        "trough": 0.35,
         "incision": 1.8,
         "cliff_deg": 75.0,
         "channel": 0.0003,

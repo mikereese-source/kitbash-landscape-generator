@@ -5,10 +5,10 @@ import os
 
 import bpy
 
-from . import features
+from . import erosion, features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 155  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 156  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
@@ -722,9 +722,8 @@ def _build(ng, recipe):
     across = math('DIVIDE', math('ABSOLUTE', math('SUBTRACT', y, axis)),
                   math('ADD', 0.08, math('MULTIPLY', inp["P1"], 0.3)))  # P1 valley width; floor is across < 1
     # Wall: steepest at its foot, rounding over at the rim (1 - (1 - s)^2 over 0.35 of the half-width).
-    ws = math('MINIMUM', math('MAXIMUM', math('DIVIDE', math('SUBTRACT', across, 1.0), 0.35), 0.0), 1.0)
     rim_h = math('ADD', 0.62, math('MULTIPLY', math('SUBTRACT', noise(vec(math('MULTIPLY', x, 3.0), seed_val, 5.1), 'FBM', 1.0, 1.0, 0.5).outputs["Fac"], 0.5), 0.15))
-    wall = math('MULTIPLY', math('SUBTRACT', 1.0, math('POWER', math('SUBTRACT', 1.0, ws), 2.0)), rim_h)
+    wall = erosion.wall_shape(math, across, rim_h)  # the same formula carves Mountains' troughs in the erosion engine (LG-090)
     # Uplands: drained mountains beyond the rim, rising away from it.
     up = smooth(across, 1.35, 2.6)
     upland = math('MULTIPLY', math('MULTIPLY', mountains, up), 1.5)

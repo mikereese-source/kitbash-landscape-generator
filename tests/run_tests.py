@@ -1981,7 +1981,7 @@ def _t49():
     lo, hi = np.percentile(z, [1, 99])
     tops = float(-np.percentile(lap[z > lo + 0.67 * (hi - lo)], 1)) * (hi - lo)  # upper-third crest sharpness (LG-087 measure.py)
     over60 = 100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60.0).mean())
-    check(tops > 1095 and horns >= 17, f"summits should sharpen as on c202 at Crest 0.5 (upper-third crest on this full grid 1019 -> 1123 with the hard map, 1098 with the talus, LG-080, Mike approved c203; horns 17): {tops:.0f}, horns {horns} (want over 1095 and 17)")
+    check(tops > 1095 and horns >= 16, f"summits should sharpen as on c202 at Crest 0.5 (upper-third crest on this full grid 1019 -> 1123 with the hard map, 1098 with the talus, LG-080, Mike approved c203; horns 17, then 16 with the LG-090 cirques, Mike accepted 2026-11-26): {tops:.0f}, horns {horns} (want over 1095 and 16)")
     check(teeth <= 38, f"ridge teeth should stay at c202's 38 (main 35; the Sierra squeezed to our relief has 49; at Crest 1.0 the lift on the new crests made 74, LG-079 Log): {teeth}")
     check(over60 <= 19.8, f"steep ground should stay at c202's 19.8% over 60 deg (main 21.2%, real Sierra 11.7%): {over60:.1f}%")
     return f"2 km Mountains, High: hard over 0.5 on {(hard > 0.5).mean():.1%}, {soft:.0%} of rock soft; upper-third crest {tops:.0f}, teeth / horns {teeth} / {horns}, over 60 deg {over60:.1f}%"
@@ -2049,6 +2049,136 @@ def _t50():
         check(o60_off - o60_on >= drop_min, f"{kind}: ground over 60 deg should drop by {drop_min} points as on c203: {o60_off:.1f} -> {o60_on:.1f}%")
         out.append(f"{kind} talus {cover:.1f}% at {rest:.1f} deg, 30-38 deg {scree_off:.1f} -> {scree_on:.1f}%, over 60 {o60_off:.1f} -> {o60_on:.1f}%")
     return "; ".join(out)
+
+def t51_faces(z, steep, edge=40):
+    """LG-090 measure (c204, measure90.py): each over-60-deg cell gets the height of the unbroken steep run through it down its fall
+    line (the nearest of 4 scan directions, so runs along a crest don't count); returns those heights, 40 m in from the border."""
+    H, W = z.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    gy, gx = np.gradient(z)
+    pick = np.round(np.degrees(np.arctan2(gy, gx)) % 180.0 / 45.0).astype(int) % 4  # x, diagonal, y, antidiagonal
+    best = np.zeros(z.shape)
+    for k, (line, along) in enumerate(((yy, xx), (xx - yy, yy), (xx, yy), (xx + yy, yy))):
+        order = np.lexsort((along.ravel(), line.ravel()))
+        m, zz, ln = steep.ravel()[order], z.ravel()[order], line.ravel()[order]
+        start = m & (np.r_[True, ln[1:] != ln[:-1]] | ~np.r_[False, m[:-1]])
+        rid = np.cumsum(start) - 1
+        hi, lo = np.full(int(start.sum()), -1e9), np.full(int(start.sum()), 1e9)
+        np.maximum.at(hi, rid[m], zz[m])
+        np.minimum.at(lo, rid[m], zz[m])
+        hgt = np.zeros(m.size)
+        hgt[m] = (hi - lo)[rid[m]]
+        out = np.empty(m.size)
+        out[order] = hgt
+        best = np.where(pick == k, out.reshape(H, W), best)
+    inner = np.zeros(z.shape, bool)
+    inner[edge:-edge, edge:-edge] = True
+    return best[steep & inner]
+
+
+T51_LIMITS = {  # LG-090 board c205 (2 km High, measure90.py on the same 1 m ray grid; deterministic): tall50 31.3% and p90 face 84.3 m measured,
+    # limits 0.1 under; teeth and over 60 at main's 34 and 19.2% (Done when: not above main; branch 33, 17.1%); crest at T49's floor (branch 1217).
+    "tall50": 31.2, "face90": 84.2, "teeth": 34, "over60": 19.2, "tops": 1095, "relief": 333.7,  # relief: the accepted +9% over main's 305.8 m (branch 329.9)
+}
+
+
+@test("T51", "Glacial troughs on Mountains: Glacial's wall formula, carved along the main valleys; tall continuous walls, no more teeth or steep ground")
+def _t51():
+    # LG-090 (Mike, 2026-11-25/26): the Done-when measures on the finished 2 km High mesh, at the values on board c205.
+    er = lg.erosion
+    on = sorted(k for k, t in lg.TYPES.items() if t.get("erosion", {}).get("trough", 0.0) > 0)
+    check(on == ["mountains"], f"only Mountains should carve troughs (types.json erosion trough): {on}")
+    # The same formula in both places: the node tree's math evaluated on a line of points against numpy (Done when, Mike 2026-11-26).
+    ng = bpy.data.node_groups.new("T51 wall", 'GeometryNodeTree')
+    ng.interface.new_socket("Geometry", in_out='INPUT', socket_type='NodeSocketGeometry')
+    ng.interface.new_socket("Geometry", in_out='OUTPUT', socket_type='NodeSocketGeometry')
+    N, L = ng.nodes, ng.links
+    gi, go = N.new('NodeGroupInput'), N.new('NodeGroupOutput')
+
+    def node_math(op, a, b):
+        n = N.new('ShaderNodeMath')
+        n.operation = op
+        for sock, v in zip(n.inputs, (a, b)):
+            if isinstance(v, (int, float)):
+                sock.default_value = v
+            else:
+                L.new(v, sock)
+        return n.outputs[0]
+    pos = N.new('ShaderNodeSeparateXYZ')
+    L.new(N.new('GeometryNodeInputPosition').outputs[0], pos.inputs[0])
+    st = N.new('GeometryNodeStoreNamedAttribute')
+    st.data_type = 'FLOAT'
+    st.inputs["Name"].default_value = "t51"
+    L.new(gi.outputs[0], st.inputs["Geometry"])
+    L.new(er.wall_shape(node_math, pos.outputs["X"], 0.7), st.inputs["Value"])
+    L.new(st.outputs[0], go.inputs[0])
+    xs = np.linspace(0.0, 2.0, 81)
+    me = bpy.data.meshes.new("T51 line")
+    me.from_pydata([(float(v), 0.0, 0.0) for v in xs], [], [])
+    ob = bpy.data.objects.new("T51 line", me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.modifiers.new("w", 'NODES').node_group = ng
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    ev = ob.evaluated_get(dg).to_mesh()
+    got = np.empty(len(ev.vertices))
+    ev.attributes["t51"].data.foreach_get("value", got)
+    ob.evaluated_get(dg).to_mesh_clear()
+    bpy.data.objects.remove(ob)
+    bpy.data.node_groups.remove(ng)
+    want = er.wall_shape(er.np_math, xs, 0.7)
+    check(np.abs(got - want).max() < 1e-5 and want[0] == 0.0 and abs(want[-1] - 0.7) < 1e-9,
+          f"the wall formula should agree in nodes and numpy: largest gap {np.abs(got - want).max():.2g}")
+    # Wall depth follows Erosion Amount and the Wall Depth slider (Done when, Mike 2026-11-26): the settings the engine gets, then the carve itself.
+    from types import SimpleNamespace
+    rec = lg.TYPES["mountains"]
+    ctl = next(c for c in rec["controls"] if c["prop"] == "wall_depth")
+
+    def depth(amount, slider):
+        pr = SimpleNamespace(style_key="", seed=0, erosion_amount=amount, ridge_width=0.6, wall_depth=slider)
+        return lg._erosion_settings(rec, pr, 512)["trough"]
+    base = rec["erosion"]["trough"]
+    check(abs(depth(rec["erosion"]["amount"], ctl["default"]) - base) < 1e-9, f"the default slider at the type's Amount should give c205's walls ({base}): {depth(rec['erosion']['amount'], ctl['default'])}")
+    check(depth(0.8, 0.0) == 0.0 and abs(depth(0.8, 1.0) - 2.0 * base) < 1e-9, f"Wall Depth 0 should carve nothing and 1 twice the default: {depth(0.8, 0.0)}, {depth(0.8, 1.0)}")
+    check(abs(depth(0.4, 0.5) - 0.5 * base) < 1e-9, f"half the Amount should give half the depth: {depth(0.4, 0.5)}")
+    # The finished landscape, as T49 (top grid, Crest and Breakup at the type's own).
+    fresh_scene()
+    ob = add("mountains")
+    set_size(ob, 2048.0)
+    ob.lg.final = True
+    lg.sync_object(ob)
+    z = top_grid(ob)[0]
+    teeth, horns, _p = t46_teeth(z)
+    gy, gx = np.gradient(z)
+    lap = np.gradient(gy, axis=0) + np.gradient(gx, axis=1)
+    lo, hi = np.percentile(z, [1, 99])
+    tops = float(-np.percentile(lap[z > lo + 0.67 * (hi - lo)], 1)) * (hi - lo)
+    steep = np.degrees(np.arctan(np.hypot(gx, gy))) > 60.0
+    over60 = 100.0 * float(steep.mean())
+    fh = t51_faces(z, steep)
+    tall50, face90 = 100.0 * float((fh >= 50.0).mean()), float(np.percentile(fh, 90))
+    L5 = T51_LIMITS
+    check(tall50 >= L5["tall50"], f"over-60 ground in unbroken faces 50 m+ should rise toward the Sierra's 33.6% as on c205 (main 25.9%): {tall50:.1f}% (want {L5['tall50']}%+)")
+    check(face90 >= L5["face90"], f"the tallest unbroken over-60 faces (90th percentile) should stand as on c205 (main 78.6 m): {face90:.1f} m (want {L5['face90']} m+)")
+    check(teeth <= L5["teeth"], f"no more ridge teeth than main (34, T46 counter): {teeth}")
+    check(over60 <= L5["over60"], f"no more ground over 60 deg than main (19.2%; real Sierra 11.7%): {over60:.1f}%")
+    check(tops > L5["tops"], f"upper-third crest should stay above T49's floor {L5['tops']}: {tops:.0f}")
+    check(hi - lo <= L5["relief"], f"relief (1-99%) may rise up to the accepted +9% over main's 305.8 m: {hi - lo:.1f} m (limit {L5['relief']} m)")
+    # The carve itself: this landscape eroded without troughs, then carved at half (Amount 0.4), the default and the slider's top;
+    # the tallest unbroken faces on the wall band grow with the depth (51.6 / 122.7 / 215.0 m at the 90th percentile when added).
+    h, hard, s0, _pad = lg._sample_shape(ob, 512)
+    lg.nodes.input_socket(lg.landscape_modifier(ob), "Erosion").value = 1.0  # _sample_shape leaves it at 0 for the engine (as T49)
+    z0 = er.erode(h, dict(s0, trough=0.0), hard)
+    s_all, span, walls = dict(er.DEFAULTS, **s0), float(np.ptp(z0)), []
+    for dv in (depth(0.4, 0.5), depth(rec["erosion"]["amount"], ctl["default"]), depth(rec["erosion"]["amount"], 1.0)):
+        out, band = er.trough(z0, dict(s_all, trough=dv), span)
+        zz = out * ob.lg.size_x
+        wy, wx = np.gradient(zz, ob.lg.size_x / 511.0)
+        st = np.degrees(np.arctan(np.hypot(wx, wy))) > 55.0  # the 4 m engine grid reads a few degrees flatter than 1 m
+        f = t51_faces(zz, st, edge=1)[(band > 0.5)[st & np.pad(np.ones((st.shape[0] - 2, st.shape[1] - 2), bool), 1)]]
+        walls.append(float(np.percentile(f, 90)) if f.size else 0.0)
+    check(walls[0] < walls[1] < walls[2], f"trough walls should stand taller with depth (half / default / twice): 90th percentile faces {walls[0]:.0f} / {walls[1]:.0f} / {walls[2]:.0f} m")
+    return f"2 km Mountains, High: walls {walls[0]:.0f} / {walls[1]:.0f} / {walls[2]:.0f} m at half / default / twice depth, tall50 {tall50:.1f}%, p90 face {face90:.1f} m, teeth / horns {teeth} / {horns}, over 60 {over60:.1f}%, upper-third crest {tops:.0f}, relief {hi - lo:.1f} m"
 
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:

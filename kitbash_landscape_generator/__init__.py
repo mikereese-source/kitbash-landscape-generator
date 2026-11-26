@@ -334,6 +334,8 @@ def _erosion_settings(recipe, props, grid):
     er["floor_width"] = int(round(er.get("floor_width", d["floor_width"]) * a))
     er["floor_carve"] = int(round(er.get("floor_carve", d["floor_carve"]) * min(a * 2.0, 1.0)))
     er["scree"] = er.get("scree", d["scree"]) * a  # less erosion time, less rockfall (LG-080)
+    # Shallower troughs with less erosion time; Mountains' Wall Depth then stretches it 0..2.5x: 0.35 x Amount 0.8 x 1.25 (slider 0.5) = c205's 0.35 (LG-090, Mike).
+    er["trough"] = er.get("trough", d["trough"]) * a
     for c in recipe.get("controls", ()):  # a slider can stretch an erosion setting: {"apron": [at 0, at 1]}
         for k, (lo, hi) in c.get("erosion", {}).items():
             er[k] = er.get(k, d[k]) * (lo + (hi - lo) * _control_value(props, c))
@@ -659,6 +661,8 @@ class LG_ObjectProps(PropertyGroup):
         default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     ridge_width: FloatProperty(name="Ridge Width", description="Knife-thin ridgelines, or broad rounded ridges",
         default=0.6, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
+    wall_depth: FloatProperty(name="Wall Depth", description="No glacial walls, up to twice as deep: the troughs and cirque headwalls cut along the main valleys",
+        default=0.5, min=0.0, max=1.0, subtype='FACTOR', update=_sync)
     wind_direction: FloatProperty(name="Wind Direction", description="Which way the wind blows the dunes",
         default=0.0, subtype='ANGLE', update=_sync)
     channel_width: FloatProperty(name="Channel Width", description="Narrow slot canyons, or wide open valleys",

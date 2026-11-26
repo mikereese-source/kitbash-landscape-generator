@@ -71,6 +71,11 @@ DEFAULTS = {
     "seed": 0,
     "scale": 1.0,        # this grid against the 512 grid the cell counts above are tuned on (LG-078: the same in meters at every Detail Level)
     "fill_every": 1000,  # full pit passes are slow; pits pass their water on every pass anyway
+    "trough": 0.0,       # glacial troughs carved along the main valleys before the rockfall, rim this share of the relief (0 = none; LG-090)...
+    "trough_area": 0.022,  # ...along cells draining over this share of the grid...
+    "trough_width": 0.044,  # ...half as wide as this share of the width at a valley head, wider downstream...
+    "trough_shoulder": 50.0,  # ...rising above the rim at this angle (deg)...
+    "trough_round": 0.059,  # ...with the rim rounded over this share of the relief
 }
 
 
@@ -430,6 +435,104 @@ def edge_lift(diff, edge):
     return np.array([np.interp(np.arange(n), rows, c) for c in out.T]).T
 
 
+NP_OPS = {"ADD": np.add, "SUBTRACT": np.subtract, "MULTIPLY": np.multiply, "DIVIDE": np.divide, "POWER": np.power,
+          "MINIMUM": np.minimum, "MAXIMUM": np.maximum}
+
+
+def np_math(op, a, b):
+    """The node tree's math(op, a, b) in numpy, so a formula written once runs in both (wall_shape)."""
+    return NP_OPS[op](a, b)
+
+
+def wall_shape(m, across, rim):
+    """Glacial's trough wall (nodes.py recipe 9, Yosemite): flat floor under across 1, then a wall steepest at its foot that rounds
+    over at the rim (1 - (1 - s)^2 over 0.35 of the half-width) to `rim`. Shared: m is nodes.py's node math, or np_math in trough() (LG-090)."""
+    ws = m('MINIMUM', m('MAXIMUM', m('DIVIDE', m('SUBTRACT', across, 1.0), 0.35), 0.0), 1.0)
+    return m('MULTIPLY', m('SUBTRACT', 1.0, m('POWER', m('SUBTRACT', 1.0, ws), 2.0)), rim)
+
+
+def smoothstep(x, a, b):
+    """0 below a, 1 above b, a smooth S between (as the node tree's smooth())."""
+    t = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def sweep(shape, vy, vx, cost):
+    """The lowest cost(seed index, distance in cells) over seeds (vy, vx) at every cell, by jump flooding (Rong and Tan 2006): about
+    12 x 8 shifted evaluations instead of every cell against every seed (27 s brute force in the LG-090 prototype).
+    Returns (cost, seed index)."""
+    n, m = shape
+    yy, xx = np.mgrid[0:n, 0:m]
+    idx = np.full(shape, -1, np.int64)
+    idx[vy, vx] = np.arange(vy.size)
+    best = np.full(shape, np.inf)
+    best[vy, vx] = cost(np.arange(vy.size), np.zeros(vy.size))
+    k, steps = 1, []
+    while k < max(n, m):
+        steps.insert(0, k)
+        k *= 2
+    for k in steps + [2, 1]:  # JFA+2: two extra short rounds mend the few cells the long jumps got wrong
+        for dy in (-k, 0, k):
+            for dx in (-k, 0, k):
+                if (dy == 0 and dx == 0) or abs(dy) >= n or abs(dx) >= m:  # a jump past the edge of a non-square grid
+                    continue
+                cand = np.full(shape, -1, np.int64)
+                cand[max(0, -dy):n - max(0, dy), max(0, -dx):m - max(0, dx)] = idx[max(0, dy):n - max(0, -dy), max(0, dx):m - max(0, -dx)]
+                ok = cand >= 0
+                c = np.full(shape, np.inf)
+                s = cand[ok]
+                c[ok] = cost(s, np.hypot(yy[ok] - vy[s], xx[ok] - vx[s]))
+                better = c < best
+                best = np.where(better, c, best)
+                idx = np.where(better, cand, idx)
+    assert (idx >= 0).all(), "jump flooding left cells without a seed"  # every cell is within the first jump of some seed's chain
+    return best, idx
+
+
+def trough(z, s, span):
+    """Glacial troughs (LG-090, Mike: Glacial's cliffs on Mountains): Glacial's wall (wall_shape) swept along every cell draining
+    over `trough_area`, the lowest profile winning, so the trough is continuous where valleys meet; round bowls at the valley heads
+    are the cirque headwalls. Carved (never raised) into the eroded ground, glaciers overprinting a river-cut range, with the rim
+    rounded by a smooth minimum (sharp, the spurs cut off at the rim stood as teeth: 38 against main's 34, LG-090 Log).
+    Returns the ground and the wall band (0..1), which sheds as hard rock in the rockfall."""
+    # Valleys from the ground blurred 8 cells and filled, so lines run down the middle of wide floors (the passes' own drainage
+    # spreads over filled floors and missed the trunks: 900 cells against the prototype's thousands, LG-090 Log).
+    n, m = z.shape
+    dx = 1.0 / (max(n, m) - 1)
+    zb = fill(blur(z, max(int(round(8 * float(s["scale"]))), 1)), 1e-3 * dx)
+    rcv = routing(zb, dx)[0]
+    area = np.ones(z.size)
+    for lv in levels(rcv):
+        r = rcv[lv]
+        ok = r >= 0
+        np.add.at(area, r[ok], area[lv][ok])
+    a_rel = (area / z.size).reshape(n, m)
+    valley = a_rel > s["trough_area"]
+    if not valley.any():
+        return z, np.zeros(z.shape)
+    vy, vx = np.nonzero(valley)
+    cell = 1.0 / (512.0 * float(s["scale"]) - 1.0)  # one cell in landscape widths (z's units), as the 512 grid the settings are tuned on
+    w = s["trough_width"] / cell * np.minimum((a_rel[vy, vx] / s["trough_area"]) ** 0.3, 2.0)  # half-width in cells: wider downstream
+    zf, rim = np.minimum(zb, z)[vy, vx], s["trough"] * span  # the blur lifts a V's bottom; the floor never sits above the ground
+    up = math.tan(math.radians(s["trough_shoulder"])) * cell
+
+    def profile(i, d):
+        a = d / w[i]
+        return (zf[i] + wall_shape(np_math, a, rim) + 0.04 * rim * np.minimum(a, 1.0) ** 2  # a slightly dished floor, as a U
+                + np.maximum(a - 1.35, 0.0) * w[i] * up)  # the shoulder above the rim
+
+    t, idx = sweep(z.shape, vy, vx, profile)
+    t = blur(t, max(int(round(2 * float(s["scale"]))), 1))  # the valley lines step cell to cell: unblurred, their ripples stood as ribs on the walls (LG-090 Log)
+    k = s["trough_round"] * span
+    q = np.maximum(k - np.abs(z - t), 0.0) / max(k, 1e-12)
+    out = np.minimum(z, t) - q * q * k * 0.25  # smooth minimum: the rim rounds over
+    yy, xx = np.mgrid[0:z.shape[0], 0:z.shape[1]]
+    across = np.hypot(yy - vy[idx], xx - vx[idx]) / w[idx]
+    # recipe 9's hard_glacial wall band, where a wall was cut
+    band = smoothstep(across, 0.98, 1.05) * (1.0 - smoothstep(across, 1.3, 1.5)) * smoothstep(z - out, 0.001 * span, 0.005 * span)
+    return out, band
+
+
 def erode(h, settings=None, hard=None, masks=False):
     """h: 2D heights, landscape-relative (height / size). hard: optional 0..1 hard rock from the recipe
     (cliff bands, caprock, crests): cuts slower, rests steeper, isn't softened. Returns eroded heights."""
@@ -585,6 +688,11 @@ def erode(h, settings=None, hard=None, masks=False):
             z = z + 0.2 * w * (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:] - 4 * z)
         return z
     z = smooth_rounds(z, s["finish_blur"], finish_w)
+    band, carved = None, 0.0
+    if s["trough"] > 0:  # after the smoothing, so the walls keep their edge; before the rockfall, so talus lands at their feet (LG-090)
+        z_pre = z
+        z, band = trough(z, s, span)
+        carved = np.clip((z_pre - z) / (0.005 * span), 0.0, 1.0)
     landed = np.zeros(z.shape)
     if s["scree"] > 0:
         # Rockfall (S6): rock steeper than 45 deg sheds, more the harder and steeper it is (the hard map where the type has
@@ -594,6 +702,8 @@ def erode(h, settings=None, hard=None, masks=False):
         gy, gx = np.gradient(z, dx)
         steep = np.clip((np.degrees(np.arctan(np.hypot(gx, gy))) - 45.0) / 20.0, 0.0, 1.0)
         shed = s["scree"] * steep * (1.0 - soft_w if soft_w.min() < 1.0 else 1.0)
+        if band is not None:  # the trough walls shed as hard rock (LG-090, Mike)
+            shed = np.maximum(shed, s["scree"] * steep * band)
         # Rivers carry it off, as in the passes: with only the trunks as sinks it filled valleys 80 m deep and stood up as teeth;
         # rills under 0.1% of the landscape do not, or they cut Mesa's cones into strips (LG-080 Log).
         sink = chan & (a_rel > 1e-3).reshape(n, m)  # a_rel and chan from the last pass; _erosion_settings keeps passes >= 1
@@ -622,7 +732,8 @@ def erode(h, settings=None, hard=None, masks=False):
         lim = 4.0 * float(np.median(np.abs(fine))) + 1e-12
         fine = np.clip(fine, -lim, lim)
         # Not on talus either: scree is smooth at 10 m (review section 4).
-        z = z + fine * (1.0 - wetness(z, s["channel"])) * (1.0 - talus_mask(landed)) * s["keep_detail"]
+        # Not on the trough walls either: the uncut ground's grain came back as notches along every rim (LG-090 Log).
+        z = z + fine * (1.0 - wetness(z, s["channel"])) * (1.0 - talus_mask(landed)) * (1.0 - carved) * s["keep_detail"]
     # Fade back to the plain shape over the outer `edge_blend` of the width: the fixed edges left
     # notches and drips along every border (the "edge frame", Pass 1-3).
     w = np.clip(1.0 - d_edge / max(s["edge_blend"], 1e-6), 0.0, 1.0) if s["edge_blend"] > 0 else 0.0
@@ -698,6 +809,26 @@ if __name__ == "__main__":  # self-check: a noisy ramp erodes, stays finite, los
     cap_t[45:47, 5:60] = 1.0   # a 2-cell fin
     zt, ht = break_thin_caps(cap_t.copy(), cap_t.copy(), 3)
     assert zt[25, 25] == 1.0 and zt[46, 30] < 0.2 and ht[46, 30] == 0.0, "thin caprock should break, wide stay"
+    sy, sx = np.array([5, 40, 70, 71, 72]), np.array([9, 33, 60, 61, 62])  # jump flooding against brute force
+    wt = np.array([3.0, 8.0, 5.0, 5.0, 5.0])
+    cf = lambda i, dd: 0.01 * i + wall_shape(np_math, dd / wt[i], 1.0) + np.maximum(dd / wt[i] - 1.35, 0.0)
+    jf, _i = sweep((80, 90), sy, sx, cf)
+    gy, gx = np.mgrid[0:80, 0:90]
+    bf = np.min([cf(np.full(gy.shape, i), np.hypot(gy - sy[i], gx - sx[i])) for i in range(sy.size)], axis=0)
+    assert np.abs(jf - bf).max() < 1e-9, "sweep missed the lowest profile"
+    rs = np.random.default_rng(5)  # a realistic coarse case: 20 seeds along a wandering line, varied widths and floor heights
+    sy = np.clip(np.round(32 + 12 * np.sin(np.arange(20) / 3.0)).astype(int), 0, 63)
+    sx = np.round(np.linspace(3, 60, 20)).astype(int)
+    wt, fz = rs.uniform(2.0, 9.0, 20), rs.uniform(0.0, 0.3, 20)
+    cf = lambda i, dd: fz[i] + wall_shape(np_math, dd / wt[i], 1.0) + 0.04 * np.minimum(dd / wt[i], 1.0) ** 2 + np.maximum(dd / wt[i] - 1.35, 0.0) * wt[i] * 0.05
+    jf, _i = sweep((64, 64), sy, sx, cf)
+    gy, gx = np.mgrid[0:64, 0:64]
+    bf = np.min([cf(np.full(gy.shape, i), np.hypot(gy - sy[i], gx - sx[i])) for i in range(sy.size)], axis=0)
+    assert np.abs(jf - bf).max() < 1e-9, "sweep missed the lowest profile on the 64 x 64 case (exact when added, LG-090 review)"
+    assert abs(wall_shape(np_math, 1.175, 2.0) - 1.5) < 1e-12 and wall_shape(np_math, 0.5, 2.0) == 0.0, "wall profile changed"
+    rv = 1.0 * (np.abs(x - 0.5) * 2) + 0.2 * (1 - y)  # a steep V valley
+    tz, tb = trough(rv, dict(DEFAULTS, trough=0.37, scale=0.25), 0.5)
+    assert (tz <= rv + 1e-12).all() and tz[64, 67] < rv[64, 67] - 0.01 and tb.max() > 0.5, "trough should carve a U with a wall band"
     ridge = np.zeros((64, 64))
     ridge[:, 20:44] = 1.0       # a wide plateau
     ridge[30:32, 0:20] = 1.0    # a 2-cell fin off its side

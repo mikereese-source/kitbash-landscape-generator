@@ -21,6 +21,9 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Mesh holds primary and secondary volume only.** Fine lines, beds, cracks and wear go to M7 materials (D157, D163).
 - **Each Detail Level keeps the quality approved at it.** Higher face counts are fine; speed comes after quality (D196).
 - **Never rename, prefix, regroup or tag** anything in a user's file. Naming belongs to KitBash and 3dam.
+- **Shape drawn features after erosion, not before.** Erosion cuts drawn walls into gully combs; LG-090's troughs held only when carved after the finishing smoothing, before the rockfall.
+- **Every erosion step scales with Erosion Amount** in `_erosion_settings`, like scree and uplift; LG-090's trough skipped it until code review.
+- **Do not add fine detail back onto carved ground.** Mask it off the carve; putting the uncut ground's detail back notched LG-090's rims (teeth 37 -> 34 once masked).
 
 ## Finding and fixing problems (learned from Fable's LG-061 and LG-064 work, 2026-11-11)
 

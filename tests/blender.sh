@@ -2,6 +2,7 @@
 # Run headless Blender 5.2, one process at a time across every session and worktree (Mike's rule):
 # waits for a lock directory, runs, releases. A lock whose holder has exited is treated as stale.
 # Usage: tests/blender.sh [blender args...]   e.g. tests/blender.sh -b --factory-startup -P tests/run_tests.py
+case " $* " in *" -b "*) ;; *) echo "blender.sh: refusing to run without -b (a GUI Blender opened on Mike's screen, 2026-11-26)" >&2; exit 2;; esac
 LOCK="${TEMP:-/tmp}/lg_blender.lock"
 BLENDER="${LG_BLENDER:-/c/Program Files/Blender Foundation/Blender 5.2/blender.exe}"  # LG_BLENDER tries another version
 until mkdir "$LOCK" 2>/dev/null; do

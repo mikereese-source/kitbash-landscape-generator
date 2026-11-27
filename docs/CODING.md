@@ -6,6 +6,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 
 - **Bump the version after any node change.** `CAVE_VERSION` (features.py) for caves, `GROUP_VERSION` (nodes.py) for landscapes. Otherwise old files and the prebuilt library keep the old tree, and the change looks like it did nothing.
 - **Rebuild `node_groups.blend` after a `GROUP_VERSION` bump**, with `bash tests/blender.sh -b --factory-startup -P tests/build_library.py`, and commit it. T24 fails until you do.
+- **Bump the version again after any node edit made after the library build.** LG-092 rebuilt the library at the same 157 after a late node edit; T24 passed, but a file already holding 157 keeps the old tree.
 - **Check that the bump landed.** Read the constant back after editing. Several bumps silently failed because of line-ending mismatches.
 - **Never reuse a node-builder name in the same function** (for example `inner`). A second use quietly rewires the first.
 - **Clamp a mask read from an image at both ends.** Cubic sampling overshoots past 0 and 1 at sharp edges; `lg_talus` clamped only the top until the LG-080 review.
@@ -56,6 +57,7 @@ The rules code in this repo follows. Each rule has its reason. Code reviews (D20
 - **Every feature gets a test in `tests/run_tests.py`**, numbered `Tnn`, with a message that says what was wanted and what was found.
 - **The whole suite passes before a commit to main.** Use `LG_ONLY=Tnn,...` while iterating.
 - **After a targeted fix, rerun only what it can reach.** The failed test plus the tests that touch the same code; the full suite runs again only when the fix lands in shared code (Mike, 2026-11-14: a full run takes about 40 minutes).
+- **After changing a type's erosion settings, run T1 straight away.** The channel network answers those settings unpredictably: LG-092's Wall overrides put Badlands at 3.56% (limit 3.0), and nearby values moved it both ways (Mike, 2026-11-26).
 - **A test of one stage turns the later stages off.** T42 measured erosion on the finished mesh, and LG-077's breakup broke it after the merge (LG-078).
 - **A ticket's test checks its Done-when measure, not a stand-in.** T44 checked how fast the lift fell instead of counting teeth with the breakup on, so the teeth rising 12 -> 30 failed no test (LG-086).
 - **Tests check the shape by position or attribute, never by point or face order.** Join and merge renumber geometry.

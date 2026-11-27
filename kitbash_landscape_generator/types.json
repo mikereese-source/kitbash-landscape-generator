@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "One entry per landscape type. Values are in a normalized 0-1 tile so they work at any size (D3, D5). recipe: 0 hills, 1 mountains, 2 dunes, 3 seabed, 4 coastal cliffs, 5 canyon, 6 mesa, 7 badlands, 8 volcanic, 9 glacial valley, 10 riverbed, 11 volcano, 12 craters. styles: optional per-type kinds (index = node Style input; look overrides type values). controls: optional per-type sliders (prop = object property, slot = node input P1-P4). height = relief as a fraction of the landscape's size. feature_scale = main shapes across the tile. sharpness > 1 = pointier tops, flatter lows. rock = real-size rock grain on steep and high ground (0 = none; sand and the Moon get none). grain_roughness = how fast rock grain fades with size (0.5 smooth .. 0.66 rubbly), from the 1 m lidar. breakup = how much steep bedrock breaks into jointed blocks and bedded ledges (0 or absent = none), with block_size (biggest blocks, m), bed_thickness (m) and bed_dip (degrees); LG-077. erosion = the erosion engine's settings for this type (erosion.py; on, amount, talus_deg, soften, deposit, m). feature_label / feature_noun = what Feature Size is called for this type and what the 'about N across' readout counts. groups = display order and headers in the type picker ([key, label, [type keys]]).",
+  "notes": "One entry per landscape type. Values are in a normalized 0-1 tile so they work at any size (D3, D5). recipe: 0 hills, 1 mountains, 2 dunes, 3 seabed, 4 coastal cliffs, 5 canyon, 6 mesa, 7 badlands, 8 volcanic, 9 glacial valley, 10 riverbed, 11 volcano, 12 craters. styles: optional per-type kinds (index = node Style input; look overrides type values). controls: optional per-type sliders (prop = object property, slot = node input P1-P4). height = relief as a fraction of the landscape's size. feature_scale = main shapes across the tile. sharpness > 1 = pointier tops, flatter lows. rock = real-size rock grain on steep and high ground (0 = none; sand and the Moon get none). grain_roughness = how fast rock grain fades with size (0.5 smooth .. 0.66 rubbly), from the 1 m lidar. breakup = how much steep bedrock breaks into jointed blocks and bedded ledges (0 or absent = none), with block_size (biggest blocks, m), bed_thickness (m) and bed_dip (degrees); LG-077. erosion = the erosion engine's settings for this type (erosion.py; on, amount, talus_deg, soften, deposit, m). feature_label / feature_noun = what Feature Size is called for this type and what the 'about N across' readout counts. groups = display order and headers in the type picker ([key, label, [type keys]]). rills = how deep rills and knife ridges flute steep slopes after erosion, times Erosion Amount (Badlands; a style may set its own); LG-092.",
   "default": "mountains",
   "types": {
     "hills": {
@@ -341,6 +341,7 @@
       "rock": 0.5,
       "grain_roughness": 0.56,
       "sharpness": 1.2,
+      "rills": 1.0,
       "controls": [
         {
           "prop": "gully_density",
@@ -373,13 +374,19 @@
           "key": "wall",
           "name": "Wall & Pinnacles",
           "desc": "A dissected escarpment with sawtooth pinnacles above a flat floor, like Badlands National Park",
-          "index": 0
+          "index": 0,
+          "erosion": {
+            "channel": 8e-06,
+            "incision": 4.5,
+            "soften": 0.09
+          }
         },
         {
           "key": "mounds",
           "name": "Mounds",
           "desc": "Rounded banded haystacks with soft rills, like Yellow Mounds or Petrified Forest",
           "index": 1,
+          "rills": 0.65,
           "erosion": {
             "incision": 1.5,
             "channel": 0.0001,

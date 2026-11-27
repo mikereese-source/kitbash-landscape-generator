@@ -8,12 +8,19 @@ import bpy
 from . import erosion, features
 
 GROUP_NAME = "KB Landscape Core"
-GROUP_VERSION = 156  # bump when the tree changes so old files rebuild it
+GROUP_VERSION = 157  # bump when the tree changes so old files rebuild it
 # Bedrock breakup (LG-077), as shares of a block's width: face step, tilt and joint bevel.
 BK_STEP, BK_TILT, BK_EDGE = 0.06, 0.5, 0.15
 BK_FOLD = 0.6  # the steepest change along a face the three block sizes add up to; steeper walls get less (no fold-overs)
 BK_BEDS = 0.45  # share of a bed's thickness cut into its ledge
 BK_RECIPES = (1, 4, 5, 6, 9)  # rocky types with a breakup in types.json; Badlands' soft beds left off (LG-077 cp2 Log)
+# Badlands rills (LG-092, c206 variant D): two sizes of flutes down the fall line, (noise scale 1/m, depth m, reads each side, read step m,
+# crest spacing m, std of the sum); 16.5 and 7 m between knife crests (noiseprobe.py). Twice c206's depths: Perlin is smoother than the
+# prototype's blurred white noise (creases 14.6% at its depths, 38.7% at twice; LG-092 Log).
+FL_SIZES = ((0.055, 4.8, 8, 2.5, 16.5, 1.1), (0.125, 1.6, 6, 1.5, 7.0, 0.85))
+FL_STEEP = (0.404, 0.727)  # tan 22 and 36 deg: steep ground only, the pediment and gully floors stay smooth
+FL_RING = 8.0  # m: the fall line from the erosion map's slope across a ring this far out (two points, 2 x FL_RING apart, per axis)
+FL_CLIP = 2.0  # |r| held under 2 sigma: unclamped, the rare 3-4 sigma sums cut rills 10 m deep (code review)
 # Crest sharpen: tent tan 50 deg, slope rings (block shares; one 4-read ring passed 1 m lumps as teeth), height ramp, tent gap for no 60 m tilt (LG-086 cp2 Log).
 CR_TENT, CR_RINGS, CR_HIGH, CR_TOP = 1.2, (0.5, 0.75, 1.0), (0.45, 0.7), (0.45, 1.0)
 # Hard-rock map (LG-079): noise stretch, ridged share of the relief, beds over the relief, strata blend, soft bed and joint (REVIEW-realism-2026-11 S2).
@@ -46,6 +53,7 @@ INPUTS = (
     ("Bed Thickness", 'NodeSocketFloat', 14.0, 0.5, 200.0, "Height of one rock layer in meters: each layer makes a ledge and a riser (per type)"),
     ("Bed Dip", 'NodeSocketFloat', 4.0, 0.0, 45.0, "How many degrees the rock layers tilt from level (per type)"),
     ("Crest", 'NodeSocketFloat', 0.0, 0.0, 2.0, "How much round summits and ridge tops are drawn up to points and edges: 0 none (per type)"),
+    ("Rills", 'NodeSocketFloat', 0.0, 0.0, 2.0, "How deep rills and knife ridges flute steep slopes, times Erosion Amount: 0 none (per type and style; set by the add-on)"),
     ("Roughness", 'NodeSocketFloat', 0.5, 0.0, 1.0, "Smooth and soft, or bumpy with small detail"),
     ("Warp", 'NodeSocketFloat', 0.2, 0.0, 2.0, "Bends shapes so they look less regular"),
     ("Sharpness", 'NodeSocketFloat', 1.0, 0.2, 4.0, "Above 1: pointier tops and flatter lows"),
@@ -1385,6 +1393,29 @@ def _build(ng, recipe):
                        math('MULTIPLY', bk_rock, smooth(math('DIVIDE', bk_bed, spacing), 2.5, 3.0)))
         bk_drop = math('ADD', math('MULTIPLY', bk_drop, math('SUBTRACT', 1.0, bk_hold)), bk_rep)  # no beds across a face; the plane is a height, it never folds over
     total = math('ADD', math('ADD', hz.outputs["Z"], math('MULTIPLY', nrm.outputs["Z"], push)), bk_drop)
+    if recipe == 7:
+        # Rills (LG-092, REALISM Badlands): noise read along the fall line of the eroded ground (as line integral convolution), ridged into
+        # knife crests with rills between, on steep ground only; after the erosion map, so erosion never cuts them into combs (CODING).
+        fl_g = er_ring(hz.outputs["X"], hz.outputs["Y"], FL_RING, AXES)
+        fl_gx = math('DIVIDE', math('SUBTRACT', fl_g[0], fl_g[1]), 2.0 * FL_RING)
+        fl_gy = math('DIVIDE', math('SUBTRACT', fl_g[2], fl_g[3]), 2.0 * FL_RING)
+        fl_len = math('SQRT', math('ADD', math('ADD', math('MULTIPLY', fl_gx, fl_gx), math('MULTIPLY', fl_gy, fl_gy)), 1e-8))
+        fl_dx, fl_dy = math('DIVIDE', fl_gx, fl_len), math('DIVIDE', fl_gy, fl_len)
+        # Rills already carries Erosion Amount (set by the add-on); Erosion is only the map's on / off (0 while it is computed or the type
+        # has none), as the crest uses it; never while the erosion engine samples the padded grid (as the breakup).
+        fl_on = math('MULTIPLY', math('MULTIPLY', smooth(fl_len, *FL_STEEP), inp["Rills"]), math('MULTIPLY', inp["Erosion"], math('LESS_THAN', inp["Pad Cells"], 0.5)))
+        fl_sum = 0.0
+        for fl_i, (fl_scale, fl_depth, fl_n, fl_step, fl_size, fl_std) in enumerate(FL_SIZES):
+            fl_acc = 0.0
+            for k in range(-fl_n, fl_n + 1):
+                fl_p = vec(math('ADD', math('ADD', hz.outputs["X"], math('MULTIPLY', fl_dx, k * fl_step)), math('MULTIPLY', seed_val, 13.0)),
+                           math('ADD', math('ADD', hz.outputs["Y"], math('MULTIPLY', fl_dy, k * fl_step)), math('MULTIPLY', seed_val, 7.9)), 31.0 * fl_i)
+                fl_acc = math('ADD', fl_acc, math('SUBTRACT', noise(fl_p, 'FBM', fl_scale, 0.0, 0.5).outputs["Fac"], 0.5))
+            # 0.8 - |r|: knife crests where the smeared noise crosses zero, no net lift (E|r| = 0.8 for a normal r)
+            fl_r = math('SUBTRACT', 0.8, math('MINIMUM', math('ABSOLUTE', math('DIVIDE', fl_acc, fl_std)), FL_CLIP))
+            fl_draw = smooth(math('DIVIDE', fl_size, spacing), 2.5, 3.0)  # a size the mesh can't draw is left out: Preview keeps the 16 m rills
+            fl_sum = math('ADD', fl_sum, math('MULTIPLY', fl_r, math('MULTIPLY', fl_draw, fl_depth)))
+        total = math('ADD', total, math('MULTIPLY', fl_sum, fl_on))
     # Stretch again so Height stays the exact relief.
     stats2 = N.new('GeometryNodeAttributeStatistic')
     stats2.data_type = 'FLOAT'

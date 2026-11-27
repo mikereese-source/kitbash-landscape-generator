@@ -2180,6 +2180,81 @@ def _t51():
     check(walls[0] < walls[1] < walls[2], f"trough walls should stand taller with depth (half / default / twice): 90th percentile faces {walls[0]:.0f} / {walls[1]:.0f} / {walls[2]:.0f} m")
     return f"2 km Mountains, High: walls {walls[0]:.0f} / {walls[1]:.0f} / {walls[2]:.0f} m at half / default / twice depth, tall50 {tall50:.1f}%, p90 face {face90:.1f} m, teeth / horns {teeth} / {horns}, over 60 {over60:.1f}%, upper-third crest {tops:.0f}, relief {hi - lo:.1f} m"
 
+T52_LIMITS = {  # LG-092 board c207 (2 km High, the 1 m ray grid; deterministic). Done when: creases and teeth / horns rise toward the SD lidar
+    # (53.0%, 615 / 197), over 60 and flat faces not above main, relief within 2% of main; Mounds over 60 up to real 4.7% (Mike, 2026-11-26).
+    # Measured (t52_draft3.log): Wall creases 38.2%, teeth + horns 71 + 65, over 60 7.9%, faces 1.8%, pediment 0.016 m; Mounds 24.1%, 0 + 2, 3.9%,
+    # 2.1%, 0.034 m. Floors 0.1 under (creases) and 1 under (Wall spikes; Mounds' 2 is main's and stays); ceilings measured plus a margin
+    # (code review), Mounds over 60 at real 4.7% (amended Done when); relief within 2% of main 5dc9370's 154.9 / 126.6 m (m92.py).
+    "wall": {"crease": 38.1, "spikes": 135, "over60": 8.5, "faces": 2.5, "relief": 154.9, "pedi": 0.05, "main_crease": 3.1, "main_spikes": 79},
+    "mounds": {"crease": 24.0, "spikes": 2, "over60": 4.7, "faces": 3.0, "relief": 126.6, "pedi": 0.05, "main_crease": 0.1, "main_spikes": 2}
+}
+
+
+def t52_crease(z, L=2.0, deg=20.0, steep=45.0, edge=40):
+    """LG-088 crease share: of the ground over 45 deg, the share where the normal turns more than 20 deg across 2 m (as m77, crease_probe)."""
+    gy, gx = np.gradient(z)
+    ln = np.sqrt(gx * gx + gy * gy + 1.0)
+    nrm = (-gx / ln, -gy / ln, 1.0 / ln)
+    k = max(1, int(round(L / 2)))
+    turn = np.zeros(z.shape)
+    for ax in (0, 1):
+        dot = sum(np.roll(c, k, ax) * np.roll(c, -k, ax) for c in nrm)
+        turn = np.maximum(turn, np.degrees(np.arccos(np.clip(dot, -1.0, 1.0))))
+    on = nrm[2] < math.cos(math.radians(steep))
+    on[:edge] = on[-edge:] = False
+    on[:, :edge] = on[:, -edge:] = False
+    return 100.0 * float((turn[on] > deg).mean())
+
+
+@test("T52", "Badlands rills: fall-line flutes with knife ridges on steep ground after erosion, each style at its own strength")
+def _t52():
+    # LG-092 (Mike chose B + D on c206, 2026-11-26): the Done-when measures on the finished 2 km High mesh, at the values on board c207.
+    on = sorted(k for k, t in lg.TYPES.items() if t.get("rills", 0.0) > 0 or any(s.get("rills", 0.0) > 0 for s in t.get("styles", ())))
+    check(on == ["badlands"], f"only Badlands should flute (types.json rills): {on}")
+    out = []
+    for style in ("wall", "mounds"):
+        fresh_scene()
+        ob = add("badlands")
+        set_size(ob, 2048.0)
+        ob.lg.style = style
+        ob.lg.final = True
+        lg.sync_object(ob)
+        # Rills is an erosion step: the socket is the type's (or style's) strength times Erosion Amount (CODING; Done when).
+        rills = lg.nodes.input_socket(lg.landscape_modifier(ob), "Rills").value
+        want = lg.TYPES["badlands"]["rills"] if style == "wall" else lg.TYPES["badlands"]["styles"][1]["rills"]
+        check(abs(rills - want * ob.lg.erosion_amount) < 1e-6, f"{style}: Rills should be {want} x Erosion Amount {ob.lg.erosion_amount}: {rills}")
+        z = top_grid(ob)[0]
+        L5 = T52_LIMITS[style]
+        teeth, horns, _p = t46_teeth(z)
+        gy, gx = np.gradient(z)
+        over60 = 100.0 * float((np.degrees(np.arctan(np.hypot(gx, gy))) > 60.0).mean())
+        faces, crease = face_share(z, 1.0), t52_crease(z)
+        lo, hi = np.percentile(z, [1, 99])
+        check(crease >= L5["crease"], f"{style}: creases should rise toward the SD lidar's 53.0% as on c207 (main {L5['main_crease']}%): {crease:.1f}% (want {L5['crease']}%+)")
+        check(teeth + horns >= L5["spikes"], f"{style}: teeth + horns should rise toward the SD lidar's 615 + 197 as on c207 (main {L5['main_spikes']}): {teeth} + {horns} (want {L5['spikes']}+)")
+        check(over60 <= L5["over60"], f"{style}: ground over 60 deg should stay under {L5['over60']}% (Done when): {over60:.1f}%")
+        check(faces <= L5["faces"], f"{style}: flat faces should not rise above main's {L5['faces']}%: {faces:.1f}%")
+        check(abs((hi - lo) - L5["relief"]) <= 0.02 * L5["relief"], f"{style}: relief (1-99%) within 2% of main's {L5['relief']} m: {hi - lo:.1f} m")
+        # The pediment stays smooth: the rills' change on ground under 15 deg, by switching the socket off on this mesh (the same points).
+        mod = lg.landscape_modifier(ob)
+        z1 = evaluated_points(ob)[:, 2]
+        lg.nodes.input_socket(mod, "Rills").value = 0.0
+        ob.update_tag()
+        z0 = evaluated_points(ob)[:, 2]
+        n = int(round(math.sqrt(z0.size)))
+        g0 = z0.reshape(n, n)
+        sy, sx = np.gradient(g0, ob.lg.size_x / (n - 1))
+        flat = (np.degrees(np.arctan(np.hypot(sx, sy))) < 15.0).ravel()
+        fit = np.polyfit(z0[flat], z1[flat], 1)  # take out the restretch to the exact relief (as T43, T47): the rills move hi and lo
+        pedi = float((z1 - np.polyval(fit, z0))[flat].std())
+        check(pedi <= L5["pedi"], f"{style}: the pediment (ground under 15 deg) should stay smooth: the rills move it {pedi:.3f} m rms (limit {L5['pedi']} m)")
+        out.append(f"{style} creases {crease:.1f}%, teeth / horns {teeth} / {horns}, over 60 {over60:.1f}%, faces {faces:.1f}%, relief {hi - lo:.1f} m, pediment {pedi:.3f} m")
+        # Amount 0: the socket is 0, and the node tree multiplies the whole flute term by it (the pediment check above shows a 0 socket draws none).
+        ob.lg.erosion_amount = 0.0
+        lg.sync_object(ob)
+        check(lg.nodes.input_socket(lg.landscape_modifier(ob), "Rills").value == 0.0, f"{style}: Erosion Amount 0 should draw no rills")
+    return "2 km Badlands, High: " + "; ".join(out)
+
 print("\n=== KitBash Landscape Generator tests ===")
 for tid, name, ok, detail in RESULTS:
     print(f"{'PASS' if ok else 'FAIL'}  {tid:4} {name}: {detail}")
